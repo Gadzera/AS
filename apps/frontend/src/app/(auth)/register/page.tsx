@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { authApi } from '@/lib/api';
 import { setToken, setStoredUser } from '@/lib/auth';
@@ -10,16 +10,22 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 
 const steps = [
-  { icon: '🚀', label: 'Set up in 2 minutes' },
-  { icon: '🆓', label: 'Free plan, no credit card' },
-  { icon: '🤖', label: 'AI writes your first email' },
+  { label: 'Set up in 2 minutes' },
+  { label: 'Free plan, no credit card' },
+  { label: 'AI writes your first email' },
 ];
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [form, setForm] = useState({ email: '', password: '', name: '', orgName: '' });
+  const searchParams = useSearchParams();
+  const [form, setForm] = useState({ email: '', password: '', name: '', orgName: '', referralCode: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const ref = searchParams.get('ref');
+    if (ref) setForm(f => ({ ...f, referralCode: ref }));
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,7 +89,9 @@ export default function RegisterPage() {
                 transition={{ delay: 0.1 + i * 0.1, duration: 0.3 }}
                 className="flex items-center gap-3 p-3.5 rounded-xl bg-gray-800/30 border border-gray-700/30"
               >
-                <span className="text-xl">{s.icon}</span>
+                <div className="w-5 h-5 rounded-full bg-brand-500/20 border border-brand-500/40 flex items-center justify-center shrink-0">
+                  <div className="w-1.5 h-1.5 rounded-full bg-brand-400" />
+                </div>
                 <span className="text-sm font-medium text-gray-300">{s.label}</span>
               </motion.div>
             ))}

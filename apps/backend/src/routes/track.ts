@@ -75,7 +75,7 @@ router.get('/unsubscribe/:token', async (req: Request, res: Response) => {
     }
 
     if (lead.status === 'UNSUBSCRIBED') {
-      res.send(unsubscribePage(`${lead.firstName}, you're already unsubscribed.`, true));
+      res.send(unsubscribePage(`${escapeHtml(lead.firstName)}, you're already unsubscribed.`, true));
       return;
     }
 
@@ -102,11 +102,15 @@ router.get('/unsubscribe/:token', async (req: Request, res: Response) => {
     });
 
     console.log(`[Track] Unsubscribed: ${lead.email}`);
-    res.send(unsubscribePage(`${lead.firstName}, you've been unsubscribed successfully.`, true));
+    res.send(unsubscribePage(`${escapeHtml(lead.firstName)}, you've been unsubscribed successfully.`, true));
   } catch (err) {
     res.status(500).send(unsubscribePage('Something went wrong. Please try again.', false));
   }
 });
+
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
 
 function unsubscribePage(message: string, success: boolean): string {
   return `<!DOCTYPE html>

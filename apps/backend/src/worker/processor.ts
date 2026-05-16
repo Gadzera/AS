@@ -17,6 +17,22 @@ import { substituteVariables } from '../utils/variables';
 import { createNotification, updateOnboardingStep } from '../services/onboarding';
 import { config } from '../config';
 
+function isPublicUrl(urlStr: string): boolean {
+  try {
+    const { hostname, protocol } = new URL(urlStr);
+    if (!['http:', 'https:'].includes(protocol)) return false;
+    if (['localhost', '::1'].includes(hostname)) return false;
+    if (/^127\./.test(hostname)) return false;
+    if (/^10\./.test(hostname)) return false;
+    if (/^172\.(1[6-9]|2\d|3[01])\./.test(hostname)) return false;
+    if (/^192\.168\./.test(hostname)) return false;
+    if (/^169\.254\./.test(hostname)) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 
 
 export async function processCampaignLead(campaignLeadId: string): Promise<void> {
@@ -121,7 +137,7 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
       subject = subject || `Quick question, ${lead.firstName}`;
     } else {
       try {
-        const websiteContent = lead.website ? await scrapeWebsite(lead.website) : null;
+        const websiteContent = lead.website && isPublicUrl(lead.website) ? await scrapeWebsite(lead.website) : null;
         const generated = await generateOutreach(
           { firstName: lead.firstName, lastName: lead.lastName, email: lead.email,
             title: lead.title, company: lead.company, companySize: lead.companySize,

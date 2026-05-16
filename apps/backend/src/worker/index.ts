@@ -3,12 +3,18 @@ import { redis, outreachQueue } from './queue';
 import { processCampaignLead } from './processor';
 import { enqueueDueSends } from './scheduler';
 import { pollInbox } from '../services/imap';
+import { sendScheduledEmail } from '../services/onboarding';
+import { prisma } from '../lib/prisma';
 
 console.log('[Worker] Starting AI SDR outreach worker...');
 
 const worker = new Worker(
   'outreach',
   async (job) => {
+    if (job.name === 'onboarding-email') {
+      await sendScheduledEmail(job.data as { to: string; subject: string; html: string; from?: string });
+      return;
+    }
     const { campaignLeadId } = job.data as { campaignLeadId: string };
     await processCampaignLead(campaignLeadId);
   },
@@ -16,7 +22,18 @@ const worker = new Worker(
 );
 
 worker.on('completed', (job) => console.log(`[Worker] Job ${job.id} completed`));
-worker.on('failed', (job, err) => console.error(`[Worker] Job ${job?.id} failed: ${err.message}`));
+worker.on('failed', async (job, err) => {
+  console.error(`[Worker] Job ${job?.id} failed: ${err.message}`);
+  if (job && job.name !== 'onboarding-email' && job.attemptsMade >= (job.opts.attempts ?? 1)) {
+    const { campaignLeadId } = job.data as { campaignLeadId?: string };
+    if (campaignLeadId) {
+      await prisma.campaignLead.update({
+        where: { id: campaignLeadId },
+        data: { status: 'LOST', nextSendAt: null },
+      }).catch(() => null);
+    }
+  }
+});
 worker.on('error', (err) => console.error('[Worker] Error:', err.message));
 
 async function runScheduler(): Promise<void> {

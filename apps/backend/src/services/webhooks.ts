@@ -1,16 +1,29 @@
 import { prisma } from '../lib/prisma';
 import axios from 'axios';
 
-
-
-
 export type WebhookEvent =
   | 'reply'
   | 'open'
   | 'bounce'
   | 'unsubscribe'
   | 'interested'
-  | 'converted';
+  | 'converted'
+  | 'sent';
+
+function isInternalUrl(urlStr: string): boolean {
+  try {
+    const { hostname } = new URL(urlStr);
+    if (['localhost', '::1'].includes(hostname)) return true;
+    if (/^127\./.test(hostname)) return true;
+    if (/^10\./.test(hostname)) return true;
+    if (/^172\.(1[6-9]|2\d|3[01])\./.test(hostname)) return true;
+    if (/^192\.168\./.test(hostname)) return true;
+    if (/^169\.254\./.test(hostname)) return true;
+    return false;
+  } catch {
+    return true;
+  }
+}
 
 export interface WebhookPayload {
   event:     WebhookEvent;
@@ -35,13 +48,15 @@ export async function fireWebhooks(orgId: string, payload: WebhookPayload): Prom
   if (webhooks.length === 0) return;
 
   await Promise.allSettled(
-    webhooks.map(wh =>
-      axios.post(wh.url, payload, {
-        timeout: 8_000,
-        headers: { 'Content-Type': 'application/json', 'X-AI-SDR-Event': payload.event },
-      }).catch(err => {
-        console.warn(`[Webhook] Failed to deliver to ${wh.url}: ${err.message}`);
-      })
-    )
+    webhooks
+      .filter(wh => !isInternalUrl(wh.url))
+      .map(wh =>
+        axios.post(wh.url, payload, {
+          timeout: 8_000,
+          headers: { 'Content-Type': 'application/json', 'X-AI-SDR-Event': payload.event },
+        }).catch(err => {
+          console.warn(`[Webhook] Failed to deliver to ${wh.url}: ${err.message}`);
+        })
+      )
   );
 }

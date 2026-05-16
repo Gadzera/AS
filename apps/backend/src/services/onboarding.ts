@@ -2,6 +2,7 @@ import { prisma } from '../lib/prisma';
 
 import nodemailer from 'nodemailer';
 import { config } from '../config';
+import { outreachQueue } from '../worker/queue';
 
 
 
@@ -81,21 +82,21 @@ export async function triggerOnboarding(userId: string, orgId: string): Promise<
 
   if (!config.smtp.user) return;
 
-  const transport = getTransport();
   const { name, org } = user;
 
   for (const email of ONBOARDING_EMAILS) {
-    setTimeout(async () => {
-      try {
-        await transport.sendMail({
-          from: config.smtp.from,
-          to: user.email!,
-          subject: email.subject,
-          html: email.body(name, org!.name),
-        });
-      } catch { /* non-critical */ }
-    }, email.delayMs);
+    await outreachQueue.add(
+      'onboarding-email',
+      { to: user.email!, subject: email.subject, html: email.body(name, org!.name), from: config.smtp.from },
+      { delay: email.delayMs, removeOnComplete: true, attempts: 3 }
+    ).catch(() => null);
   }
+}
+
+export async function sendScheduledEmail(data: { to: string; subject: string; html: string; from?: string }): Promise<void> {
+  if (!config.smtp.user) return;
+  const transport = getTransport();
+  await transport.sendMail({ from: data.from ?? config.smtp.from, to: data.to, subject: data.subject, html: data.html });
 }
 
 export async function updateOnboardingStep(
@@ -120,7 +121,7 @@ export async function updateOnboardingStep(
       data: {
         orgId,
         type: 'ONBOARDING',
-        title: '🎉 Онбординг завершён!',
+        title: 'Онбординг завершён',
         body: 'Вы прошли все шаги. Система работает в полную силу.',
         link: '/dashboard',
       },

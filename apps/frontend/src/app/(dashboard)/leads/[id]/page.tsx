@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { api } from '@/lib/api';
+import { leadsApi, outreachApi } from '@/lib/api';
 import { Lead, Message } from '@/types';
-import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
+import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Modal } from '@/components/ui/Modal';
-import { Input } from '@/components/ui/Input';
+import Modal from '@/components/ui/Modal';
+import Input from '@/components/ui/Input';
 
 interface LeadDetail extends Lead {
   messages: Message[];
@@ -31,7 +31,7 @@ export default function LeadDetailPage() {
   const [generatingReply, setGeneratingReply] = useState(false);
 
   useEffect(() => {
-    api.leads.get(id).then((data) => {
+    leadsApi.get(id).then((data) => {
       setLead(data as LeadDetail);
       setLoading(false);
     });
@@ -41,7 +41,7 @@ export default function LeadDetailPage() {
     if (!replyModal) return;
     setGeneratingReply(true);
     try {
-      const result = await api.outreach.autoReply({
+      const result = await outreachApi.autoReply({
         messageId: replyModal.messageId,
         replyText,
         language: 'en',
@@ -55,7 +55,7 @@ export default function LeadDetailPage() {
 
   const handleSendReply = async () => {
     if (!replyModal) return;
-    await api.outreach.autoReply({
+    await outreachApi.autoReply({
       messageId: replyModal.messageId,
       replyText,
       language: 'en',
@@ -64,7 +64,7 @@ export default function LeadDetailPage() {
     setReplyModal(null);
     setReplyText('');
     setAutoReply('');
-    const data = await api.leads.get(id);
+    const data = await leadsApi.get(id);
     setLead(data as LeadDetail);
   };
 

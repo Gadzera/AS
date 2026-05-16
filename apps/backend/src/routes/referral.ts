@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma';
 import { Router, Request, Response, NextFunction } from 'express';
+import { randomBytes } from 'crypto';
 
 import { authenticate, requireOrg } from '../middleware/auth';
 import { createNotification } from '../services/onboarding';
@@ -8,7 +9,7 @@ const router = Router();
 
 
 function genCode(orgId: string): string {
-  return orgId.slice(-6).toUpperCase() + Math.random().toString(36).slice(-3).toUpperCase();
+  return orgId.slice(-6).toUpperCase() + randomBytes(3).toString('hex').toUpperCase();
 }
 
 // GET /api/referral/code — get or create referral code for org
