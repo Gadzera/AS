@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { leadsApi, outreachApi } from '@/lib/api';
+import { api } from '@/lib/api';
 import type { Lead, LeadStatus } from '@/types';
 import Topbar from '@/components/layout/Topbar';
 import Card from '@/components/ui/Card';
@@ -26,6 +27,29 @@ export default function LeadsPage() {
   const [status, setStatus] = useState('');
   const [country, setCountry] = useState('');
   const [industry, setIndustry] = useState('');
+
+  // CSV import
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null);
+
+  const handleCSVImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const text = await file.text();
+      const res = await api.post<{ imported: number; skipped: number }>('/leads/import', { csvContent: text });
+      setImportResult(res.data);
+      fetchLeads();
+    } catch (err: any) {
+      alert(err?.response?.data?.error ?? 'Import failed');
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   // Outreach modal
   const [outreachLead, setOutreachLead] = useState<Lead | null>(null);
@@ -126,10 +150,17 @@ export default function LeadsPage() {
               onChange={(e) => { setIndustry(e.target.value); setPage(1); }}
               className="w-40"
             />
-            <Button variant="secondary" onClick={fetchLeads}>
-              Refresh
+            <Button variant="secondary" onClick={fetchLeads}>Refresh</Button>
+            <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleCSVImport} />
+            <Button onClick={() => fileInputRef.current?.click()} loading={importing}>
+              {importing ? 'Importing...' : '↑ Import CSV'}
             </Button>
           </div>
+          {importResult && (
+            <div className="mt-3 p-3 bg-green-900/20 border border-green-800 rounded-lg text-sm text-green-400">
+              ✓ Imported {importResult.imported} leads{importResult.skipped > 0 ? `, ${importResult.skipped} skipped (duplicates/errors)` : ''}
+            </div>
+          )}
         </Card>
 
         {/* Table */}

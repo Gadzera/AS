@@ -21,8 +21,11 @@ router.get('/stats', async (req: Request, res: Response, next: NextFunction) => 
       hotLeads,
       emailsSentThisWeek,
       emailsReplied,
+      emailsOpened,
       recentMessages,
       leadsByStatus,
+      last7DaysSent,
+      last7DaysReplies,
     ] = await Promise.all([
       prisma.lead.count({ where: { orgId } }),
       prisma.campaign.count({ where: { orgId, status: 'ACTIVE' } }),
@@ -32,44 +35,66 @@ router.get('/stats', async (req: Request, res: Response, next: NextFunction) => 
         orderBy: { updatedAt: 'desc' },
       }),
       prisma.message.count({
-        where: {
-          lead: { orgId },
-          direction: 'OUTBOUND',
-          sentAt: { gte: oneWeekAgo },
-        },
+        where: { lead: { orgId }, direction: 'OUTBOUND', sentAt: { gte: oneWeekAgo } },
       }),
       prisma.message.count({
-        where: {
-          lead: { orgId },
-          direction: 'INBOUND',
-          createdAt: { gte: oneWeekAgo },
-        },
+        where: { lead: { orgId }, direction: 'INBOUND', createdAt: { gte: oneWeekAgo } },
+      }),
+      prisma.message.count({
+        where: { lead: { orgId }, direction: 'OUTBOUND', openedAt: { not: null }, sentAt: { gte: oneWeekAgo } },
       }),
       prisma.message.findMany({
         where: { lead: { orgId } },
         orderBy: { createdAt: 'desc' },
         take: 20,
-        include: {
-          lead: { select: { firstName: true, lastName: true, company: true } },
-        },
+        include: { lead: { select: { firstName: true, lastName: true, company: true } } },
       }),
-      prisma.lead.groupBy({
-        by: ['status'],
-        where: { orgId },
-        _count: true,
+      prisma.lead.groupBy({ by: ['status'], where: { orgId }, _count: true }),
+      // Outbound per day for last 7 days
+      prisma.message.findMany({
+        where: { lead: { orgId }, direction: 'OUTBOUND', sentAt: { gte: oneWeekAgo } },
+        select: { sentAt: true },
+      }),
+      prisma.message.findMany({
+        where: { lead: { orgId }, direction: 'INBOUND', createdAt: { gte: oneWeekAgo } },
+        select: { createdAt: true },
       }),
     ]);
 
     const replyRate = emailsSentThisWeek > 0
-      ? Math.round((emailsReplied / emailsSentThisWeek) * 100)
-      : 0;
+      ? Math.round((emailsReplied / emailsSentThisWeek) * 100) : 0;
+    const openRate = emailsSentThisWeek > 0
+      ? Math.round((emailsOpened / emailsSentThisWeek) * 100) : 0;
+
+    // Build daily chart data for last 7 days
+    const dailyMap: Record<string, { sent: number; replies: number }> = {};
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i); d.setHours(0, 0, 0, 0);
+      dailyMap[d.toISOString().slice(0, 10)] = { sent: 0, replies: 0 };
+    }
+    last7DaysSent.forEach((m) => {
+      if (!m.sentAt) return;
+      const key = new Date(m.sentAt).toISOString().slice(0, 10);
+      if (dailyMap[key]) dailyMap[key].sent++;
+    });
+    last7DaysReplies.forEach((m) => {
+      const key = new Date(m.createdAt).toISOString().slice(0, 10);
+      if (dailyMap[key]) dailyMap[key].replies++;
+    });
+    const dailyChart = Object.entries(dailyMap).map(([date, v]) => ({
+      date: date.slice(5), // MM-DD
+      sent: v.sent,
+      replies: v.replies,
+    }));
 
     res.json({
       totalLeads,
       activeCampaigns,
       emailsSentThisWeek,
       replyRate,
+      openRate,
       hotLeads,
+      dailyChart,
       recentActivity: recentMessages.map((m) => ({
         id: m.id,
         leadName: `${m.lead.firstName} ${m.lead.lastName}`,
@@ -104,16 +129,14 @@ router.get('/campaign/:id', async (req: Request, res: Response, next: NextFuncti
       return;
     }
 
-    const [totalEnrolled, byStatus, messageStats] = await Promise.all([
+    const [totalEnrolled, byStatus, totalSent, totalOpened] = await Promise.all([
       prisma.campaignLead.count({ where: { campaignId: campaign.id } }),
-      prisma.campaignLead.groupBy({
-        by: ['status'],
-        where: { campaignId: campaign.id },
-        _count: true,
+      prisma.campaignLead.groupBy({ by: ['status'], where: { campaignId: campaign.id }, _count: true }),
+      prisma.message.count({
+        where: { lead: { campaignLeads: { some: { campaignId: campaign.id } } }, direction: 'OUTBOUND', sentAt: { not: null } },
       }),
-      prisma.message.aggregate({
-        where: { lead: { campaignLeads: { some: { campaignId: campaign.id } } } },
-        _count: true,
+      prisma.message.count({
+        where: { lead: { campaignLeads: { some: { campaignId: campaign.id } } }, direction: 'OUTBOUND', openedAt: { not: null } },
       }),
     ]);
 
@@ -123,17 +146,11 @@ router.get('/campaign/:id', async (req: Request, res: Response, next: NextFuncti
     }, {});
 
     res.json({
-      campaign: {
-        id: campaign.id,
-        name: campaign.name,
-        status: campaign.status,
-        channel: campaign.channel,
-        createdAt: campaign.createdAt,
-      },
+      campaign: { id: campaign.id, name: campaign.name, status: campaign.status, channel: campaign.channel, createdAt: campaign.createdAt },
       totalEnrolled,
       statusBreakdown: statusCounts,
-      totalMessages: messageStats._count,
-      openRate: 0, // Would require pixel tracking implementation
+      totalMessages: totalSent,
+      openRate: totalSent > 0 ? Math.round((totalOpened / totalSent) * 100) : 0,
       replyRate: totalEnrolled > 0
         ? Math.round(((statusCounts.REPLIED ?? 0) + (statusCounts.HOT ?? 0)) / totalEnrolled * 100)
         : 0,
