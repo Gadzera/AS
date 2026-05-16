@@ -1,4 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
+
 import nodemailer from 'nodemailer';
 import { generateOutreach } from '../services/generator';
 import { sendLinkedInMessage } from '../services/unipile';
@@ -16,7 +17,7 @@ import { substituteVariables } from '../utils/variables';
 import { createNotification, updateOnboardingStep } from '../services/onboarding';
 import { config } from '../config';
 
-const prisma = new PrismaClient();
+
 
 export async function processCampaignLead(campaignLeadId: string): Promise<void> {
   const cl = await prisma.campaignLead.findUnique({
@@ -232,7 +233,7 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
 
   // Fire webhooks (non-blocking)
   fireWebhooks(lead.orgId, {
-    event: 'open', // initial send tracked separately via pixel
+    event: 'sent',
     timestamp: now.toISOString(),
     lead: { id: lead.id, email: lead.email, firstName: lead.firstName, lastName: lead.lastName, company: lead.company, status: 'CONTACTED' },
     campaign: { id: cl.campaignId, name: cl.campaign.name },

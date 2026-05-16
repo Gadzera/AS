@@ -1,6 +1,7 @@
+import { prisma } from '../lib/prisma';
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { PrismaClient } from '@prisma/client';
+
 import { authenticate, requireOrg } from '../middleware/auth';
 import { searchLeads, enrichLead, mapApolloPersonToLead } from '../services/apollo';
 import { updateOnboardingStep } from '../services/onboarding';
@@ -10,7 +11,7 @@ import { searchPDL } from '../services/pdl';
 import { generateUnsubscribeToken } from '../utils/unsubscribe';
 
 const router = Router();
-const prisma = new PrismaClient();
+
 
 router.use(authenticate, requireOrg);
 
@@ -195,7 +196,7 @@ router.post('/search', async (req: Request, res: Response, next: NextFunction) =
       const org = await prisma.organization.findUnique({ where: { id: orgId } });
       const currentCount = await prisma.lead.count({ where: { orgId } });
 
-      const limit = org?.leadsLimit ?? 500;
+      const limit = (org?.leadsLimit ?? 500) + (org?.bonusLeads ?? 0);
       const available = limit - currentCount;
 
       if (available <= 0) {
@@ -289,7 +290,7 @@ router.post('/import', async (req: Request, res: Response, next: NextFunction) =
 
     const org = await prisma.organization.findUnique({ where: { id: orgId } });
     const currentCount = await prisma.lead.count({ where: { orgId } });
-    const limit = org?.leadsLimit ?? 500;
+    const limit = (org?.leadsLimit ?? 500) + (org?.bonusLeads ?? 0);
     const available = limit - currentCount;
 
     if (available <= 0) {
@@ -386,7 +387,7 @@ router.post('/search/pdl', async (req: Request, res: Response, next: NextFunctio
     // Import all results into org's lead DB
     const org = await prisma.organization.findUnique({ where: { id: orgId } });
     const existingCount = await prisma.lead.count({ where: { orgId } });
-    const available = (org?.leadsLimit ?? 500) - existingCount;
+    const available = ((org?.leadsLimit ?? 500) + (org?.bonusLeads ?? 0)) - existingCount;
 
     if (available <= 0) {
       return res.status(402).json({ error: 'Lead limit reached. Upgrade your plan.' });

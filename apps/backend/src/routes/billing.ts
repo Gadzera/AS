@@ -1,6 +1,7 @@
+import { prisma } from '../lib/prisma';
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { PrismaClient } from '@prisma/client';
+
 import { authenticate, requireOrg } from '../middleware/auth';
 import {
   stripe,
@@ -14,7 +15,7 @@ import {
 import { config } from '../config';
 
 const router = Router();
-const prisma = new PrismaClient();
+
 
 const checkoutSchema = z.object({
   plan: z.enum(['STARTER', 'GROWTH', 'AGENCY']),

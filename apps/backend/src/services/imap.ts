@@ -1,13 +1,14 @@
+import { prisma } from '../lib/prisma';
 import { ImapFlow, FetchMessageObject } from 'imapflow';
 import { simpleParser, ParsedMail } from 'mailparser';
 import { Readable } from 'stream';
-import { PrismaClient } from '@prisma/client';
+
 import { config } from '../config';
 import { upsertHubSpotContact } from './hubspot';
 import { upsertPipedriveContact } from './pipedrive';
 import { createNotification, updateOnboardingStep } from './onboarding';
 
-const prisma = new PrismaClient();
+
 
 const BOUNCE_PATTERNS = [
   /delivery.{0,20}fail/i,
@@ -47,9 +48,7 @@ export async function pollInbox(): Promise<void> {
     await client.connect();
     await client.mailboxOpen('INBOX');
 
-    const since = new Date(Date.now() - 7 * 86_400_000);
-
-    for await (const msg of client.fetch({ since }, { source: true })) {
+    for await (const msg of client.fetch({ seen: false }, { source: true, flags: true })) {
       const source = msg.source;
       if (!source) continue;
 
@@ -72,6 +71,9 @@ export async function pollInbox(): Promise<void> {
       } else if (inReplyTo || references.length > 0) {
         await handleReply(inReplyTo, references, parsed);
       }
+
+      // Mark as SEEN so it won't be re-processed on the next poll
+      await client.messageFlagsAdd({ uid: msg.uid }, ['\\Seen']).catch(() => null);
     }
   } catch (err) {
     console.error('[IMAP] Poll error:', err instanceof Error ? err.message : String(err));

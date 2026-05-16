@@ -108,6 +108,10 @@ model Lead {
   campaignLeads    CampaignLead[]
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
+
+  @@index([orgId])
+  @@index([orgId, status])
+  @@index([email])
 }
 
 model Campaign {
@@ -155,10 +159,12 @@ model CampaignLead {
   currentStep   Int        @default(0)
   status        LeadStatus @default(NEW)
   nextSendAt    DateTime?
-  abVariant     String?    // "A" or "B"
+  abVariant     String?
   createdAt     DateTime   @default(now())
 
   @@unique([campaignId, leadId])
+  @@index([nextSendAt])
+  @@index([leadId, status])
 }
 
 model Message {
@@ -182,6 +188,10 @@ model Message {
   clicks        Int          @default(0)
   repliedAt     DateTime?
   createdAt     DateTime     @default(now())
+
+  @@index([leadId])
+  @@index([smtpMessageId])
+  @@index([direction, sentAt])
 }
 
 enum Role {

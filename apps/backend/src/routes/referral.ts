@@ -1,10 +1,11 @@
+import { prisma } from '../lib/prisma';
 import { Router, Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
+
 import { authenticate, requireOrg } from '../middleware/auth';
 import { createNotification } from '../services/onboarding';
 
 const router = Router();
-const prisma = new PrismaClient();
+
 
 function genCode(orgId: string): string {
   return orgId.slice(-6).toUpperCase() + Math.random().toString(36).slice(-3).toUpperCase();

@@ -1,12 +1,13 @@
+import { prisma } from '../lib/prisma';
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { authenticate, requireOrg } from '../middleware/auth';
 import { testHubSpotConnection, upsertHubSpotContact } from '../services/hubspot';
 import { testPipedriveConnection, upsertPipedriveContact } from '../services/pipedrive';
-import { PrismaClient } from '@prisma/client';
+
 
 const router = Router();
-const prisma = new PrismaClient();
+
 router.use(authenticate, requireOrg);
 
 // GET /api/crm/status — test connections for all configured CRMs

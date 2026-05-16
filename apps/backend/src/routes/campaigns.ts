@@ -1,11 +1,12 @@
+import { prisma } from '../lib/prisma';
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { PrismaClient } from '@prisma/client';
+
 import { authenticate, requireOrg } from '../middleware/auth';
 import { updateOnboardingStep } from '../services/onboarding';
 
 const router = Router();
-const prisma = new PrismaClient();
+
 
 router.use(authenticate, requireOrg);
 
@@ -171,6 +172,7 @@ router.post('/:id/start', async (req: Request, res: Response, next: NextFunction
     const leadWhere: Record<string, unknown> = {
       orgId,
       status: { in: ['NEW', 'CONTACTED'] },
+      bounced: false,
     };
 
     if (campaign.targetIndustry) {

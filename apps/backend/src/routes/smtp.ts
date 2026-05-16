@@ -1,13 +1,14 @@
+import { prisma } from '../lib/prisma';
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { PrismaClient } from '@prisma/client';
+
 import { authenticate, requireOrg } from '../middleware/auth';
 import { verifySmtpAccount } from '../services/smtpRotation';
 import { encrypt } from '../utils/encryption';
 import { updateOnboardingStep } from '../services/onboarding';
 
 const router = Router();
-const prisma = new PrismaClient();
+
 router.use(authenticate, requireOrg);
 
 const accountSchema = z.object({

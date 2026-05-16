@@ -1,9 +1,9 @@
+import { prisma } from '../lib/prisma';
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { config } from '../config';
+import { fireWebhooks } from '../services/webhooks';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 const PIXEL = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
 
@@ -11,6 +11,23 @@ const PIXEL = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBR
 router.get('/open/:messageId', async (req: Request, res: Response) => {
   prisma.message
     .updateMany({ where: { id: req.params.messageId, openedAt: null }, data: { openedAt: new Date() } })
+    .then(result => {
+      if (result.count > 0) {
+        prisma.message.findUnique({
+          where: { id: req.params.messageId },
+          include: { lead: true },
+        }).then(msg => {
+          if (msg?.lead) {
+            fireWebhooks(msg.lead.orgId, {
+              event: 'open',
+              timestamp: new Date().toISOString(),
+              lead: { id: msg.lead.id, email: msg.lead.email, firstName: msg.lead.firstName, lastName: msg.lead.lastName, company: msg.lead.company, status: msg.lead.status },
+              message: { id: msg.id, subject: msg.subject },
+            }).catch(() => null);
+          }
+        }).catch(() => null);
+      }
+    })
     .catch(() => {});
 
   res.set({
