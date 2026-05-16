@@ -2,6 +2,8 @@ import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import RedisStore from 'rate-limit-redis';
+import IORedis from 'ioredis';
 import { config } from './config';
 import { errorHandler } from './middleware/errorHandler';
 
@@ -27,6 +29,17 @@ import autopilotRouter from './routes/autopilot';
 
 const app = express();
 
+// Shared Redis client for rate limiting (separate from BullMQ client)
+const rateLimitRedis = new IORedis(config.redis.url, { enableReadyCheck: false, lazyConnect: true });
+rateLimitRedis.on('error', (err) => console.error('[RateLimit Redis]', err.message));
+
+function makeRedisStore(prefix: string) {
+  return new RedisStore({
+    sendCommand: (...args: string[]) => rateLimitRedis.call(args[0], ...args.slice(1)) as Promise<number>,
+    prefix,
+  });
+}
+
 // Trust reverse proxy (nginx/ALB) so rate limiter reads real client IP
 app.set('trust proxy', 1);
 
@@ -44,12 +57,13 @@ app.use(
   })
 );
 
-// Global rate limit
+// Global rate limit — Redis-backed, works across replicas
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200,
   standardHeaders: true,
   legacyHeaders: false,
+  store: makeRedisStore('rl:global:'),
 });
 app.use(limiter);
 
@@ -60,6 +74,7 @@ const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many attempts, try again later' },
+  store: makeRedisStore('rl:auth:'),
 });
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
@@ -72,6 +87,7 @@ const aiLimiter = rateLimit({
   legacyHeaders: false,
   keyGenerator: (req) => (req as Request & { user?: { userId?: string } }).user?.userId ?? req.ip ?? 'anon',
   message: { error: 'Too many generation requests, please wait' },
+  store: makeRedisStore('rl:ai:'),
 });
 app.use('/api/outreach/generate', aiLimiter);
 app.use('/api/outreach/auto-reply', aiLimiter);
@@ -85,6 +101,7 @@ const externalApiLimiter = rateLimit({
   legacyHeaders: false,
   keyGenerator: (req) => (req as Request & { user?: { orgId?: string } }).user?.orgId ?? req.ip ?? 'anon',
   message: { error: 'Too many requests to external API, please wait' },
+  store: makeRedisStore('rl:ext:'),
 });
 app.use('/api/leads/search', externalApiLimiter);
 
@@ -94,6 +111,7 @@ const trackLimiter = rateLimit({
   max: 60,
   standardHeaders: true,
   legacyHeaders: false,
+  store: makeRedisStore('rl:track:'),
 });
 app.use('/api/track', trackLimiter);
 
