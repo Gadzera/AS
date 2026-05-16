@@ -12,6 +12,7 @@ import { scrapeWebsite } from '../utils/scraper';
 import { applySpintax } from '../utils/spintax';
 import { validateEmail } from '../utils/emailValidation';
 import { generateUnsubscribeToken, getUnsubscribeUrl } from '../utils/unsubscribe';
+import { substituteVariables } from '../utils/variables';
 import { config } from '../config';
 
 const prisma = new PrismaClient();
@@ -105,10 +106,10 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
     await prisma.campaignLead.update({ where: { id: campaignLeadId }, data: { abVariant } });
   }
 
-  // Pick subject/body based on variant
+  // Pick subject/body based on variant, apply spintax + variable substitution
   const useB = abVariant === 'B' && step.bodyB;
-  let subject    = applySpintax(useB && step.subjectB ? step.subjectB : (step.subject ?? ''));
-  let body       = applySpintax(useB && step.bodyB    ? step.bodyB    : step.body);
+  let subject    = substituteVariables(applySpintax(useB && step.subjectB ? step.subjectB : (step.subject ?? '')), lead);
+  let body       = substituteVariables(applySpintax(useB && step.bodyB    ? step.bodyB    : step.body),    lead);
   let aiGenerated = false;
 
   if (!body || body === 'AI_GENERATE') {

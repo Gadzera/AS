@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
 import { authenticate, requireOrg } from '../middleware/auth';
 import { verifySmtpAccount } from '../services/smtpRotation';
+import { encrypt } from '../utils/encryption';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -35,7 +36,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data    = accountSchema.parse(req.body);
     const account = await prisma.smtpAccount.create({
-      data: { ...data, orgId: req.user!.orgId! },
+      data: { ...data, pass: encrypt(data.pass), orgId: req.user!.orgId! },
     });
     // Verify immediately
     const ok = await verifySmtpAccount(account);
