@@ -127,6 +127,7 @@ model Lead {
   @@index([orgId])
   @@index([orgId, status])
   @@index([email])
+  @@index([orgId, email])
 }
 
 model Campaign {
@@ -185,6 +186,8 @@ model CampaignLead {
   @@unique([campaignId, leadId])
   @@index([nextSendAt])
   @@index([leadId, status])
+  @@index([campaignId, status])
+  @@index([campaignId, abVariant])
 }
 
 model Message {
@@ -212,6 +215,7 @@ model Message {
   @@index([leadId])
   @@index([smtpMessageId])
   @@index([direction, sentAt])
+  @@index([leadId, direction, sentAt])
 }
 
 enum Role {
