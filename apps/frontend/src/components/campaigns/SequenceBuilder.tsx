@@ -243,7 +243,7 @@ export default function SequenceBuilder({ campaignId, sequences, abTestEnabled =
             <Button onClick={handleAdd} loading={saving}>
               Сохранить шаг
             </Button>
-            <Button variant="secondary" onClick={() => { setAdding(false); setForm({ subject: '', body: '', delayDays: 0, channel: 'EMAIL' }); }}>
+            <Button variant="secondary" onClick={() => { setAdding(false); setForm({ subject: '', body: '', subjectB: '', bodyB: '', delayDays: 0, channel: 'EMAIL' }); }}>
               Отмена
             </Button>
           </div>
