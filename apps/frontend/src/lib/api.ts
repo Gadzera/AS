@@ -131,6 +131,15 @@ export const outreachApi = {
 
   classify: (data: { messageBody: string; leadId?: string; messageId?: string }) =>
     api.post<{ classification: string }>('/outreach/classify', data).then((r) => r.data),
+
+  autoReply: (data: {
+    messageId: string;
+    replyText: string;
+    language?: string;
+    calendlyUrl?: string;
+    send?: boolean;
+  }) =>
+    api.post<{ subject: string; body: string }>('/outreach/auto-reply', data).then((r) => r.data),
 };
 
 // ============ Analytics ============
