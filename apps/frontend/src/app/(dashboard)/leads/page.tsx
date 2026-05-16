@@ -99,7 +99,7 @@ export default function LeadsPage() {
       setOutreachSubject(result.subject);
     } catch (err) {
       console.error('Failed to generate outreach:', err);
-      setOutreachText('Failed to generate message. Check your Claude API key.');
+      setOutreachText('Failed to generate message. Check your API key in settings.');
     } finally {
       setGeneratingOutreach(false);
     }
@@ -222,7 +222,7 @@ export default function LeadsPage() {
         {generatingOutreach ? (
           <div className="py-8 text-center">
             <div className="animate-spin w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full mx-auto mb-3" />
-            <p className="text-gray-500">Generating personalized message with Claude AI...</p>
+            <p className="text-gray-500">Writing your personalized message...</p>
           </div>
         ) : (
           <div className="space-y-4">

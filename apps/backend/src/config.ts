@@ -27,7 +27,7 @@ export const config = {
     expiresIn: optional('JWT_EXPIRES_IN', '7d'),
   },
 
-  anthropic: {
+  ai: {
     apiKey: optional('ANTHROPIC_API_KEY', ''),
   },
 

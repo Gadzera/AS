@@ -1,4 +1,4 @@
-import { scoreLeadFromProfile } from './claude';
+import { scoreLeadFromProfile } from './generator';
 
 interface LeadForScoring {
   title?: string | null;
@@ -81,7 +81,7 @@ export function scoreLeadLocal(lead: LeadForScoring): number {
 }
 
 /**
- * Score a lead using AI (Claude) — more accurate but slower
+ * Score a lead using LLM — more accurate but slower
  */
 export async function scoreLeadAI(lead: LeadForScoring): Promise<number> {
   return scoreLeadFromProfile(lead);
