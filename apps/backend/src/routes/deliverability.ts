@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
 import { authenticate, requireOrg } from '../middleware/auth';
 import { checkDeliverability } from '../utils/deliverability';
@@ -50,27 +51,26 @@ router.get('/stats', async (req: Request, res: Response, next: NextFunction) => 
   } catch (err) { next(err); }
 });
 
+const validateSchema = z.union([
+  z.object({ email: z.string().email(), emails: z.undefined() }),
+  z.object({ emails: z.array(z.string().email()).min(1).max(100), email: z.undefined() }),
+]);
+
 // POST /api/deliverability/validate — validate single or batch emails
 router.post('/validate', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { email, emails } = req.body as { email?: string; emails?: string[] };
+    const parsed = validateSchema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: 'Provide email (string) or emails (array, max 100)' }); return; }
+    const data = parsed.data;
 
-    if (email) {
-      const result = await validateEmail(email);
-      res.json(result);
+    if (data.email) {
+      res.json(await validateEmail(data.email));
       return;
     }
 
-    if (emails?.length) {
-      const results: Record<string, { valid: boolean; reason?: string }> = {};
-      await Promise.all(emails.slice(0, 100).map(async e => {
-        results[e] = await validateEmail(e);
-      }));
-      res.json(results);
-      return;
-    }
-
-    res.status(400).json({ error: 'Provide email or emails[]' });
+    const results: Record<string, { valid: boolean; reason?: string }> = {};
+    await Promise.all(data.emails!.map(async e => { results[e] = await validateEmail(e); }));
+    res.json(results);
   } catch (err) { next(err); }
 });
 

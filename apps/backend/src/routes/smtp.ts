@@ -59,7 +59,11 @@ router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
       where: { id: req.params.id, orgId: req.user!.orgId! },
     });
     if (!account) { res.status(404).json({ error: 'Not found' }); return; }
-    const updated = await prisma.smtpAccount.update({ where: { id: req.params.id }, data: { active } });
+    const updated = await prisma.smtpAccount.update({
+      where: { id: req.params.id },
+      data: { active },
+      select: { id: true, name: true, host: true, port: true, fromEmail: true, fromName: true, active: true },
+    });
     res.json(updated);
   } catch (err) { next(err); }
 });

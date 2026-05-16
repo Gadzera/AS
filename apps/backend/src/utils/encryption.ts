@@ -5,18 +5,17 @@ const IV_LEN    = 16;
 const KEY_LEN   = 32;
 const SEPARATOR = ':';
 
-// Key derivation: pad/truncate env key to exactly 32 bytes
+const DEV_FALLBACK_KEY = 'dev-fallback-key-change-in-prod!';
+
 function getKey(): Buffer {
-  const raw = process.env.ENCRYPTION_KEY ?? 'default-change-in-prod-32-bytes!';
+  const raw = process.env.ENCRYPTION_KEY ?? DEV_FALLBACK_KEY;
+  if (!process.env.ENCRYPTION_KEY && process.env.NODE_ENV === 'production') {
+    throw new Error('ENCRYPTION_KEY must be set in production');
+  }
   return Buffer.from(raw.padEnd(KEY_LEN, '0').slice(0, KEY_LEN), 'utf8');
 }
 
-/**
- * Encrypts plaintext → "iv_hex:ciphertext_hex"
- * Returns plaintext unchanged if ENCRYPTION_KEY is not set (dev mode).
- */
 export function encrypt(plaintext: string): string {
-  if (!process.env.ENCRYPTION_KEY) return plaintext;
   const iv     = crypto.randomBytes(IV_LEN);
   const cipher = crypto.createCipheriv(ALGO, getKey(), iv);
   const enc    = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);

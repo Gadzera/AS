@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
 import { generatePersonalizedImageLocal, TemplateId } from '../services/imagePersonalization';
 import { checkSpamScore } from '../utils/spamScore';
 import { authenticate, requireOrg } from '../middleware/auth';
@@ -29,13 +30,17 @@ router.get('/image', async (req: Request, res: Response) => {
   }
 });
 
+const spamCheckSchema = z.object({
+  subject: z.string().max(500).optional().default(''),
+  body: z.string().max(50000).optional().default(''),
+});
+
 // POST /api/personalization/spam-check — check a subject+body for spam score (auth required)
 router.post('/spam-check', authenticate, requireOrg, (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { subject = '', body = '' } = req.body as { subject?: string; body?: string };
+    const { subject, body } = spamCheckSchema.parse(req.body);
     if (!subject && !body) { res.status(400).json({ error: 'Provide subject and/or body' }); return; }
-    const result = checkSpamScore(subject, body);
-    res.json(result);
+    res.json(checkSpamScore(subject, body));
   } catch (err) { next(err); }
 });
 
