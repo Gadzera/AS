@@ -40,8 +40,7 @@ export default function Button({
   return (
     <motion.button
       whileTap={isDisabled ? {} : { scale: 0.97 }}
-      whileHover={isDisabled ? {} : { scale: 1.01 }}
-      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+      transition={{ type: 'spring', stiffness: 400, damping: 17 }}
       className={clsx(base, variants[variant], sizes[size], className)}
       disabled={isDisabled}
       {...props}

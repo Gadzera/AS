@@ -31,7 +31,7 @@ export default function Modal({ isOpen, open, onClose, title, children, size = '
   }, [visible, onClose]);
 
   return (
-    <AnimatePresence>
+    <AnimatePresence mode="wait">
       {visible && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop */}
