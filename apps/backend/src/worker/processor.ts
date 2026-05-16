@@ -31,9 +31,19 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
   const { sequences } = cl.campaign;
   if (sequences.length === 0 || cl.currentStep >= sequences.length) return;
 
-  // Enforce daily send limit per campaign
+  // Daily limit with automatic warm-up protection (prevents domain ban)
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
+
+  const campaignAgeDays = Math.floor(
+    (Date.now() - new Date(cl.campaign.createdAt).getTime()) / 86_400_000
+  );
+  const warmupLimit =
+    campaignAgeDays < 3 ? 20 :
+    campaignAgeDays < 7 ? 50 :
+    campaignAgeDays < 14 ? 100 :
+    cl.campaign.dailyLimit;
+  const effectiveLimit = Math.min(warmupLimit, cl.campaign.dailyLimit);
 
   const sentToday = await prisma.message.count({
     where: {
@@ -43,7 +53,7 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
     },
   });
 
-  if (sentToday >= cl.campaign.dailyLimit) {
+  if (sentToday >= effectiveLimit) {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(9, 0, 0, 0);

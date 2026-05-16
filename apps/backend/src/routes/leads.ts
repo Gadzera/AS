@@ -4,6 +4,7 @@ import { PrismaClient } from '@prisma/client';
 import { authenticate, requireOrg } from '../middleware/auth';
 import { searchLeads, enrichLead, mapApolloPersonToLead } from '../services/apollo';
 import { scoreLeadLocal, scoreLeadAI } from '../services/scorer';
+import { parseCSV } from '../utils/csv';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -271,6 +272,81 @@ router.post('/:id/enrich', async (req: Request, res: Response, next: NextFunctio
     });
 
     res.json(saved);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/leads/import — bulk import from CSV
+router.post('/import', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId = req.user!.orgId!;
+    const { csvContent } = z.object({ csvContent: z.string().min(1) }).parse(req.body);
+
+    const org = await prisma.organization.findUnique({ where: { id: orgId } });
+    const currentCount = await prisma.lead.count({ where: { orgId } });
+    const limit = org?.leadsLimit ?? 500;
+    const available = limit - currentCount;
+
+    if (available <= 0) {
+      res.status(402).json({ error: 'Leads limit reached for your plan. Upgrade to import more.' });
+      return;
+    }
+
+    const rows = parseCSV(csvContent);
+    if (rows.length === 0) {
+      res.status(400).json({ error: 'No valid rows found. Check your CSV format.' });
+      return;
+    }
+
+    const toImport = rows.slice(0, available);
+    let imported = 0;
+    let skipped = 0;
+
+    for (const row of toImport) {
+      const firstName = row.firstName ?? row.email?.split('@')[0] ?? 'Unknown';
+      const lastName = row.lastName ?? '';
+
+      try {
+        const score = scoreLeadLocal({
+          title: row.title,
+          company: row.company,
+          companySize: undefined,
+          industry: row.industry,
+          country: row.country,
+          email: row.email,
+          linkedinUrl: row.linkedinUrl,
+        });
+
+        await prisma.lead.create({
+          data: {
+            orgId,
+            firstName,
+            lastName,
+            email: row.email || null,
+            linkedinUrl: row.linkedinUrl || null,
+            title: row.title || null,
+            company: row.company || null,
+            industry: row.industry || null,
+            country: row.country || null,
+            city: row.city || null,
+            website: row.website || null,
+            source: 'csv',
+            score,
+          },
+        });
+        imported++;
+      } catch {
+        skipped++;
+      }
+    }
+
+    res.json({
+      imported,
+      skipped,
+      total: rows.length,
+      limitReached: rows.length > available,
+    });
   } catch (err) {
     next(err);
   }

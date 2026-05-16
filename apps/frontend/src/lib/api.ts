@@ -72,6 +72,9 @@ export const leadsApi = {
 
   delete: (id: string) => api.delete(`/leads/${id}`).then((r) => r.data),
 
+  import: (csvContent: string) =>
+    api.post<{ imported: number; skipped: number; total: number }>('/leads/import', { csvContent }).then((r) => r.data),
+
   search: (filters: {
     personTitles?: string[];
     personLocations?: string[];
