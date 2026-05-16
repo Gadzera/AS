@@ -27,6 +27,8 @@ import notificationsRouter from './routes/notifications';
 import referralRouter from './routes/referral';
 import autopilotRouter from './routes/autopilot';
 import teamRouter from './routes/team';
+import organizationRouter from './routes/organization';
+import tagsRouter from './routes/tags';
 
 const app = express();
 
@@ -156,6 +158,8 @@ app.use('/api/notifications', notificationsRouter);
 app.use('/api/referral', referralRouter);
 app.use('/api/autopilot', autopilotRouter);
 app.use('/api/team', teamRouter);
+app.use('/api/organization', organizationRouter);
+app.use('/api/tags', tagsRouter);
 
 // 404 handler
 app.use((_req, res) => {

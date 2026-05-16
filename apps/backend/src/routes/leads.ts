@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma';
+import { Prisma } from '@prisma/client';
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 
@@ -131,6 +132,49 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   } catch (err) {
     next(err);
   }
+});
+
+// GET /api/leads/export — export leads as CSV
+router.get('/export', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId = req.user!.orgId!;
+    const { status, search, ids } = req.query as Record<string, string>;
+
+    const where: Prisma.LeadWhereInput = { orgId };
+    if (ids) {
+      where.id = { in: ids.split(',') };
+    } else {
+      if (status) where.status = status as any;
+      if (search) where.OR = [
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName:  { contains: search, mode: 'insensitive' } },
+        { email:     { contains: search, mode: 'insensitive' } },
+        { company:   { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const leads = await prisma.lead.findMany({ where, take: 10000, orderBy: { createdAt: 'desc' } });
+
+    const headers = ['firstName','lastName','email','company','title','industry','country','city','website','status','score','linkedinUrl'];
+    const rows = leads.map(l => headers.map(h => {
+      const v = (l as any)[h] ?? '';
+      return `"${String(v).replace(/"/g, '""')}"`;
+    }).join(','));
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="leads.csv"');
+    res.send([headers.join(','), ...rows].join('\n'));
+  } catch (err) { next(err); }
+});
+
+// DELETE /api/leads/bulk — bulk delete leads
+router.delete('/bulk', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId = req.user!.orgId!;
+    const { ids } = z.object({ ids: z.array(z.string()) }).parse(req.body);
+    await prisma.lead.deleteMany({ where: { id: { in: ids }, orgId } });
+    res.json({ deleted: ids.length });
+  } catch (err) { next(err); }
 });
 
 // GET /api/leads/:id

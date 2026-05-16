@@ -10,6 +10,13 @@ export type ReplyClass = 'INTERESTED' | 'NOT_INTERESTED' | 'FOLLOW_UP' | 'UNSUBS
 
 // ============ Core Models ============
 
+export interface Tag {
+  id: string;
+  name: string;
+  color: string;
+  createdAt: string;
+}
+
 export interface Organization {
   id: string;
   name: string;
@@ -49,6 +56,7 @@ export interface Lead {
   apolloId?: string | null;
   enriched: boolean;
   notes?: string | null;
+  tags?: Tag[];
   createdAt: string;
   updatedAt: string;
 }

@@ -9,6 +9,7 @@ import type {
   AnalyticsStats,
   GeneratedOutreach,
   CampaignStats,
+  Tag,
   LoginForm,
   RegisterForm,
   CreateLeadForm,
@@ -61,6 +62,8 @@ export const leadsApi = {
     status?: string;
     country?: string;
     industry?: string;
+    sortBy?: string;
+    sortDir?: string;
   }) => api.get<LeadsResponse>('/leads', { params }).then((r) => r.data),
 
   get: (id: string) => api.get<Lead>(`/leads/${id}`).then((r) => r.data),
@@ -85,6 +88,16 @@ export const leadsApi = {
   }) => api.post('/leads/search', filters).then((r) => r.data),
 
   enrich: (id: string) => api.post<Lead>(`/leads/${id}/enrich`).then((r) => r.data),
+
+  export: (params?: { ids?: string[]; status?: string; search?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.ids?.length) qs.set('ids', params.ids.join(','));
+    if (params?.status) qs.set('status', params.status);
+    if (params?.search) qs.set('search', params.search);
+    return api.get(`/leads/export?${qs}`, { responseType: 'blob' });
+  },
+
+  bulkDelete: (ids: string[]) => api.delete('/leads/bulk', { data: { ids } }),
 };
 
 // ============ Campaigns ============
@@ -107,6 +120,8 @@ export const campaignsApi = {
       .then((r) => r.data),
 
   pause: (id: string) => api.post<Campaign>(`/campaigns/${id}/pause`).then((r) => r.data),
+
+  duplicate: (id: string) => api.post<Campaign>(`/campaigns/${id}/duplicate`).then((r) => r.data),
 };
 
 // ============ Sequences ============
@@ -175,6 +190,24 @@ export const billingApi = {
     api.post<{ url: string }>('/billing/checkout', { plan }).then((r) => r.data),
   portal: () => api.get<{ url: string }>('/billing/portal').then((r) => r.data),
   subscription: () => api.get('/billing/subscription').then((r) => r.data),
+  usage: () => api.get('/billing/usage').then((r) => r.data),
+};
+
+// ============ Organization ============
+
+export const organizationApi = {
+  get: () => api.get('/organization').then((r) => r.data),
+  update: (data: { name: string }) => api.put('/organization', data).then((r) => r.data),
+};
+
+// ============ Tags ============
+
+export const tagsApi = {
+  list: () => api.get<Tag[]>('/tags').then((r) => r.data),
+  create: (data: { name: string; color?: string }) => api.post<Tag>('/tags', data).then((r) => r.data),
+  delete: (id: string) => api.delete(`/tags/${id}`).then((r) => r.data),
+  addToLead: (tagId: string, leadId: string) => api.post(`/tags/${tagId}/leads/${leadId}`).then((r) => r.data),
+  removeFromLead: (tagId: string, leadId: string) => api.delete(`/tags/${tagId}/leads/${leadId}`).then((r) => r.data),
 };
 
 export { api };

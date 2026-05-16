@@ -101,7 +101,12 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <div className="flex flex-col w-60 min-h-screen bg-[#0a0d14] border-r border-gray-800/60">
+    <motion.div
+      initial={{ x: -20, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      transition={{ duration: 0.25, ease: 'easeOut' }}
+      className="flex flex-col w-60 min-h-screen bg-[#0a0d14] border-r border-gray-800/60"
+    >
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 py-5 border-b border-gray-800/60">
         <div className="relative w-8 h-8 shrink-0">
@@ -185,6 +190,6 @@ export default function Sidebar() {
           Sign out
         </motion.button>
       </div>
-    </div>
+    </motion.div>
   );
 }

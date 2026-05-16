@@ -2,21 +2,54 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { motion, AnimatePresence } from 'framer-motion';
 import { analyticsApi, api } from '@/lib/api';
 import type { AnalyticsStats } from '@/types';
 import Topbar from '@/components/layout/Topbar';
+import PageTransition from '@/components/layout/PageTransition';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, BarChart, Bar, Cell,
 } from 'recharts';
 
+function useCountUp(target: number, duration = 1000): number {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    if (!target) return;
+    const start = Date.now();
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - start;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setValue(Math.round(target * eased));
+      if (progress >= 1) clearInterval(timer);
+    }, 16);
+    return () => clearInterval(timer);
+  }, [target, duration]);
+  return value;
+}
+
+const kpiCardVariants = {
+  container: {
+    animate: { transition: { staggerChildren: 0.07 } },
+  },
+  item: {
+    initial: { opacity: 0, y: 20 },
+    animate: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } },
+  },
+};
+
 // ─── Stat Card ───────────────────────────────────────────────────────────────
 function StatCard({
-  label, value, sub, icon, trend, color = 'blue',
+  label, value, sub, icon, trend, color = 'blue', numericValue,
 }: {
   label: string; value: string | number; sub?: string;
   icon: React.ReactNode; trend?: number; color?: 'blue' | 'green' | 'yellow' | 'purple' | 'red';
+  numericValue?: number;
 }) {
+  const countedNum = useCountUp(numericValue ?? 0, 900);
+  const displayValue = numericValue !== undefined ? countedNum.toLocaleString() : value;
+
   const palettes = {
     blue:   'from-blue-500/20 to-blue-600/5 border-blue-500/20 text-blue-400',
     green:  'from-green-500/20 to-green-600/5 border-green-500/20 text-green-400',
@@ -25,11 +58,14 @@ function StatCard({
     red:    'from-red-500/20 to-red-600/5 border-red-500/20 text-red-400',
   };
   return (
-    <div className={`relative overflow-hidden rounded-xl border bg-gradient-to-br p-5 ${palettes[color]}`}>
+    <motion.div
+      variants={kpiCardVariants.item}
+      className={`relative overflow-hidden rounded-xl border bg-gradient-to-br p-5 ${palettes[color]}`}
+    >
       <div className="flex items-start justify-between">
         <div className="space-y-1">
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">{label}</p>
-          <p className="text-3xl font-bold text-white">{value}</p>
+          <p className="text-3xl font-bold text-white">{displayValue}</p>
           {sub && <p className="text-xs text-gray-500">{sub}</p>}
           {trend !== undefined && (
             <p className={`text-xs font-medium ${trend >= 0 ? 'text-green-400' : 'text-red-400'}`}>
@@ -39,7 +75,7 @@ function StatCard({
         </div>
         <div className="opacity-80">{icon}</div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -147,40 +183,59 @@ export default function DashboardPage() {
   return (
     <>
       <Topbar title="Dashboard" />
+      <PageTransition>
       <main className="flex-1 p-6 overflow-y-auto space-y-6">
 
         {/* ── KPI Cards ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+        <AnimatePresence mode="wait">
           {loading ? (
-            [...Array(5)].map((_, i) => <Skeleton key={i} className="h-28" />)
-          ) : (<>
-            <StatCard
-              label="Total Leads" value={stats?.totalLeads?.toLocaleString() ?? '0'}
-              color="blue"
-              icon={<svg className="w-7 h-7 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
-            />
-            <StatCard
-              label="Emails Sent" value={stats?.emailsSentThisWeek?.toLocaleString() ?? '0'} sub="Last 7 days"
-              color="purple"
-              icon={<svg className="w-7 h-7 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>}
-            />
-            <StatCard
-              label="Open Rate" value={`${openRate}%`} sub="Last 7 days"
-              color="yellow"
-              icon={<svg className="w-7 h-7 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>}
-            />
-            <StatCard
-              label="Click Rate" value={`${clickRate}%`} sub="Link clicks"
-              color="green"
-              icon={<svg className="w-7 h-7 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" /></svg>}
-            />
-            <StatCard
-              label="Reply Rate" value={`${stats?.replyRate ?? 0}%`} sub="Last 7 days"
-              color="purple"
-              icon={<svg className="w-7 h-7 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>}
-            />
-          </>)}
-        </div>
+            <motion.div
+              key="kpi-loading"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4"
+            >
+              {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-28" />)}
+            </motion.div>
+          ) : (
+            <motion.div
+              key="kpi-loaded"
+              className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4"
+              initial="initial"
+              animate="animate"
+              variants={kpiCardVariants.container}
+            >
+              <StatCard
+                label="Total Leads" value={stats?.totalLeads?.toLocaleString() ?? '0'}
+                numericValue={stats?.totalLeads ?? 0}
+                color="blue"
+                icon={<svg className="w-7 h-7 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
+              />
+              <StatCard
+                label="Emails Sent" value={stats?.emailsSentThisWeek?.toLocaleString() ?? '0'} sub="Last 7 days"
+                numericValue={stats?.emailsSentThisWeek ?? 0}
+                color="purple"
+                icon={<svg className="w-7 h-7 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>}
+              />
+              <StatCard
+                label="Open Rate" value={`${openRate}%`} sub="Last 7 days"
+                color="yellow"
+                icon={<svg className="w-7 h-7 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>}
+              />
+              <StatCard
+                label="Click Rate" value={`${clickRate}%`} sub="Link clicks"
+                color="green"
+                icon={<svg className="w-7 h-7 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" /></svg>}
+              />
+              <StatCard
+                label="Reply Rate" value={`${stats?.replyRate ?? 0}%`} sub="Last 7 days"
+                color="purple"
+                icon={<svg className="w-7 h-7 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* ── Onboarding ── */}
         {onboarding && <OnboardingChecklist progress={onboarding} />}
@@ -369,6 +424,7 @@ export default function DashboardPage() {
         </div>
 
       </main>
+      </PageTransition>
     </>
   );
 }
