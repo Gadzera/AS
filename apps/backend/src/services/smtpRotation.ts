@@ -9,6 +9,9 @@ import { decrypt } from '../utils/encryption';
 // Round-robin counter per org
 const orgCounters = new Map<string, number>();
 
+// Transporter cache: accountId → nodemailer.Transporter
+const transporterCache = new Map<string, nodemailer.Transporter>();
+
 export async function getNextSmtpAccount(orgId: string): Promise<SmtpAccount | null> {
   const accounts = await prisma.smtpAccount.findMany({
     where: { orgId, active: true },
@@ -24,12 +27,25 @@ export async function getNextSmtpAccount(orgId: string): Promise<SmtpAccount | n
 }
 
 export function buildTransporter(account: SmtpAccount): nodemailer.Transporter {
-  return nodemailer.createTransport({
+  const cached = transporterCache.get(account.id);
+  if (cached) return cached;
+
+  const t = nodemailer.createTransport({
     host:   account.host,
     port:   account.port,
     secure: account.port === 465,
     auth:   { user: account.user, pass: decrypt(account.pass) },
+    pool:   true,
+    maxConnections: 5,
+    maxMessages:    100,
   });
+  transporterCache.set(account.id, t);
+  return t;
+}
+
+export function invalidateTransporterCache(accountId: string): void {
+  const t = transporterCache.get(accountId);
+  if (t) { (t as any).close?.(); transporterCache.delete(accountId); }
 }
 
 export async function sendViaAccount(

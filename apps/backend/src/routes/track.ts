@@ -9,11 +9,20 @@ const PIXEL = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBR
 
 // GET /api/track/open/:messageId — tracking pixel
 router.get('/open/:messageId', async (req: Request, res: Response) => {
+  res.set({
+    'Content-Type': 'image/gif',
+    'Content-Length': PIXEL.length,
+    'Cache-Control': 'no-store, no-cache, must-revalidate, private',
+    Pragma: 'no-cache',
+  });
+  res.send(PIXEL);
+
+  // Record open asynchronously after response is sent
   prisma.message
     .updateMany({ where: { id: req.params.messageId, openedAt: null }, data: { openedAt: new Date() } })
     .then(result => {
       if (result.count > 0) {
-        prisma.message.findUnique({
+        return prisma.message.findUnique({
           where: { id: req.params.messageId },
           include: { lead: true },
         }).then(msg => {
@@ -25,18 +34,10 @@ router.get('/open/:messageId', async (req: Request, res: Response) => {
               message: { id: msg.id, subject: msg.subject },
             }).catch(() => null);
           }
-        }).catch(() => null);
+        });
       }
     })
-    .catch(() => {});
-
-  res.set({
-    'Content-Type': 'image/gif',
-    'Content-Length': PIXEL.length,
-    'Cache-Control': 'no-store, no-cache, must-revalidate, private',
-    Pragma: 'no-cache',
-  });
-  res.send(PIXEL);
+    .catch(err => console.error('[Track] open error:', err));
 });
 
 // GET /api/track/click/:messageId/:encodedUrl — link click tracking + redirect
@@ -46,20 +47,26 @@ router.get('/click/:messageId/:encodedUrl', async (req: Request, res: Response) 
   let destination = 'https://example.com';
   try {
     destination = Buffer.from(encodedUrl, 'base64url').toString('utf8');
-    // Validate it's a real URL to prevent open-redirect abuse
     const url = new URL(destination);
     if (!['http:', 'https:'].includes(url.protocol)) destination = 'https://example.com';
   } catch {
     destination = 'https://example.com';
   }
 
-  // Record click (non-blocking, run both updates in parallel)
-  Promise.all([
-    prisma.message.updateMany({ where: { id: messageId, clickedAt: null }, data: { clickedAt: new Date() } }),
-    prisma.message.update({ where: { id: messageId }, data: { clicks: { increment: 1 } } }),
-  ]).catch(() => {});
-
   res.redirect(302, destination);
+
+  // Atomically record click after redirect sent
+  prisma.$transaction(async (tx) => {
+    const updated = await tx.message.updateMany({
+      where: { id: messageId, clickedAt: null },
+      data: { clickedAt: new Date() },
+    });
+    await tx.message.update({
+      where: { id: messageId },
+      data: { clicks: { increment: 1 } },
+    });
+    return updated.count;
+  }).catch(err => console.error('[Track] click error:', err));
 });
 
 // GET /api/track/unsubscribe/:token — one-click unsubscribe

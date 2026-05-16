@@ -3,7 +3,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 
 import { authenticate, requireOrg } from '../middleware/auth';
-import { verifySmtpAccount } from '../services/smtpRotation';
+import { verifySmtpAccount, invalidateTransporterCache } from '../services/smtpRotation';
 import { encrypt } from '../utils/encryption';
 import { updateOnboardingStep } from '../services/onboarding';
 
@@ -101,6 +101,7 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
     });
     if (!account) { res.status(404).json({ error: 'Not found' }); return; }
     await prisma.smtpAccount.delete({ where: { id: req.params.id } });
+    invalidateTransporterCache(req.params.id);
     res.json({ success: true });
   } catch (err) { next(err); }
 });
