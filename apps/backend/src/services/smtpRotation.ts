@@ -6,11 +6,16 @@ import { decrypt } from '../utils/encryption';
 
 
 
-// Round-robin counter per org
+// Round-robin counter per org (wraps at 1M to avoid unbounded growth)
 const orgCounters = new Map<string, number>();
 
-// Transporter cache: accountId → nodemailer.Transporter
-const transporterCache = new Map<string, nodemailer.Transporter>();
+// Transporter cache with 1-hour TTL to prevent stale TCP connections
+interface CachedTransporter {
+  t: nodemailer.Transporter;
+  expiresAt: number;
+}
+const transporterCache = new Map<string, CachedTransporter>();
+const TRANSPORTER_TTL_MS = 60 * 60_000; // 1 hour
 
 export async function getNextSmtpAccount(orgId: string): Promise<SmtpAccount | null> {
   const accounts = await prisma.smtpAccount.findMany({
@@ -22,13 +27,21 @@ export async function getNextSmtpAccount(orgId: string): Promise<SmtpAccount | n
 
   const idx = orgCounters.get(orgId) ?? 0;
   const account = accounts[idx % accounts.length];
-  orgCounters.set(orgId, idx + 1);
+  orgCounters.set(orgId, (idx + 1) % 1_000_000); // prevent unbounded int growth
   return account;
 }
 
 export function buildTransporter(account: SmtpAccount): nodemailer.Transporter {
+  const now    = Date.now();
   const cached = transporterCache.get(account.id);
-  if (cached) return cached;
+
+  if (cached && cached.expiresAt > now) return cached.t;
+
+  // Close and evict stale/expired transporter
+  if (cached) {
+    (cached.t as any).close?.();
+    transporterCache.delete(account.id);
+  }
 
   const t = nodemailer.createTransport({
     host:   account.host,
@@ -39,13 +52,13 @@ export function buildTransporter(account: SmtpAccount): nodemailer.Transporter {
     maxConnections: 5,
     maxMessages:    100,
   });
-  transporterCache.set(account.id, t);
+  transporterCache.set(account.id, { t, expiresAt: now + TRANSPORTER_TTL_MS });
   return t;
 }
 
 export function invalidateTransporterCache(accountId: string): void {
-  const t = transporterCache.get(accountId);
-  if (t) { (t as any).close?.(); transporterCache.delete(accountId); }
+  const cached = transporterCache.get(accountId);
+  if (cached) { (cached.t as any).close?.(); transporterCache.delete(accountId); }
 }
 
 export async function sendViaAccount(

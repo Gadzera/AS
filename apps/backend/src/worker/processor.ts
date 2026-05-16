@@ -52,6 +52,22 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
   if (cl.campaign.status !== 'ACTIVE') return;
   if (['LOST', 'UNSUBSCRIBED', 'CONVERTED'].includes(cl.status)) return;
 
+  // Optimistic lock: atomically claim this step to prevent double-send when
+  // multiple worker instances pick up the same job simultaneously.
+  // We set nextSendAt 30 min into the future so the scheduler won't re-queue it.
+  const claimed = await prisma.campaignLead.updateMany({
+    where: {
+      id: campaignLeadId,
+      currentStep: cl.currentStep,
+      status: { notIn: ['LOST', 'UNSUBSCRIBED', 'CONVERTED'] },
+    },
+    data: { nextSendAt: new Date(Date.now() + 30 * 60_000) },
+  });
+  if (claimed.count === 0) {
+    console.log(`[Worker] ${campaignLeadId}: already claimed by another worker, skipping`);
+    return;
+  }
+
   const { sequences } = cl.campaign;
   if (sequences.length === 0 || cl.currentStep >= sequences.length) return;
 

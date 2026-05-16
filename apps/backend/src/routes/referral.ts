@@ -9,8 +9,9 @@ import { createNotification } from '../services/onboarding';
 const router = Router();
 
 
-function genCode(orgId: string): string {
-  return orgId.slice(-6).toUpperCase() + randomBytes(3).toString('hex').toUpperCase();
+function genCode(): string {
+  // 12 random bytes = 96 bits of entropy = 2^96 combinations (brute-force infeasible)
+  return randomBytes(12).toString('hex').toUpperCase();
 }
 
 // GET /api/referral/code — get or create referral code for org
@@ -23,7 +24,7 @@ router.get('/code', authenticate, requireOrg, async (req: Request, res: Response
     if (!org.referralCode) {
       org = await prisma.organization.update({
         where: { id: orgId },
-        data: { referralCode: genCode(orgId) },
+        data: { referralCode: genCode() },
       });
     }
 
