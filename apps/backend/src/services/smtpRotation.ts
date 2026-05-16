@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 import { PrismaClient, SmtpAccount } from '@prisma/client';
 import { config } from '../config';
+import { decrypt } from '../utils/encryption';
 
 const prisma = new PrismaClient();
 
@@ -26,7 +27,7 @@ export function buildTransporter(account: SmtpAccount): nodemailer.Transporter {
     host:   account.host,
     port:   account.port,
     secure: account.port === 465,
-    auth:   { user: account.user, pass: account.pass },
+    auth:   { user: account.user, pass: decrypt(account.pass) },
   });
 }
 
