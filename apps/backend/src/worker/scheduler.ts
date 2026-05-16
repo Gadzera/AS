@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma';
+import { createNotification } from '../services/onboarding';
 
 import { outreachQueue, redis } from './queue';
 
@@ -44,6 +45,59 @@ export async function enqueueDueSends(): Promise<void> {
     );
 
     console.log(`[Scheduler] Enqueued ${dueSends.length} outreach jobs`);
+  } finally {
+    await redis.del(lockKey).catch(() => null);
+  }
+}
+
+// Campaign health monitor: auto-pause when bounce rate exceeds threshold
+const BOUNCE_RATE_THRESHOLD = 0.05; // 5%
+const MIN_SENDS_FOR_HEALTH_CHECK = 20; // only check after 20+ sends
+
+export async function checkCampaignHealth(): Promise<void> {
+  const lockKey = 'health:check:lock';
+  const acquired = await redis.set(lockKey, '1', 'PX', 10 * 60_000, 'NX');
+  if (!acquired) return;
+
+  try {
+    const activeCampaigns = await prisma.campaign.findMany({
+      where: { status: 'ACTIVE' },
+      select: { id: true, name: true, orgId: true },
+    });
+
+    for (const campaign of activeCampaigns) {
+      try {
+        const [totalSent, totalBounced] = await Promise.all([
+          prisma.message.count({
+            where: { direction: 'OUTBOUND', lead: { campaignLeads: { some: { campaignId: campaign.id } } }, sentAt: { not: null } },
+          }),
+          prisma.message.count({
+            where: { direction: 'OUTBOUND', bounced: true, lead: { campaignLeads: { some: { campaignId: campaign.id } } } },
+          }),
+        ]);
+
+        if (totalSent < MIN_SENDS_FOR_HEALTH_CHECK) continue;
+
+        const bounceRate = totalBounced / totalSent;
+        if (bounceRate <= BOUNCE_RATE_THRESHOLD) continue;
+
+        await prisma.campaign.update({
+          where: { id: campaign.id },
+          data: { status: 'PAUSED' },
+        });
+
+        createNotification(campaign.orgId, {
+          type: 'CAMPAIGN_PAUSED',
+          title: `Кампания приостановлена: ${campaign.name}`,
+          body: `Процент отказов достиг ${Math.round(bounceRate * 100)}% (порог: ${BOUNCE_RATE_THRESHOLD * 100}%). Проверьте качество базы.`,
+          link: `/campaigns/${campaign.id}`,
+        }).catch(() => null);
+
+        console.log(`[Health] Campaign ${campaign.name} paused — bounce rate ${Math.round(bounceRate * 100)}%`);
+      } catch (err) {
+        console.error('[Health] Error checking campaign:', (err as Error).message);
+      }
+    }
   } finally {
     await redis.del(lockKey).catch(() => null);
   }

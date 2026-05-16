@@ -137,7 +137,7 @@ router.get('/campaign/:id', async (req: Request, res: Response, next: NextFuncti
       return;
     }
 
-    const [totalEnrolled, byStatus, totalSent, totalOpened] = await Promise.all([
+    const [totalEnrolled, byStatus, totalSent, totalOpened, totalClicked, totalBounced] = await Promise.all([
       prisma.campaignLead.count({ where: { campaignId: campaign.id } }),
       prisma.campaignLead.groupBy({ by: ['status'], where: { campaignId: campaign.id }, _count: true }),
       prisma.message.count({
@@ -145,6 +145,12 @@ router.get('/campaign/:id', async (req: Request, res: Response, next: NextFuncti
       }),
       prisma.message.count({
         where: { lead: { campaignLeads: { some: { campaignId: campaign.id } } }, direction: 'OUTBOUND', openedAt: { not: null } },
+      }),
+      prisma.message.count({
+        where: { lead: { campaignLeads: { some: { campaignId: campaign.id } } }, direction: 'OUTBOUND', clickedAt: { not: null } },
+      }),
+      prisma.message.count({
+        where: { lead: { campaignLeads: { some: { campaignId: campaign.id } } }, direction: 'OUTBOUND', bounced: true },
       }),
     ]);
 
@@ -158,7 +164,9 @@ router.get('/campaign/:id', async (req: Request, res: Response, next: NextFuncti
       totalEnrolled,
       statusBreakdown: statusCounts,
       totalMessages: totalSent,
-      openRate: totalSent > 0 ? Math.round((totalOpened / totalSent) * 100) : 0,
+      openRate:   totalSent > 0 ? Math.round((totalOpened  / totalSent) * 100) : 0,
+      clickRate:  totalSent > 0 ? Math.round((totalClicked / totalSent) * 100) : 0,
+      bounceRate: totalSent > 0 ? Math.round((totalBounced / totalSent) * 100) : 0,
       replyRate: totalEnrolled > 0
         ? Math.round(((statusCounts.REPLIED ?? 0) + (statusCounts.HOT ?? 0)) / totalEnrolled * 100)
         : 0,

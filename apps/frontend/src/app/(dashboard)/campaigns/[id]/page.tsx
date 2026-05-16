@@ -183,16 +183,21 @@ export default function CampaignDetailPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Stats */}
           {stats && (
-            <div className="lg:col-span-3 grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="lg:col-span-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
               {[
-                { label: 'Enrolled', value: stats.totalEnrolled },
-                { label: 'Messages Sent', value: stats.totalMessages },
-                { label: 'Reply Rate', value: `${stats.replyRate}%` },
-                { label: 'Open Rate', value: `${stats.openRate}%` },
-              ].map(({ label, value }) => (
+                { label: 'Enrolled',     value: stats.totalEnrolled,          color: '' },
+                { label: 'Sent',         value: stats.totalMessages,          color: '' },
+                { label: 'Open Rate',    value: `${stats.openRate}%`,         color: '' },
+                { label: 'Click Rate',   value: `${stats.clickRate}%`,        color: '' },
+                { label: 'Reply Rate',   value: `${stats.replyRate}%`,        color: '' },
+                { label: 'Bounce Rate',  value: `${stats.bounceRate}%`,       color: stats.bounceRate >= 5 ? 'text-red-400' : stats.bounceRate >= 3 ? 'text-yellow-400' : '' },
+              ].map(({ label, value, color }) => (
                 <Card key={label} padding="sm">
                   <p className="text-xs text-gray-500">{label}</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
+                  <p className={`text-2xl font-bold mt-1 ${color || 'text-white'}`}>{value}</p>
+                  {label === 'Bounce Rate' && stats.bounceRate >= 5 && (
+                    <p className="text-xs text-red-400 mt-1">High — campaign at risk</p>
+                  )}
                 </Card>
               ))}
             </div>
