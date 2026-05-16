@@ -84,34 +84,34 @@ export default function SettingsPage() {
             </CardHeader>
             {loading ? (
               <div className="animate-pulse space-y-2">
-                <div className="h-4 bg-gray-200 rounded w-48" />
-                <div className="h-4 bg-gray-200 rounded w-64" />
+                <div className="skeleton h-4 rounded w-48" />
+                <div className="skeleton h-4 rounded w-64" />
               </div>
             ) : (
               <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div>
                   <dt className="text-gray-500">Name</dt>
-                  <dd className="font-medium text-gray-900">{user?.name}</dd>
+                  <dd className="font-medium text-white">{user?.name}</dd>
                 </div>
                 <div>
                   <dt className="text-gray-500">Email</dt>
-                  <dd className="font-medium text-gray-900">{user?.email}</dd>
+                  <dd className="font-medium text-white">{user?.email}</dd>
                 </div>
                 <div>
                   <dt className="text-gray-500">Organization</dt>
-                  <dd className="font-medium text-gray-900">{user?.org?.name}</dd>
+                  <dd className="font-medium text-white">{user?.org?.name}</dd>
                 </div>
                 <div>
                   <dt className="text-gray-500">Role</dt>
-                  <dd className="font-medium text-gray-900">{user?.role}</dd>
+                  <dd className="font-medium text-white">{user?.role}</dd>
                 </div>
                 <div>
                   <dt className="text-gray-500">Current plan</dt>
-                  <dd className="font-medium text-gray-900">{user?.org?.plan}</dd>
+                  <dd className="font-medium text-white">{user?.org?.plan}</dd>
                 </div>
                 <div>
                   <dt className="text-gray-500">Leads limit</dt>
-                  <dd className="font-medium text-gray-900">{user?.org?.leadsLimit?.toLocaleString()}</dd>
+                  <dd className="font-medium text-white">{user?.org?.leadsLimit?.toLocaleString()}</dd>
                 </div>
               </dl>
             )}
@@ -129,7 +129,7 @@ export default function SettingsPage() {
             </CardHeader>
 
             {subscription && (
-              <div className="mb-6 p-4 bg-gray-50 rounded-lg text-sm">
+              <div className="mb-6 p-4 bg-gray-800/40 rounded-lg text-sm">
                 <p>
                   <span className="text-gray-500">Status:</span>{' '}
                   <span className="font-medium capitalize">{subscription.status}</span>
@@ -152,18 +152,18 @@ export default function SettingsPage() {
                   <div
                     key={plan.id}
                     className={`border-2 rounded-xl p-4 ${
-                      isCurrent ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                      isCurrent ? 'border-brand-500/60 bg-brand-500/10' : 'border-gray-700'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-semibold text-gray-900">{plan.name}</h3>
+                      <h3 className="font-semibold text-white">{plan.name}</h3>
                       {isCurrent && (
-                        <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full">
+                        <span className="text-xs bg-brand-500 text-white px-2 py-0.5 rounded-full">
                           Current
                         </span>
                       )}
                     </div>
-                    <p className="text-2xl font-bold text-gray-900 mb-1">{plan.price}</p>
+                    <p className="text-2xl font-bold text-white mb-1">{plan.price}</p>
                     <ul className="text-xs text-gray-500 space-y-1 mb-4">
                       {plan.features.map((f) => (
                         <li key={f} className="flex items-center gap-1">
@@ -211,7 +211,7 @@ export default function SettingsPage() {
                   className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
                 >
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{item.name}</p>
+                    <p className="text-sm font-medium text-white">{item.name}</p>
                     <p className="text-xs text-gray-400 font-mono">{item.key}</p>
                   </div>
                   <span

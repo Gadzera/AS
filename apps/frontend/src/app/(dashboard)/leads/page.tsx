@@ -129,7 +129,7 @@ export default function LeadsPage() {
               />
             </div>
             <select
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              className="rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/70"
               value={status}
               onChange={(e) => { setStatus(e.target.value); setPage(1); }}
             >
@@ -166,7 +166,7 @@ export default function LeadsPage() {
         {/* Table */}
         <Card padding="md">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-gray-900">
+            <h2 className="font-semibold text-white">
               {total} lead{total !== 1 ? 's' : ''}
             </h2>
           </div>
@@ -183,7 +183,7 @@ export default function LeadsPage() {
 
               {/* Pagination */}
               {pages > 1 && (
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-800">
                   <p className="text-sm text-gray-500">
                     Page {page} of {pages}
                   </p>
@@ -221,21 +221,21 @@ export default function LeadsPage() {
       >
         {generatingOutreach ? (
           <div className="py-8 text-center">
-            <div className="animate-spin w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-3" />
+            <div className="animate-spin w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full mx-auto mb-3" />
             <p className="text-gray-500">Generating personalized message with Claude AI...</p>
           </div>
         ) : (
           <div className="space-y-4">
             {outreachSubject && (
               <div>
-                <label className="text-sm font-medium text-gray-700">Subject</label>
-                <div className="mt-1 p-3 bg-gray-50 rounded-lg text-sm">{outreachSubject}</div>
+                <label className="text-xs font-medium text-gray-400 uppercase tracking-wide">Subject</label>
+                <div className="mt-1.5 p-3 bg-gray-800/60 border border-gray-700/60 rounded-lg text-sm text-gray-200">{outreachSubject}</div>
               </div>
             )}
             <div>
-              <label className="text-sm font-medium text-gray-700">Message</label>
+              <label className="text-xs font-medium text-gray-400 uppercase tracking-wide">Message</label>
               <textarea
-                className="mt-1 w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="mt-1.5 w-full border border-gray-700 bg-gray-900 rounded-lg p-3 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/70 resize-none"
                 rows={12}
                 value={outreachText}
                 onChange={(e) => setOutreachText(e.target.value)}
