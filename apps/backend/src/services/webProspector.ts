@@ -63,6 +63,9 @@ function guessNameFromEmail(email: string): { firstName: string; lastName: strin
 // ─── Стратегия 1: Прямая добыча email со страниц сайта ───────────────────────
 
 async function extractEmailsFromSite(siteUrl: string): Promise<string[]> {
+  // Validate the base URL before constructing sub-paths
+  if (!isPublicUrl(siteUrl)) return [];
+
   const emails = new Set<string>();
   const EMAIL_RE = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
   const paths = ['', '/contact', '/contact-us', '/about', '/team', '/about-us'];
@@ -70,6 +73,8 @@ async function extractEmailsFromSite(siteUrl: string): Promise<string[]> {
   for (const path of paths) {
     try {
       const url = new URL(path, siteUrl).toString();
+      // Re-validate the resolved URL (path traversal could produce internal addr)
+      if (!isPublicUrl(url)) continue;
       const resp = await axios.get<string>(url, {
         timeout: 6_000,
         maxContentLength: 200_000,
@@ -373,6 +378,12 @@ export async function prospectFromWeb(params: {
   return results;
 }
 
+const PLAN_LEAD_LIMITS: Record<string, number> = {
+  STARTER: 500,
+  GROWTH:  5000,
+  AGENCY:  100_000,
+};
+
 export async function importProspectsToOrg(params: {
   orgId:      string;
   campaignId: string | null | undefined;
@@ -382,7 +393,27 @@ export async function importProspectsToOrg(params: {
   let imported = 0;
   let skipped  = 0;
 
-  for (const p of prospects) {
+  // Check org lead limit upfront to avoid wasted iterations
+  const org = await prisma.organization.findUnique({
+    where: { id: orgId },
+    select: { plan: true, leadsLimit: true, bonusLeads: true },
+  });
+  if (!org) return { imported: 0, skipped: prospects.length };
+
+  const planLimit     = PLAN_LEAD_LIMITS[org.plan] ?? 500;
+  const effectiveLimit = Math.max(planLimit, org.leadsLimit) + org.bonusLeads;
+  const currentCount  = await prisma.lead.count({ where: { orgId } });
+  const available     = effectiveLimit - currentCount;
+
+  if (available <= 0) {
+    console.log(`[WebProspector] Org ${orgId} is at lead limit (${currentCount}/${effectiveLimit}), skipping import`);
+    return { imported: 0, skipped: prospects.length };
+  }
+
+  // Only process up to the available slots
+  const toImport = prospects.slice(0, available);
+
+  for (const p of toImport) {
     try {
       if (p.email) {
         const exists = await prisma.lead.findFirst({ where: { orgId, email: p.email } });

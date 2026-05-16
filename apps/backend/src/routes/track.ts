@@ -74,42 +74,57 @@ router.get('/unsubscribe/:token', async (req: Request, res: Response) => {
   const { token } = req.params;
 
   try {
-    const lead = await prisma.lead.findUnique({ where: { unsubscribeToken: token } });
+    const existing = await prisma.lead.findUnique({
+      where: { unsubscribeToken: token },
+      select: { id: true, firstName: true, email: true, status: true, orgId: true, lastName: true, company: true },
+    });
 
-    if (!lead) {
+    if (!existing) {
       res.status(404).send(unsubscribePage('Invalid or expired unsubscribe link.', false));
       return;
     }
 
-    if (lead.status === 'UNSUBSCRIBED') {
-      res.send(unsubscribePage(`${escapeHtml(lead.firstName)}, you're already unsubscribed.`, true));
+    if (existing.status === 'UNSUBSCRIBED') {
+      res.send(unsubscribePage(`${escapeHtml(existing.firstName)}, you're already unsubscribed.`, true));
       return;
     }
 
-    await prisma.lead.update({
-      where: { id: lead.id },
-      data: { status: 'UNSUBSCRIBED' },
-    });
+    // Single atomic transaction: update lead + campaignLeads + log message
+    await prisma.$transaction([
+      prisma.lead.update({
+        where: { id: existing.id },
+        data:  { status: 'UNSUBSCRIBED', unsubscribeToken: null },
+      }),
+      prisma.campaignLead.updateMany({
+        where: { leadId: existing.id, status: { notIn: ['CONVERTED', 'LOST', 'UNSUBSCRIBED'] } },
+        data:  { status: 'UNSUBSCRIBED', nextSendAt: null },
+      }),
+      prisma.message.create({
+        data: {
+          leadId:     existing.id,
+          direction:  'INBOUND',
+          channel:    'EMAIL',
+          subject:    'Unsubscribe',
+          body:       'Lead clicked unsubscribe link',
+          replyClass: 'UNSUBSCRIBE',
+          sentAt:     new Date(),
+        },
+      }),
+    ]);
 
-    await prisma.campaignLead.updateMany({
-      where: { leadId: lead.id, status: { notIn: ['CONVERTED', 'LOST', 'UNSUBSCRIBED'] } },
-      data:  { status: 'UNSUBSCRIBED', nextSendAt: null },
-    });
-
-    await prisma.message.create({
-      data: {
-        leadId:    lead.id,
-        direction: 'INBOUND',
-        channel:   'EMAIL',
-        subject:   'Unsubscribe',
-        body:      'Lead clicked unsubscribe link',
-        replyClass: 'UNSUBSCRIBE',
-        sentAt:    new Date(),
+    // Fire webhook after transaction (non-blocking)
+    fireWebhooks(existing.orgId, {
+      event: 'unsubscribe',
+      timestamp: new Date().toISOString(),
+      lead: {
+        id: existing.id, email: existing.email,
+        firstName: existing.firstName, lastName: existing.lastName,
+        company: existing.company, status: 'UNSUBSCRIBED',
       },
-    });
+    }).catch(() => null);
 
-    console.log(`[Track] Unsubscribed: ${lead.email}`);
-    res.send(unsubscribePage(`${escapeHtml(lead.firstName)}, you've been unsubscribed successfully.`, true));
+    console.log(`[Track] Unsubscribed: ${existing.email}`);
+    res.send(unsubscribePage(`${escapeHtml(existing.firstName)}, you've been unsubscribed successfully.`, true));
   } catch (err) {
     res.status(500).send(unsubscribePage('Something went wrong. Please try again.', false));
   }
