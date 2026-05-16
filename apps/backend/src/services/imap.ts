@@ -223,7 +223,18 @@ async function handleReply(
 }
 
 async function classifyReply(text: string): Promise<'INTERESTED' | 'NOT_INTERESTED' | 'FOLLOW_UP' | 'UNSUBSCRIBE'> {
-  const lower = text.toLowerCase();
+  // Strip quoted content before classification to avoid false positives from original message
+  const clean = text
+    .replace(/^>.*$/gm, '')
+    .replace(/On .+wrote:/gs, '')
+    .replace(/_{10,}.*$/s, '')
+    .trim();
+
+  const lower = clean.toLowerCase();
+
+  // Out-of-office: treat as FOLLOW_UP, don't change lead status
+  if (/out.of.office|i.?m (away|on vacation|on leave)|auto.?reply|автоответ|нет на месте|в отпуске/i.test(lower))
+    return 'FOLLOW_UP';
 
   if (/unsubscribe|remove me|stop email|opt.?out|don.?t (contact|email)|take me off/i.test(lower))
     return 'UNSUBSCRIBE';

@@ -24,11 +24,25 @@ interface CampaignContext {
   targetIndustry?: string | null;
 }
 
+type SupportedLanguage = 'en' | 'ru' | 'de' | 'fr' | 'es' | 'pt' | 'it' | 'nl' | 'pl';
+
+const LANGUAGE_INSTRUCTIONS: Record<SupportedLanguage, string> = {
+  en: 'Write in English.',
+  ru: 'Write in Russian.',
+  de: 'Write in German.',
+  fr: 'Write in French.',
+  es: 'Write in Spanish.',
+  pt: 'Write in Portuguese.',
+  it: 'Write in Italian.',
+  nl: 'Write in Dutch.',
+  pl: 'Write in Polish.',
+};
+
 interface OutreachContext {
   senderName?: string;
   senderTitle?: string;
   senderCompany?: string;
-  language?: 'en' | 'ru' | 'de';
+  language?: SupportedLanguage;
   valueProposition?: string;
   tone?: 'professional' | 'casual' | 'friendly';
   websiteContent?: string;
@@ -66,7 +80,7 @@ export async function generateOutreach(
     context.valueProposition ? `Value proposition: ${context.valueProposition}` : null,
   ].filter(Boolean).join('\n');
 
-  const languageInstruction = { en: 'Write in English.', ru: 'Write in Russian.', de: 'Write in German.' }[language];
+  const languageInstruction = LANGUAGE_INSTRUCTIONS[language as SupportedLanguage] ?? LANGUAGE_INSTRUCTIONS.en;
   const channelInstruction = channel === 'LINKEDIN'
     ? 'This is a LinkedIn connection request / InMail message. Keep it under 300 characters for the connection note, or under 1000 characters for InMail. No formal subject line needed.'
     : 'This is a cold email. Include a compelling subject line and a well-structured body (3-5 short paragraphs).';
@@ -146,10 +160,10 @@ export async function generateAutoReply(params: {
   senderName?: string;
   senderTitle?: string;
   calendlyUrl?: string;
-  language?: 'en' | 'ru' | 'de';
+  language?: SupportedLanguage | string;
 }): Promise<{ subject: string; body: string }> {
   const { leadFirstName, originalMessage, replyFromLead, calendlyUrl, language = 'en' } = params;
-  const languageInstruction = { en: 'Write in English.', ru: 'Write in Russian.', de: 'Write in German.' }[language];
+  const languageInstruction = LANGUAGE_INSTRUCTIONS[language as SupportedLanguage] ?? LANGUAGE_INSTRUCTIONS.en;
   const calendlyLine = calendlyUrl ? `Include this scheduling link: ${calendlyUrl}` : 'Suggest picking a time for a 20-minute call.';
 
   const prompt = `You are an expert B2B SDR. A lead responded positively. Write a short warm reply to book a call.

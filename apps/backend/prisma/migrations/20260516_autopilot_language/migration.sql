@@ -1,0 +1,1 @@
+ALTER TABLE "AutopilotConfig" ADD COLUMN IF NOT EXISTS "language" TEXT NOT NULL DEFAULT 'en';

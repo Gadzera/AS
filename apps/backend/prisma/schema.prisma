@@ -335,6 +335,7 @@ model AutopilotConfig {
   calendlyUrl         String?
   senderName          String?
   senderTitle         String?
+  language            String       @default("en")
   // Задержка перед follow-up (дни)
   followUpDelayDays   Int          @default(3)
   // Счётчики

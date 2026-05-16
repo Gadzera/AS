@@ -34,7 +34,14 @@ export function buildTransporter(account: SmtpAccount): nodemailer.Transporter {
 
 export async function sendViaAccount(
   account: SmtpAccount,
-  opts: { to: string; subject: string; body: string; inReplyTo?: string; references?: string }
+  opts: {
+    to: string;
+    subject: string;
+    body: string;
+    inReplyTo?: string;
+    references?: string;
+    unsubscribeUrl?: string;
+  }
 ): Promise<{ messageId: string }> {
   const transporter = buildTransporter(account);
   const safeName = account.fromName?.replace(/[\r\n"]/g, '') ?? '';
@@ -42,12 +49,23 @@ export async function sendViaAccount(
     ? `"${safeName}" <${account.fromEmail}>`
     : account.fromEmail;
 
+  const extraHeaders: Record<string, string> = {
+    'Precedence': 'bulk',
+    'X-Mailer': 'SDRPlatform/1.0',
+  };
+
+  // Required by Gmail/Yahoo for bulk senders since 2024
+  if (opts.unsubscribeUrl) {
+    extraHeaders['List-Unsubscribe'] = `<${opts.unsubscribeUrl}>`;
+    extraHeaders['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click';
+  }
+
   const info = await transporter.sendMail({
     from,
     to:         opts.to,
     subject:    opts.subject,
     html:       opts.body,
-    // Thread headers — critical for Gmail/Outlook threading
+    headers:    extraHeaders,
     ...(opts.inReplyTo && { inReplyTo: opts.inReplyTo }),
     ...(opts.references && { references: opts.references }),
   });

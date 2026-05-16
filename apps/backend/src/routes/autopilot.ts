@@ -19,6 +19,7 @@ const configSchema = z.object({
   calendlyUrl:         z.string().url().max(500).optional().nullable(),
   senderName:          z.string().max(100).optional().nullable(),
   senderTitle:         z.string().max(100).optional().nullable(),
+  language:            z.enum(['en', 'ru', 'de', 'fr', 'es', 'pt', 'it', 'nl', 'pl']).optional(),
   followUpDelayDays:   z.number().int().min(1).max(30).optional(),
 });
 

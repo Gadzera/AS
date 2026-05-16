@@ -30,7 +30,7 @@ export async function handleInterestedReply(params: {
       senderName:  autopilot.senderName  ?? undefined,
       senderTitle: autopilot.senderTitle ?? undefined,
       calendlyUrl: autopilot.calendlyUrl ?? undefined,
-      language: 'en',
+      language: autopilot.language ?? 'en',
     });
 
     const smtpAccount = await getNextSmtpAccount(orgId);
@@ -112,7 +112,7 @@ export async function handleFollowUpReply(params: {
       senderName:  autopilot.senderName  ?? undefined,
       senderTitle: autopilot.senderTitle ?? undefined,
       calendlyUrl: autopilot.calendlyUrl ?? undefined,
-      language: 'en',
+      language: autopilot.language ?? 'en',
     });
 
     const messageId = randomUUID();
