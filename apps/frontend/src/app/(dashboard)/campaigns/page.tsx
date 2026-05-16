@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { campaignsApi } from '@/lib/api';
-import type { Campaign } from '@/types';
+import { campaignsApi, analyticsApi } from '@/lib/api';
+import type { Campaign, AnalyticsStats } from '@/types';
 import Topbar from '@/components/layout/Topbar';
 import PageTransition from '@/components/layout/PageTransition';
 import Button from '@/components/ui/Button';
@@ -10,13 +10,16 @@ import Card from '@/components/ui/Card';
 import CampaignCard from '@/components/campaigns/CampaignCard';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
+import { useToast } from '@/components/ui/Toast';
 
 export default function CampaignsPage() {
+  const { error: toastError } = useToast();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [duplicating, setDuplicating] = useState<string | null>(null);
+  const [analyticsStats, setAnalyticsStats] = useState<AnalyticsStats | null>(null);
   const [form, setForm] = useState({
     name: '',
     channel: 'EMAIL' as 'EMAIL' | 'LINKEDIN',
@@ -41,6 +44,7 @@ export default function CampaignsPage() {
 
   useEffect(() => {
     fetchCampaigns();
+    analyticsApi.stats().then(setAnalyticsStats).catch(() => null);
   }, []);
 
   const handleCreate = async () => {
@@ -56,8 +60,7 @@ export default function CampaignsPage() {
       setForm({ name: '', channel: 'EMAIL', targetIndustry: '', targetCountry: '', targetSize: '', dailyLimit: 50, abTestEnabled: false });
       fetchCampaigns();
     } catch (err: any) {
-      const msg = err?.response?.data?.error ?? 'Failed to create campaign';
-      alert(msg);
+      toastError(err?.response?.data?.error ?? 'Failed to create campaign');
     } finally {
       setCreating(false);
     }
@@ -69,7 +72,7 @@ export default function CampaignsPage() {
       await campaignsApi.duplicate(id);
       fetchCampaigns();
     } catch (err: any) {
-      alert(err?.response?.data?.error ?? 'Failed to duplicate');
+      toastError(err?.response?.data?.error ?? 'Failed to duplicate campaign');
     } finally {
       setDuplicating(null);
     }
@@ -79,9 +82,8 @@ export default function CampaignsPage() {
     try {
       await campaignsApi.start(id);
       fetchCampaigns();
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      alert(msg ?? 'Failed to start campaign');
+    } catch (err: any) {
+      toastError(err?.response?.data?.error ?? 'Failed to start campaign');
     }
   };
 
@@ -89,8 +91,8 @@ export default function CampaignsPage() {
     try {
       await campaignsApi.pause(id);
       fetchCampaigns();
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      toastError(err?.response?.data?.error ?? 'Failed to pause campaign');
     }
   };
 
@@ -99,6 +101,23 @@ export default function CampaignsPage() {
       <Topbar title="Campaigns" />
       <PageTransition>
       <main className="flex-1 p-6 overflow-y-auto">
+        {/* ── Stats bar ── */}
+        {analyticsStats && (
+          <div className="flex items-center gap-6 text-sm text-gray-500 mb-6">
+            <span>
+              <span className="text-gray-200 font-medium">{analyticsStats.activeCampaigns}</span> active
+            </span>
+            <span className="text-gray-700">|</span>
+            <span>
+              <span className="text-gray-200 font-medium">{analyticsStats.totalLeads.toLocaleString()}</span> leads enrolled
+            </span>
+            <span className="text-gray-700">|</span>
+            <span>
+              <span className="text-gray-200 font-medium">{analyticsStats.emailsSentThisWeek.toLocaleString()}</span> sent this week
+            </span>
+          </div>
+        )}
+
         <div className="flex items-center justify-between mb-6">
           <p className="text-gray-500">{campaigns.length} campaign{campaigns.length !== 1 ? 's' : ''}</p>
           <Button onClick={() => setShowCreateModal(true)}>

@@ -62,6 +62,11 @@ export default function CampaignCard({ campaign, onStart, onPause, onDuplicate, 
             </Button>
           )
         ) : null}
+        {onDuplicate && (
+          <Button size="sm" variant="ghost" onClick={() => onDuplicate(campaign.id)} disabled={duplicating}>
+            {duplicating ? '...' : 'Duplicate'}
+          </Button>
+        )}
       </div>
     </Card>
   );

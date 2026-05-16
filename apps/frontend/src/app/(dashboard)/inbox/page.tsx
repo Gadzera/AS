@@ -253,7 +253,11 @@ export default function InboxPage() {
                   return (
                     <button
                       key={conv.leadId}
-                      onClick={() => loadThread(conv.leadId)}
+                      onClick={() => {
+                        // On mobile, switch to thread view; on desktop the layout handles it
+                        const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+                        loadThread(conv.leadId, isMobile);
+                      }}
                       className={`w-full text-left p-4 border-b border-gray-800/40 hover:bg-gray-800/30 transition-colors ${
                         selected === conv.leadId ? 'bg-gray-800/50 border-l-2 border-l-brand-500' : ''
                       }`}
@@ -329,6 +333,20 @@ export default function InboxPage() {
               </div>
             ) : thread ? (
               <>
+                {/* Mobile back button */}
+                <div className="md:hidden border-b border-gray-800 px-4 py-2 flex-shrink-0">
+                  <button
+                    onClick={() => setMobileView('list')}
+                    className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-200 transition-colors"
+                    aria-label="Back to conversation list"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                    Back
+                  </button>
+                </div>
+
                 {/* Thread header */}
                 <div className="p-4 border-b border-gray-800/60 flex items-center justify-between bg-gray-900/50 flex-shrink-0">
                   <div className="flex items-center gap-3">
