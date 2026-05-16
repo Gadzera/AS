@@ -95,7 +95,7 @@ export default function CampaignsPage() {
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="h-48 bg-gray-200 rounded-xl animate-pulse" />
+              <div key={i} className="skeleton h-48 rounded-xl" />
             ))}
           </div>
         ) : campaigns.length === 0 ? (
@@ -137,9 +137,9 @@ export default function CampaignsPage() {
           />
 
           <div>
-            <label className="text-sm font-medium text-gray-700">Channel</label>
+            <label className="text-xs font-medium text-gray-400 uppercase tracking-wide">Channel</label>
             <select
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              className="mt-1.5 block w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/70"
               value={form.channel}
               onChange={(e) => setForm({ ...form, channel: e.target.value as 'EMAIL' | 'LINKEDIN' })}
             >
