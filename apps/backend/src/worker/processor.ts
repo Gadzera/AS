@@ -325,6 +325,10 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
   }
 }
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#x27;');
+}
+
 function buildHtmlEmail(
   text: string,
   pixelUrl: string,
@@ -361,15 +365,15 @@ function buildHtmlEmail(
 
   const bodyHtml = parts.join('');
   const imageBlock = personalizedImageUrl
-    ? `<div style="margin:16px 0"><img src="${personalizedImageUrl}" alt="" style="max-width:100%;border-radius:8px"></div>`
+    ? `<div style="margin:16px 0"><img src="${escapeHtml(personalizedImageUrl)}" alt="" style="max-width:100%;border-radius:8px"></div>`
     : '';
 
   return `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.7;color:#333;max-width:600px">
 ${imageBlock}${bodyHtml}
 <br><br>
 <div style="border-top:1px solid #eee;padding-top:12px;margin-top:12px">
-  <a href="${unsubUrl}" style="font-size:11px;color:#999;text-decoration:none">Unsubscribe</a>
+  <a href="${escapeHtml(unsubUrl)}" style="font-size:11px;color:#999;text-decoration:none">Unsubscribe</a>
 </div>
-<img src="${pixelUrl}" width="1" height="1" style="display:none" alt="">
+<img src="${escapeHtml(pixelUrl)}" width="1" height="1" style="display:none" alt="">
 </div>`;
 }

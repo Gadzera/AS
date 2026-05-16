@@ -336,41 +336,41 @@ router.post('/import', async (req: Request, res: Response, next: NextFunction) =
       })).map(l => l.email!.toLowerCase())
     );
 
-    let imported = 0;
-    let skipped  = 0;
     let duplicates = 0;
 
-    for (const row of toImport) {
-      // Skip duplicates
-      if (row.email && existingEmails.has(row.email.toLowerCase())) {
-        duplicates++;
-        continue;
-      }
-
-      const firstName = row.firstName ?? row.email?.split('@')[0] ?? 'Unknown';
-      const lastName  = row.lastName ?? '';
-
-      try {
+    const leadsToCreate = toImport
+      .filter(row => {
+        if (row.email && existingEmails.has(row.email.toLowerCase())) {
+          duplicates++;
+          return false;
+        }
+        return true;
+      })
+      .map(row => {
+        const firstName = row.firstName ?? row.email?.split('@')[0] ?? 'Unknown';
+        const lastName  = row.lastName ?? '';
         const score = scoreLeadLocal({
           title: row.title, company: row.company, companySize: undefined,
           industry: row.industry, country: row.country, email: row.email, linkedinUrl: row.linkedinUrl,
         });
-        await prisma.lead.create({
-          data: {
-            orgId, firstName, lastName,
-            email: row.email || null, linkedinUrl: row.linkedinUrl || null,
-            title: row.title || null, company: row.company || null,
-            industry: row.industry || null, country: row.country || null,
-            city: row.city || null, website: row.website || null,
-            source: 'csv', score,
-            unsubscribeToken: generateUnsubscribeToken(),
-          },
-        });
-        imported++;
-      } catch {
-        skipped++;
-      }
-    }
+        return {
+          orgId, firstName, lastName,
+          email: row.email || null, linkedinUrl: row.linkedinUrl || null,
+          title: row.title || null, company: row.company || null,
+          industry: row.industry || null, country: row.country || null,
+          city: row.city || null, website: row.website || null,
+          source: 'csv', score,
+          unsubscribeToken: generateUnsubscribeToken(),
+        };
+      });
+
+    const result = await prisma.lead.createMany({
+      data: leadsToCreate,
+      skipDuplicates: true,
+    });
+
+    const imported = result.count;
+    const skipped  = leadsToCreate.length - imported;
 
     res.json({
       imported,
