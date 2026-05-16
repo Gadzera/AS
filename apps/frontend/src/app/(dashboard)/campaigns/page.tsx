@@ -123,6 +123,7 @@ export default function CampaignsPage() {
           </div>
         )}
       </main>
+      </PageTransition>
 
       {/* Create Campaign Modal */}
       <Modal
