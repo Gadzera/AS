@@ -30,7 +30,7 @@ const PLANS = [
 const TABS = ['Account', 'Sending', 'Integrations', 'Deliverability', 'Webhooks', 'Billing', 'Referral'] as const;
 type Tab = typeof TABS[number];
 
-interface SmtpAccount { id: string; name: string; fromEmail: string; active: boolean; host: string; port: number; }
+interface SmtpAccount { id: string; name: string; fromEmail: string; active: boolean; host: string; port: number; imapHost?: string | null; imapPort?: number | null; imapUser?: string | null; imapEnabled: boolean; }
 interface Webhook     { id: string; name: string; url: string; events: string[]; active: boolean; }
 interface ReferralInfo { code: string; referrals: number; bonusLeads: number; shareUrl: string; }
 
@@ -45,7 +45,7 @@ export default function SettingsPage() {
   // SMTP accounts
   const [smtpAccounts, setSmtpAccounts] = useState<SmtpAccount[]>([]);
   const [showSmtpModal, setShowSmtpModal] = useState(false);
-  const [smtpForm, setSmtpForm] = useState({ name: '', host: 'smtp.gmail.com', port: 587, user: '', pass: '', fromName: '', fromEmail: '' });
+  const [smtpForm, setSmtpForm] = useState({ name: '', host: 'smtp.gmail.com', port: 587, user: '', pass: '', fromName: '', fromEmail: '', imapHost: '', imapPort: 993, imapUser: '', imapPass: '', imapEnabled: false });
   const [addingSmtp, setAddingSmtp] = useState(false);
 
   // Webhooks
@@ -155,7 +155,7 @@ export default function SettingsPage() {
       const r = await api.get('/smtp');
       setSmtpAccounts(r.data);
       setShowSmtpModal(false);
-      setSmtpForm({ name: '', host: 'smtp.gmail.com', port: 587, user: '', pass: '', fromName: '', fromEmail: '' });
+      setSmtpForm({ name: '', host: 'smtp.gmail.com', port: 587, user: '', pass: '', fromName: '', fromEmail: '', imapHost: '', imapPort: 993, imapUser: '', imapPass: '', imapEnabled: false });
       success('SMTP account added and verified');
     } catch (err: any) {
       toastError(err?.response?.data?.error ?? 'Failed to add account');
@@ -815,7 +815,7 @@ export default function SettingsPage() {
           <Input label="Account name" placeholder="john@acme.com (Gmail)" value={smtpForm.name} onChange={e => setSmtpForm(f => ({ ...f, name: e.target.value }))} />
           <div className="grid grid-cols-2 gap-3">
             <Input label="SMTP Host" placeholder="smtp.gmail.com" value={smtpForm.host} onChange={e => setSmtpForm(f => ({ ...f, host: e.target.value }))} />
-            <Input label="Port" type="number" value={smtpForm.port} onChange={e => setSmtpForm(f => ({ ...f, port: parseInt(e.target.value) || 587 }))} />
+            <Input label="SMTP Port" type="number" value={smtpForm.port} onChange={e => setSmtpForm(f => ({ ...f, port: parseInt(e.target.value) || 587 }))} />
           </div>
           <Input label="Username" placeholder="you@gmail.com" value={smtpForm.user} onChange={e => setSmtpForm(f => ({ ...f, user: e.target.value }))} />
           <Input label="Password / App password" type="password" placeholder="••••••••••••" value={smtpForm.pass} onChange={e => setSmtpForm(f => ({ ...f, pass: e.target.value }))} hint="For Gmail: use App Password, not your Google password" />
@@ -823,6 +823,24 @@ export default function SettingsPage() {
             <Input label="From name" placeholder="John Smith" value={smtpForm.fromName} onChange={e => setSmtpForm(f => ({ ...f, fromName: e.target.value }))} />
             <Input label="From email" placeholder="john@acme.com" value={smtpForm.fromEmail} onChange={e => setSmtpForm(f => ({ ...f, fromEmail: e.target.value }))} />
           </div>
+
+          <div className="border-t border-gray-700 pt-3">
+            <label className="flex items-center gap-2 cursor-pointer mb-3">
+              <input type="checkbox" checked={smtpForm.imapEnabled} onChange={e => setSmtpForm(f => ({ ...f, imapEnabled: e.target.checked }))} className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-brand-500" />
+              <span className="text-sm font-medium text-gray-300">Enable IMAP reply tracking for this account</span>
+            </label>
+            {smtpForm.imapEnabled && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <Input label="IMAP Host" placeholder="imap.gmail.com" value={smtpForm.imapHost} onChange={e => setSmtpForm(f => ({ ...f, imapHost: e.target.value }))} />
+                  <Input label="IMAP Port" type="number" value={smtpForm.imapPort} onChange={e => setSmtpForm(f => ({ ...f, imapPort: parseInt(e.target.value) || 993 }))} />
+                </div>
+                <Input label="IMAP Username" placeholder="Leave blank to use SMTP username" value={smtpForm.imapUser} onChange={e => setSmtpForm(f => ({ ...f, imapUser: e.target.value }))} hint="Leave blank to use SMTP username" />
+                <Input label="IMAP Password" type="password" placeholder="Leave blank to use SMTP password" value={smtpForm.imapPass} onChange={e => setSmtpForm(f => ({ ...f, imapPass: e.target.value }))} hint="Leave blank to use SMTP password" />
+              </div>
+            )}
+          </div>
+
           <div className="flex gap-2 pt-2">
             <Button onClick={handleAddSmtp} loading={addingSmtp} disabled={!smtpForm.user || !smtpForm.pass} className="flex-1">Add & Verify</Button>
             <Button variant="secondary" onClick={() => setShowSmtpModal(false)}>Cancel</Button>

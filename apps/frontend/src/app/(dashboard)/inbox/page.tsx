@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api';
 import Topbar from '@/components/layout/Topbar';
@@ -71,6 +72,7 @@ function timeAgo(dateStr: string): string {
 
 export default function InboxPage() {
   const { success, error: toastError } = useToast();
+  const searchParams = useSearchParams();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [total,    setTotal]    = useState(0);
   const [page,     setPage]     = useState(1);
@@ -134,6 +136,14 @@ export default function InboxPage() {
   };
 
   useEffect(() => { loadConversations(1, filter); }, [filter]);
+
+  // Auto-open thread from ?leadId= URL param (e.g. from HOT_LEAD notification)
+  useEffect(() => {
+    const leadId = searchParams.get('leadId');
+    if (leadId && !selected) {
+      loadThread(leadId);
+    }
+  }, [searchParams]);
 
   const FILTERS = [
     { id: 'all',     label: 'All' },
