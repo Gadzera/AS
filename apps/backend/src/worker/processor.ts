@@ -1,0 +1,162 @@
+import { PrismaClient } from '@prisma/client';
+import { generateOutreach } from '../services/claude';
+import { sendEmail } from '../services/email';
+import { sendLinkedInMessage } from '../services/unipile';
+
+const prisma = new PrismaClient();
+
+export async function processCampaignLead(campaignLeadId: string): Promise<void> {
+  const cl = await prisma.campaignLead.findUnique({
+    where: { id: campaignLeadId },
+    include: {
+      lead: true,
+      campaign: {
+        include: { sequences: { orderBy: { stepNumber: 'asc' } } },
+      },
+    },
+  });
+
+  if (!cl) {
+    console.warn(`[Worker] CampaignLead ${campaignLeadId} not found`);
+    return;
+  }
+
+  if (cl.campaign.status !== 'ACTIVE') return;
+
+  if (['LOST', 'UNSUBSCRIBED', 'CONVERTED'].includes(cl.status)) return;
+
+  const { sequences } = cl.campaign;
+  if (sequences.length === 0 || cl.currentStep >= sequences.length) return;
+
+  // Enforce daily send limit per campaign
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const sentToday = await prisma.message.count({
+    where: {
+      sentAt: { gte: todayStart },
+      direction: 'OUTBOUND',
+      lead: { campaignLeads: { some: { campaignId: cl.campaignId } } },
+    },
+  });
+
+  if (sentToday >= cl.campaign.dailyLimit) {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(9, 0, 0, 0);
+    await prisma.campaignLead.update({
+      where: { id: campaignLeadId },
+      data: { nextSendAt: tomorrow },
+    });
+    console.log(`[Worker] Daily limit hit for campaign ${cl.campaignId}, rescheduled to tomorrow`);
+    return;
+  }
+
+  const step = sequences[cl.currentStep];
+  const { lead } = cl;
+
+  if (step.channel === 'EMAIL' && !lead.email) {
+    await prisma.campaignLead.update({
+      where: { id: campaignLeadId },
+      data: { status: 'LOST', nextSendAt: null },
+    });
+    return;
+  }
+
+  if (step.channel === 'LINKEDIN' && !lead.linkedinUrl) {
+    await prisma.campaignLead.update({
+      where: { id: campaignLeadId },
+      data: { status: 'LOST', nextSendAt: null },
+    });
+    return;
+  }
+
+  // Generate message with Claude if no manual body written
+  let subject = step.subject ?? '';
+  let body = step.body ?? '';
+  let aiGenerated = false;
+
+  if (!body || body.trim() === '' || body === 'AI_GENERATE') {
+    const generated = await generateOutreach(
+      {
+        firstName: lead.firstName,
+        lastName: lead.lastName,
+        email: lead.email,
+        title: lead.title,
+        company: lead.company,
+        companySize: lead.companySize,
+        industry: lead.industry,
+        country: lead.country,
+        city: lead.city,
+        website: lead.website,
+        linkedinUrl: lead.linkedinUrl,
+      },
+      {
+        name: cl.campaign.name,
+        channel: step.channel,
+        targetIndustry: cl.campaign.targetIndustry,
+      }
+    );
+    subject = generated.subject;
+    body = generated.body;
+    aiGenerated = true;
+  }
+
+  const now = new Date();
+
+  // Send via the right channel
+  if (step.channel === 'EMAIL') {
+    await sendEmail({ to: lead.email!, subject, body });
+  } else if (step.channel === 'LINKEDIN') {
+    await sendLinkedInMessage({ recipientProfileUrl: lead.linkedinUrl!, message: body });
+  }
+
+  // Record message in DB
+  await prisma.message.create({
+    data: {
+      leadId: lead.id,
+      direction: 'OUTBOUND',
+      channel: step.channel,
+      subject,
+      body,
+      aiGenerated,
+      sentAt: now,
+    },
+  });
+
+  // Update lead status
+  if (lead.status === 'NEW' || lead.status === 'CONTACTED') {
+    await prisma.lead.update({
+      where: { id: lead.id },
+      data: { status: 'CONTACTED' },
+    });
+  }
+
+  // Advance to next step or mark completed
+  const nextStepIndex = cl.currentStep + 1;
+
+  if (nextStepIndex < sequences.length) {
+    const nextStep = sequences[nextStepIndex];
+    const nextSendAt = new Date(now.getTime() + nextStep.delayDays * 24 * 60 * 60 * 1000);
+
+    await prisma.campaignLead.update({
+      where: { id: campaignLeadId },
+      data: { currentStep: nextStepIndex, nextSendAt, status: 'CONTACTED' },
+    });
+
+    console.log(
+      `[Worker] Lead ${lead.id} (${lead.firstName} ${lead.lastName}): ` +
+        `step ${cl.currentStep + 1}/${sequences.length} sent. Next: ${nextSendAt.toISOString()}`
+    );
+  } else {
+    await prisma.campaignLead.update({
+      where: { id: campaignLeadId },
+      data: { status: 'CONVERTED', nextSendAt: null },
+    });
+
+    console.log(
+      `[Worker] Lead ${lead.id} (${lead.firstName} ${lead.lastName}): ` +
+        `all ${sequences.length} steps completed`
+    );
+  }
+}

@@ -7,7 +7,7 @@
     "apps/frontend"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev --workspace=apps/backend\" \"npm run dev --workspace=apps/frontend\"",
+    "dev": "concurrently \"npm run dev --workspace=apps/backend\" \"npm run dev --workspace=apps/frontend\" \"npm run worker:dev --workspace=apps/backend\"",
     "build": "npm run build --workspace=apps/backend && npm run build --workspace=apps/frontend",
     "db:migrate": "npm run db:migrate --workspace=apps/backend",
     "db:generate": "npm run db:generate --workspace=apps/backend",
