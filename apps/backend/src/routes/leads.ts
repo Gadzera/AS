@@ -302,39 +302,43 @@ router.post('/import', async (req: Request, res: Response, next: NextFunction) =
     }
 
     const toImport = rows.slice(0, available);
+
+    // Deduplication: find existing emails in this org
+    const incomingEmails = toImport.map(r => r.email?.toLowerCase()).filter(Boolean) as string[];
+    const existingEmails = new Set(
+      (await prisma.lead.findMany({
+        where: { orgId, email: { in: incomingEmails } },
+        select: { email: true },
+      })).map(l => l.email!.toLowerCase())
+    );
+
     let imported = 0;
-    let skipped = 0;
+    let skipped  = 0;
+    let duplicates = 0;
 
     for (const row of toImport) {
+      // Skip duplicates
+      if (row.email && existingEmails.has(row.email.toLowerCase())) {
+        duplicates++;
+        continue;
+      }
+
       const firstName = row.firstName ?? row.email?.split('@')[0] ?? 'Unknown';
-      const lastName = row.lastName ?? '';
+      const lastName  = row.lastName ?? '';
 
       try {
         const score = scoreLeadLocal({
-          title: row.title,
-          company: row.company,
-          companySize: undefined,
-          industry: row.industry,
-          country: row.country,
-          email: row.email,
-          linkedinUrl: row.linkedinUrl,
+          title: row.title, company: row.company, companySize: undefined,
+          industry: row.industry, country: row.country, email: row.email, linkedinUrl: row.linkedinUrl,
         });
-
         await prisma.lead.create({
           data: {
-            orgId,
-            firstName,
-            lastName,
-            email: row.email || null,
-            linkedinUrl: row.linkedinUrl || null,
-            title: row.title || null,
-            company: row.company || null,
-            industry: row.industry || null,
-            country: row.country || null,
-            city: row.city || null,
-            website: row.website || null,
-            source: 'csv',
-            score,
+            orgId, firstName, lastName,
+            email: row.email || null, linkedinUrl: row.linkedinUrl || null,
+            title: row.title || null, company: row.company || null,
+            industry: row.industry || null, country: row.country || null,
+            city: row.city || null, website: row.website || null,
+            source: 'csv', score,
           },
         });
         imported++;
@@ -346,6 +350,7 @@ router.post('/import', async (req: Request, res: Response, next: NextFunction) =
     res.json({
       imported,
       skipped,
+      duplicates,
       total: rows.length,
       limitReached: rows.length > available,
     });
@@ -428,6 +433,71 @@ router.post('/search/pdl', async (req: Request, res: Response, next: NextFunctio
   } catch (err) {
     next(err);
   }
+});
+
+// POST /api/leads/bulk — bulk operations on multiple leads
+router.post('/bulk', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId  = req.user!.orgId!;
+    const schema = z.object({
+      action:     z.enum(['delete', 'add-to-campaign', 'update-status', 'export']),
+      leadIds:    z.array(z.string()).min(1).max(1000),
+      campaignId: z.string().optional(),
+      status:     z.enum(['NEW', 'CONTACTED', 'REPLIED', 'HOT', 'CONVERTED', 'LOST', 'UNSUBSCRIBED']).optional(),
+    });
+    const { action, leadIds, campaignId, status } = schema.parse(req.body);
+
+    // Verify all leads belong to org
+    const count = await prisma.lead.count({ where: { id: { in: leadIds }, orgId } });
+    if (count === 0) { res.status(400).json({ error: 'No valid leads found' }); return; }
+
+    if (action === 'delete') {
+      await prisma.campaignLead.deleteMany({ where: { leadId: { in: leadIds } } });
+      await prisma.message.deleteMany({ where: { leadId: { in: leadIds } } });
+      const { count: deleted } = await prisma.lead.deleteMany({ where: { id: { in: leadIds }, orgId } });
+      res.json({ deleted });
+      return;
+    }
+
+    if (action === 'update-status') {
+      if (!status) { res.status(400).json({ error: 'status required' }); return; }
+      const { count: updated } = await prisma.lead.updateMany({ where: { id: { in: leadIds }, orgId }, data: { status } });
+      res.json({ updated });
+      return;
+    }
+
+    if (action === 'add-to-campaign') {
+      if (!campaignId) { res.status(400).json({ error: 'campaignId required' }); return; }
+      const campaign = await prisma.campaign.findFirst({
+        where: { id: campaignId, orgId },
+        include: { sequences: { orderBy: { stepNumber: 'asc' }, take: 1 } },
+      });
+      if (!campaign) { res.status(404).json({ error: 'Campaign not found' }); return; }
+      const firstStep  = campaign.sequences[0];
+      const nextSendAt = new Date(Date.now() + (firstStep?.delayDays ?? 0) * 86_400_000);
+      const result = await prisma.campaignLead.createMany({
+        data: leadIds.map(leadId => ({ campaignId, leadId, currentStep: 0, status: 'NEW', nextSendAt })),
+        skipDuplicates: true,
+      });
+      res.json({ added: result.count });
+      return;
+    }
+
+    if (action === 'export') {
+      const leads = await prisma.lead.findMany({
+        where: { id: { in: leadIds }, orgId },
+        select: { firstName: true, lastName: true, email: true, title: true, company: true, industry: true, country: true, city: true, status: true, score: true },
+      });
+      const header = 'firstName,lastName,email,title,company,industry,country,city,status,score\n';
+      const csv    = leads.map(l => Object.values(l).map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="leads.csv"');
+      res.send(header + csv);
+      return;
+    }
+
+    res.status(400).json({ error: 'Unknown action' });
+  } catch (err) { next(err); }
 });
 
 export default router;
