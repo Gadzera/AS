@@ -1,8 +1,9 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
+
 import nodemailer from 'nodemailer';
 import { config } from '../config';
 
-const prisma = new PrismaClient();
+
 
 const ONBOARDING_EMAILS = [
   {

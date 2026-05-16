@@ -10,11 +10,14 @@ export function getToken(): string | null {
 
 export function setToken(token: string): void {
   localStorage.setItem(TOKEN_KEY, token);
+  // Also set a cookie so server-side middleware can verify auth
+  document.cookie = `auth_token=${token}; path=/; SameSite=Strict; max-age=604800`;
 }
 
 export function removeToken(): void {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  document.cookie = 'auth_token=; path=/; max-age=0';
 }
 
 export function getStoredUser(): User | null {

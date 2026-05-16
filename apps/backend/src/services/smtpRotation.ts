@@ -1,9 +1,10 @@
+import { prisma } from '../lib/prisma';
 import nodemailer from 'nodemailer';
 import { PrismaClient, SmtpAccount } from '@prisma/client';
 import { config } from '../config';
 import { decrypt } from '../utils/encryption';
 
-const prisma = new PrismaClient();
+
 
 // Round-robin counter per org
 const orgCounters = new Map<string, number>();

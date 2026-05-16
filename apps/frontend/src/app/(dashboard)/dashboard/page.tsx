@@ -7,7 +7,7 @@ import type { AnalyticsStats } from '@/types';
 import Topbar from '@/components/layout/Topbar';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, BarChart, Bar, Legend,
+  ResponsiveContainer, BarChart, Bar, Cell,
 } from 'recharts';
 
 // ─── Stat Card ───────────────────────────────────────────────────────────────
@@ -291,7 +291,7 @@ export default function DashboardPage() {
                   <Tooltip content={<CustomTooltip />} />
                   <Bar dataKey="count" name="Leads" radius={[4, 4, 0, 0]}>
                     {pipelineData.map((entry, index) => (
-                      <rect key={`bar-${index}`} fill={entry.fill} />
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
                     ))}
                   </Bar>
                 </BarChart>

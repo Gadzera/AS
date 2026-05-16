@@ -1,6 +1,7 @@
+import { prisma } from '../lib/prisma';
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { PrismaClient } from '@prisma/client';
+
 import { authenticate, requireOrg } from '../middleware/auth';
 import { getNextSmtpAccount, sendViaAccount } from '../services/smtpRotation';
 import { getUnsubscribeUrl } from '../utils/unsubscribe';
@@ -10,7 +11,7 @@ import { config } from '../config';
 import nodemailer from 'nodemailer';
 
 const router = Router();
-const prisma = new PrismaClient();
+
 router.use(authenticate, requireOrg);
 
 // GET /api/inbox — conversation list (leads with at least 1 message, sorted by last activity)

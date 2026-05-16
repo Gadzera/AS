@@ -1,12 +1,13 @@
+import { prisma } from '../lib/prisma';
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { PrismaClient } from '@prisma/client';
+
 import { authenticate, requireOrg } from '../middleware/auth';
 import { checkDeliverability } from '../utils/deliverability';
 import { validateEmail } from '../utils/emailValidation';
 
 const router = Router();
-const prisma = new PrismaClient();
+
 router.use(authenticate, requireOrg);
 
 // GET /api/deliverability/check?domain=acme.com

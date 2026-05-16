@@ -1,7 +1,8 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
+
 import { outreachQueue } from './queue';
 
-const prisma = new PrismaClient();
+
 
 export async function enqueueDueSends(): Promise<void> {
   const now = new Date();
