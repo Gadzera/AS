@@ -168,10 +168,10 @@ async function classifyReply(text: string): Promise<'INTERESTED' | 'NOT_INTEREST
   if (/yes|interested|tell me more|sounds good|let.?s chat|schedule|book|demo|call|meeting|pricing|how much|love to/i.test(lower))
     return 'INTERESTED';
 
-  // Use Claude Haiku for ambiguous replies (fast + cheap)
+  // Use LLM for ambiguous replies
   try {
     const { default: Anthropic } = await import('@anthropic-ai/sdk');
-    const client = new Anthropic({ apiKey: config.anthropic.apiKey });
+    const client = new Anthropic({ apiKey: config.ai.apiKey });
     const resp = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 10,

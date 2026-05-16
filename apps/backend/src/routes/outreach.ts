@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
 import { authenticate, requireOrg } from '../middleware/auth';
-import { generateOutreach, classifyReply, generateAutoReply } from '../services/claude';
+import { generateOutreach, classifyReply, generateAutoReply } from '../services/generator';
 import { sendEmail } from '../services/email';
 
 const router = Router();

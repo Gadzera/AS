@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import nodemailer from 'nodemailer';
-import { generateOutreach } from '../services/claude';
+import { generateOutreach } from '../services/generator';
 import { sendLinkedInMessage } from '../services/unipile';
 import { getNextSmtpAccount, sendViaAccount } from '../services/smtpRotation';
 import { fireWebhooks } from '../services/webhooks';
@@ -113,7 +113,7 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
   let aiGenerated = false;
 
   if (!body || body === 'AI_GENERATE') {
-    if (!config.anthropic.apiKey) {
+    if (!config.ai.apiKey) {
       // No API key — use a sensible fallback instead of crashing
       body = `Hi ${lead.firstName},\n\nI came across ${lead.company ?? 'your company'} and wanted to reach out.\n\nWould you be open to a quick 15-minute call?\n\nBest,`;
       subject = subject || `Quick question, ${lead.firstName}`;

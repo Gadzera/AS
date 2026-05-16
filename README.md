@@ -1,20 +1,20 @@
-# AI SDR Agent — B2B Sales Automation SaaS
+# SDR Agent — B2B Sales Automation SaaS
 
 ## Что это такое / What is this
 
-**RU:** AI SDR Agent — это платформа автоматизации B2B продаж, которая использует искусственный интеллект (Claude от Anthropic) для:
-- Поиска и обогащения лидов через Apollo.io
-- Генерации персонализированных email/LinkedIn сообщений
-- Автоматического ведения email-последовательностей
-- Классификации ответов и скоринга лидов
-- Управления кампаниями и аналитики
+**RU:** SDR Agent — это платформа автоматизации B2B продаж, которая:
+- Ищет и обогащает лиды через Apollo.io
+- Генерирует персонализированные email/LinkedIn сообщения
+- Автоматически ведёт email-последовательности
+- Классифицирует ответы и скорит лидов
+- Управляет кампаниями, инбоксом и аналитикой
 
-**EN:** AI SDR Agent is a B2B sales automation platform powered by Claude AI that:
+**EN:** SDR Agent is a B2B sales automation platform that:
 - Finds and enriches leads via Apollo.io
 - Generates personalized email/LinkedIn outreach messages
 - Automates email sequence campaigns
 - Classifies replies and scores leads
-- Provides campaign management and analytics
+- Provides inbox management, campaign analytics, and CRM sync
 
 ---
 
@@ -26,63 +26,50 @@
 | Frontend | Next.js 14 (App Router) + TypeScript + Tailwind CSS |
 | Database | PostgreSQL + Prisma ORM |
 | Auth | JWT + bcrypt |
-| AI | Anthropic Claude (claude-sonnet-4-6) |
-| Email | Nodemailer / SMTP |
+| Message generation | LLM API |
+| Email | Nodemailer / SMTP rotation |
 | Payments | Stripe |
 | Lead Data | Apollo.io API |
 | LinkedIn | Unipile API |
-| Cache | Redis |
+| Queue | BullMQ + Redis |
+| Images | @napi-rs/canvas (self-hosted) |
 
 ---
 
-## Запуск локально / Running Locally
+## Запуск / Running
 
-### 1. Prerequisites
-- Node.js 18+
-- Docker + Docker Compose
-- npm 9+
-
-### 2. Clone & Install
+### One-command start (Docker)
 ```bash
-git clone <repo-url>
-cd ai-sdr-agent
-npm install
-```
-
-### 3. Environment Variables
-```bash
-cp .env.example .env
-# Edit .env with your actual API keys
-```
-
-Required keys:
-- `ANTHROPIC_API_KEY` — from https://console.anthropic.com
-- `APOLLO_API_KEY` — from https://app.apollo.io/#/settings/integrations/api
-- `STRIPE_SECRET_KEY` — from https://dashboard.stripe.com/apikeys
-- `UNIPILE_API_KEY` + `UNIPILE_DSN` — from https://unipile.com
-
-### 4. Start Database
-```bash
+cp apps/backend/.env.example apps/backend/.env
+# Edit apps/backend/.env with your keys
 docker-compose up -d
 ```
 
-### 5. Run Migrations
+Services start automatically:
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:3001
+- PostgreSQL: localhost:5432
+- Redis: localhost:6379
+
+### Local development
 ```bash
+# Prerequisites: Node.js 18+, Docker
+npm install
+docker-compose up -d postgres redis
 npm run db:migrate
 npm run db:generate
-```
-
-### 6. Start Development Servers
-```bash
 npm run dev
 ```
 
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:3001
+### Required environment variables
+- `ANTHROPIC_API_KEY` — message generation
+- `APOLLO_API_KEY` — lead search
+- `STRIPE_SECRET_KEY` — payments
+- `UNIPILE_API_KEY` + `UNIPILE_DSN` — LinkedIn
 
 ---
 
-## API Endpoints Overview
+## API Endpoints
 
 ### Auth
 | Method | Path | Description |
@@ -96,9 +83,10 @@ npm run dev
 |--------|------|-------------|
 | GET | /api/leads | List leads (paginated, filtered) |
 | POST | /api/leads | Create lead manually |
-| GET | /api/leads/:id | Get single lead |
 | PUT | /api/leads/:id | Update lead |
 | DELETE | /api/leads/:id | Delete lead |
+| POST | /api/leads/import | CSV import with deduplication |
+| POST | /api/leads/bulk | Bulk actions (delete/campaign/export) |
 | POST | /api/leads/search | Search via Apollo.io |
 | POST | /api/leads/:id/enrich | Enrich lead data |
 
@@ -107,65 +95,65 @@ npm run dev
 |--------|------|-------------|
 | GET | /api/campaigns | List campaigns |
 | POST | /api/campaigns | Create campaign |
-| GET | /api/campaigns/:id | Get campaign details |
 | PUT | /api/campaigns/:id | Update campaign |
 | DELETE | /api/campaigns/:id | Delete campaign |
 | POST | /api/campaigns/:id/start | Start campaign |
 | POST | /api/campaigns/:id/pause | Pause campaign |
+| POST | /api/campaigns/:id/add-leads | Enroll leads |
 
-### Sequences
+### Inbox
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | /api/sequences/:campaignId | Get sequence steps |
-| POST | /api/sequences/:campaignId | Add step |
-| PUT | /api/sequences/:id | Update step |
-| DELETE | /api/sequences/:id | Delete step |
-
-### Outreach (AI)
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | /api/outreach/generate | Generate AI message |
-| POST | /api/outreach/classify | Classify reply |
+| GET | /api/inbox | Conversation list |
+| GET | /api/inbox/:leadId | Full thread |
+| POST | /api/inbox/:leadId/reply | Send reply |
+| PATCH | /api/inbox/:leadId/status | Update lead status |
 
 ### Analytics
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | /api/analytics/stats | Overview stats |
 | GET | /api/analytics/campaign/:id | Campaign stats |
+| GET | /api/analytics/ab/:campaignId | A/B test results |
 
-### Billing
+### Tracking
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | /api/billing/checkout | Create Stripe checkout |
-| POST | /api/billing/webhook | Stripe webhook handler |
-| GET | /api/billing/subscription | Current subscription |
+| GET | /api/track/open/:messageId | Email open pixel |
+| GET | /api/track/click/:messageId/:url | Click redirect |
+| GET | /api/track/unsubscribe/:token | Unsubscribe handler |
+
+### Personalization
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | /api/personalization/image | Personalized image (public) |
+| POST | /api/personalization/spam-check | Email spam score check |
+
+### CRM
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | /api/crm/status | HubSpot/Pipedrive connection status |
+| POST | /api/crm/sync/:leadId | Sync single lead |
+| POST | /api/crm/sync-batch | Sync all HOT leads |
 
 ---
 
 ## Project Structure
 
 ```
-ai-sdr-agent/
-├── apps/
-│   ├── backend/          # Express + TypeScript API
-│   │   ├── prisma/       # Database schema & migrations
-│   │   └── src/
-│   │       ├── middleware/
-│   │       ├── routes/
-│   │       └── services/
-│   └── frontend/         # Next.js 14 App Router
-│       └── src/
-│           ├── app/       # Pages (App Router)
-│           ├── components/
-│           ├── lib/
-│           └── types/
-├── docker-compose.yml
-├── .env.example
-└── package.json
+apps/
+├── backend/
+│   ├── prisma/         # Schema & migrations
+│   └── src/
+│       ├── config.ts
+│       ├── routes/     # Express routers
+│       ├── services/   # Business logic
+│       ├── utils/      # Helpers
+│       └── worker/     # BullMQ job processor
+└── frontend/
+    └── src/
+        ├── app/        # Next.js App Router pages
+        ├── components/ # Reusable UI components
+        ├── lib/        # API client, auth helpers
+        └── types/      # TypeScript types
 ```
-
----
-
-## License
-
-MIT

@@ -54,7 +54,7 @@ export default function OutreachPage() {
       setResult(res);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
-        ?? 'Failed to generate message. Check your Claude API key.';
+        ?? 'Failed to generate message. Check your API key in settings.';
       setError(msg);
     } finally {
       setGenerating(false);
@@ -73,7 +73,7 @@ export default function OutreachPage() {
 
   return (
     <>
-      <Topbar title="AI Outreach Writer" />
+      <Topbar title="Outreach Writer" />
       <main className="flex-1 p-6 overflow-y-auto">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left: Config */}
@@ -196,7 +196,7 @@ export default function OutreachPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
               </svg>
-              Generate with Claude AI
+              Generate Message
             </Button>
           </div>
 
@@ -235,7 +235,7 @@ export default function OutreachPage() {
               {generating && (
                 <div className="py-16 text-center">
                   <div className="animate-spin w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full mx-auto mb-4" />
-                  <p className="text-gray-500 text-sm">Claude is writing your personalized message...</p>
+                  <p className="text-gray-500 text-sm">Writing your personalized message...</p>
                 </div>
               )}
 
