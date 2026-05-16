@@ -35,14 +35,25 @@ app.use(
   })
 );
 
-// Rate limiting
+// Global rate limit
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 200,
   standardHeaders: true,
   legacyHeaders: false,
 });
 app.use(limiter);
+
+// Stricter limit on auth endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts, try again later' },
+});
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
 
 // Parse raw body for Stripe webhooks BEFORE json middleware
 app.use('/api/billing/webhook', express.raw({ type: 'application/json' }));

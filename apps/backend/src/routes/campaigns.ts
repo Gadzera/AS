@@ -273,6 +273,8 @@ router.delete('/:id/leads/:leadId', async (req: Request, res: Response, next: Ne
     const orgId = req.user!.orgId!;
     const campaign = await prisma.campaign.findFirst({ where: { id: req.params.id, orgId } });
     if (!campaign) { res.status(404).json({ error: 'Not found' }); return; }
+    const leadBelongsToOrg = await prisma.lead.findFirst({ where: { id: req.params.leadId, orgId } });
+    if (!leadBelongsToOrg) { res.status(404).json({ error: 'Lead not found' }); return; }
     await prisma.campaignLead.deleteMany({ where: { campaignId: req.params.id, leadId: req.params.leadId } });
     res.json({ success: true });
   } catch (err) { next(err); }

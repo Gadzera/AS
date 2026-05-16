@@ -23,7 +23,9 @@ export const config = {
   },
 
   jwt: {
-    secret: optional('JWT_SECRET', 'change-me-in-production'),
+    secret: process.env.NODE_ENV === 'production'
+      ? required('JWT_SECRET')
+      : optional('JWT_SECRET', 'dev-only-secret-change-in-production'),
     expiresIn: optional('JWT_EXPIRES_IN', '7d'),
   },
 

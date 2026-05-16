@@ -449,14 +449,15 @@ router.post('/bulk', async (req: Request, res: Response, next: NextFunction) => 
     });
     const { action, leadIds, campaignId, status } = schema.parse(req.body);
 
-    // Verify all leads belong to org
-    const count = await prisma.lead.count({ where: { id: { in: leadIds }, orgId } });
-    if (count === 0) { res.status(400).json({ error: 'No valid leads found' }); return; }
+    // Fetch only lead IDs that actually belong to this org
+    const ownedLeads = await prisma.lead.findMany({ where: { id: { in: leadIds }, orgId }, select: { id: true } });
+    const ownedIds = ownedLeads.map(l => l.id);
+    if (ownedIds.length === 0) { res.status(400).json({ error: 'No valid leads found' }); return; }
 
     if (action === 'delete') {
-      await prisma.campaignLead.deleteMany({ where: { leadId: { in: leadIds } } });
-      await prisma.message.deleteMany({ where: { leadId: { in: leadIds } } });
-      const { count: deleted } = await prisma.lead.deleteMany({ where: { id: { in: leadIds }, orgId } });
+      await prisma.campaignLead.deleteMany({ where: { leadId: { in: ownedIds } } });
+      await prisma.message.deleteMany({ where: { leadId: { in: ownedIds } } });
+      const { count: deleted } = await prisma.lead.deleteMany({ where: { id: { in: ownedIds }, orgId } });
       res.json({ deleted });
       return;
     }

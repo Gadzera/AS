@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { ZodError } from 'zod';
 
 export interface AppError extends Error {
   statusCode?: number;
@@ -6,20 +7,29 @@ export interface AppError extends Error {
 }
 
 export function errorHandler(
-  err: AppError,
+  err: AppError | ZodError,
   req: Request,
   res: Response,
   next: NextFunction
 ): void {
-  console.error('[Error]', err.message, err.stack);
+  if (err instanceof ZodError) {
+    res.status(400).json({
+      error: 'Validation error',
+      details: err.errors.map(e => ({ field: e.path.join('.'), message: e.message })),
+    });
+    return;
+  }
 
-  const statusCode = err.statusCode ?? 500;
-  const message = err.message || 'Internal Server Error';
+  if (process.env.NODE_ENV !== 'production') {
+    console.error('[Error]', err.message, err.stack);
+  } else {
+    console.error('[Error]', err.message);
+  }
 
-  res.status(statusCode).json({
-    error: message,
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
-  });
+  const statusCode = (err as AppError).statusCode ?? 500;
+  const message = statusCode === 500 ? 'Internal Server Error' : err.message;
+
+  res.status(statusCode).json({ error: message });
 }
 
 export function createError(message: string, statusCode: number): AppError {

@@ -40,10 +40,12 @@ router.post('/sync/:leadId', async (req: Request, res: Response, next: NextFunct
 router.post('/sync-batch', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orgId = req.user!.orgId!;
-    const { status = 'HOT' } = z.object({ status: z.string().optional() }).parse(req.body);
+    const { status = 'HOT' } = z.object({
+      status: z.enum(['NEW', 'CONTACTED', 'REPLIED', 'HOT', 'CONVERTED', 'LOST', 'UNSUBSCRIBED']).optional(),
+    }).parse(req.body);
 
     const leads = await prisma.lead.findMany({
-      where: { orgId, status: status as never },
+      where: { orgId, status },
       take: 500,
     });
 

@@ -36,16 +36,24 @@ router.get('/code', authenticate, requireOrg, async (req: Request, res: Response
   } catch (err) { next(err); }
 });
 
-// POST /api/referral/apply — apply referral code on register (called internally)
-router.post('/apply', async (req: Request, res: Response, next: NextFunction) => {
+// POST /api/referral/apply — authenticated: apply a referral code to the caller's own org
+router.post('/apply', authenticate, requireOrg, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { code, newOrgId } = req.body as { code: string; newOrgId: string };
+    const { code } = req.body as { code: string };
+    if (!code || typeof code !== 'string') { res.status(400).json({ error: 'code required' }); return; }
+
+    const orgId = req.user!.orgId!;
+
+    const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { referredByOrgId: true } });
+    if (org?.referredByOrgId) { res.status(409).json({ error: 'Referral code already applied' }); return; }
+
     const referrer = await prisma.organization.findUnique({ where: { referralCode: code } });
-    if (!referrer) { res.status(404).json({ error: 'Invalid code' }); return; }
+    if (!referrer) { res.status(404).json({ error: 'Invalid referral code' }); return; }
+    if (referrer.id === orgId) { res.status(400).json({ error: 'Cannot apply your own referral code' }); return; }
 
     await prisma.organization.update({
-      where: { id: newOrgId },
-      data: { referredByOrgId: referrer.id, bonusLeads: 200 },
+      where: { id: orgId },
+      data: { referredByOrgId: referrer.id, bonusLeads: { increment: 200 } },
     });
     await prisma.organization.update({
       where: { id: referrer.id },
