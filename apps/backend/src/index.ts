@@ -23,6 +23,7 @@ import inboxRouter from './routes/inbox';
 import templatesRouter from './routes/templates';
 import notificationsRouter from './routes/notifications';
 import referralRouter from './routes/referral';
+import autopilotRouter from './routes/autopilot';
 
 const app = express();
 
@@ -134,6 +135,7 @@ app.use('/api/inbox', inboxRouter);
 app.use('/api/templates', templatesRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/referral', referralRouter);
+app.use('/api/autopilot', autopilotRouter);
 
 // 404 handler
 app.use((_req, res) => {

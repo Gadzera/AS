@@ -95,6 +95,24 @@ export function batchScoreLeads(leads: LeadForScoring[]): number[] {
 }
 
 /**
+ * Synchronous lead scoring without email requirement — used by web prospector
+ * Returns 0-100 score
+ */
+export function scoreLeadSync(params: { title?: string | null; companySize?: string | null; industry?: string | null }): number {
+  let score = 0;
+  const title = (params.title ?? '').toLowerCase();
+  if (['ceo', 'cto', 'coo', 'founder', 'owner'].some(t => title.includes(t))) score += 40;
+  else if (['director', 'head of', 'vp', 'vice president'].some(t => title.includes(t))) score += 30;
+  else if (['manager', 'lead'].some(t => title.includes(t))) score += 20;
+  if (params.companySize) {
+    if (['11-50', '51-200'].includes(params.companySize)) score += 20;
+    else if (['201-500', '501-1000'].includes(params.companySize)) score += 15;
+    else if (['1-10'].includes(params.companySize)) score += 10;
+  }
+  return Math.min(score, 100);
+}
+
+/**
  * Get score color class for display
  */
 export function getScoreColor(score: number): 'green' | 'yellow' | 'red' | 'gray' {

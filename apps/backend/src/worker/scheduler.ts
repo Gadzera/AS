@@ -48,3 +48,44 @@ export async function enqueueDueSends(): Promise<void> {
     await redis.del(lockKey).catch(() => null);
   }
 }
+
+export async function runAutopilotDiscovery(): Promise<void> {
+  const lockKey = 'autopilot:discovery:lock';
+  const lockTtl = 30 * 60_000; // 30 minutes
+
+  const acquired = await redis.set(lockKey, '1', 'PX', lockTtl, 'NX');
+  if (!acquired) return;
+
+  try {
+    const configs = await prisma.autopilotConfig.findMany({
+      where: { enabled: true, targetCampaignId: { not: null } },
+    });
+
+    for (const cfg of configs) {
+      try {
+        // Check that at least 23 hours have passed since the last run
+        if (cfg.lastRunAt) {
+          const hoursSince = (Date.now() - cfg.lastRunAt.getTime()) / 3_600_000;
+          if (hoursSince < 23) continue;
+        }
+
+        await outreachQueue.add(
+          'autopilot-discover',
+          { orgId: cfg.orgId, configId: cfg.id },
+          { attempts: 2, removeOnComplete: true }
+        );
+
+        await prisma.autopilotConfig.update({
+          where: { id: cfg.id },
+          data: { lastRunAt: new Date() },
+        });
+
+        console.log(`[Scheduler] Autopilot discovery queued for org ${cfg.orgId}`);
+      } catch (err) {
+        console.error('[Scheduler] Autopilot error:', (err as Error).message);
+      }
+    }
+  } finally {
+    await redis.del(lockKey).catch(() => null);
+  }
+}

@@ -8,6 +8,7 @@ import { redis } from '../worker/queue';
 import { upsertHubSpotContact } from './hubspot';
 import { upsertPipedriveContact } from './pipedrive';
 import { createNotification, updateOnboardingStep } from './onboarding';
+import { handleInterestedReply, handleFollowUpReply, incrementReplied } from './autopilot';
 
 
 
@@ -196,6 +197,25 @@ async function handleReply(
       title: `Ответ от ${lead.firstName} ${lead.lastName}`,
       body: `${lead.company ?? lead.email} ответил на вашу кампанию.`,
       link: `/inbox?leadId=${lead.id}`,
+    }).catch(() => null);
+  }
+
+  // Autopilot hooks
+  await incrementReplied(lead.orgId).catch(() => null);
+
+  if (replyClass === 'INTERESTED') {
+    await handleInterestedReply({
+      leadId: lead.id,
+      orgId:  lead.orgId,
+      originalMessageBody: original.body ?? '',
+      replyText: replyBody,
+    }).catch(() => null);
+  } else if (replyClass === 'FOLLOW_UP') {
+    await handleFollowUpReply({
+      leadId: lead.id,
+      orgId:  lead.orgId,
+      originalMessageBody: original.body ?? '',
+      replyText: replyBody,
     }).catch(() => null);
   }
 
