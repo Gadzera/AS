@@ -136,6 +136,39 @@ router.get(
   }
 );
 
+// GET /api/billing/usage — current usage vs limits
+router.get('/usage', authenticate, requireOrg, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId = req.user!.orgId!;
+    const org = await prisma.organization.findUnique({
+      where: { id: orgId },
+      select: { plan: true, leadsLimit: true, bonusLeads: true },
+    });
+    if (!org) { res.status(404).json({ error: 'Not found' }); return; }
+
+    const [leadsCount, campaignsCount, activeCampaigns] = await Promise.all([
+      prisma.lead.count({ where: { orgId } }),
+      prisma.campaign.count({ where: { orgId } }),
+      prisma.campaign.count({ where: { orgId, status: 'ACTIVE' } }),
+    ]);
+
+    const PLAN_LIMITS: Record<string, { campaigns: number; leadsLimit: number }> = {
+      STARTER: { campaigns: 3, leadsLimit: 500 },
+      GROWTH: { campaigns: 10, leadsLimit: 5000 },
+      AGENCY: { campaigns: 999, leadsLimit: 100000 },
+    };
+
+    const limits = PLAN_LIMITS[org.plan] ?? PLAN_LIMITS.STARTER;
+    const effectiveLeadLimit = org.leadsLimit + org.bonusLeads;
+
+    res.json({
+      plan: org.plan,
+      leads: { used: leadsCount, limit: effectiveLeadLimit, percent: Math.round(leadsCount / effectiveLeadLimit * 100) },
+      campaigns: { used: campaignsCount, limit: limits.campaigns, active: activeCampaigns },
+    });
+  } catch (err) { next(err); }
+});
+
 // POST /api/billing/webhook — Stripe webhook handler
 router.post(
   '/webhook',

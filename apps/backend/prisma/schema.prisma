@@ -39,6 +39,7 @@ model Organization {
   templates        Template[]
   notifications    Notification[]
   autopilotConfig  AutopilotConfig?
+  tags             Tag[]
   createdAt        DateTime       @default(now())
 }
 
@@ -121,6 +122,7 @@ model Lead {
   notes            String?
   messages         Message[]
   campaignLeads    CampaignLead[]
+  leadTags         LeadTag[]
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 
@@ -321,6 +323,29 @@ model OnboardingProgress {
   firstReply      Boolean  @default(false)
   completedAt     DateTime?
   createdAt       DateTime @default(now())
+}
+
+model Tag {
+  id        String       @id @default(cuid())
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id])
+  name      String
+  color     String       @default("#6366f1")
+  leadTags  LeadTag[]
+  createdAt DateTime     @default(now())
+
+  @@unique([orgId, name])
+  @@index([orgId])
+}
+
+model LeadTag {
+  leadId    String
+  lead      Lead   @relation(fields: [leadId], references: [id])
+  tagId     String
+  tag       Tag    @relation(fields: [tagId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@id([leadId, tagId])
 }
 
 model AutopilotConfig {

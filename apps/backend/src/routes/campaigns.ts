@@ -326,6 +326,48 @@ router.delete('/:id/leads/:leadId', async (req: Request, res: Response, next: Ne
   } catch (err) { next(err); }
 });
 
+// POST /api/campaigns/:id/duplicate
+router.post('/:id/duplicate', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId = req.user!.orgId!;
+    const userId = req.user!.userId;
+
+    const source = await prisma.campaign.findFirst({
+      where: { id: req.params.id, orgId },
+      include: { sequences: true },
+    });
+    if (!source) { res.status(404).json({ error: 'Campaign not found' }); return; }
+
+    const copy = await prisma.campaign.create({
+      data: {
+        orgId, userId,
+        name: `${source.name} (copy)`,
+        status: 'DRAFT',
+        channel: source.channel,
+        targetIndustry: source.targetIndustry,
+        targetCountry:  source.targetCountry,
+        targetSize:     source.targetSize,
+        dailyLimit:     source.dailyLimit,
+        abTestEnabled:  source.abTestEnabled,
+        sequences: {
+          create: source.sequences.map(s => ({
+            stepNumber: s.stepNumber,
+            delayDays:  s.delayDays,
+            subject:    s.subject,
+            body:       s.body,
+            subjectB:   s.subjectB,
+            bodyB:      s.bodyB,
+            channel:    s.channel,
+          })),
+        },
+      },
+      include: { sequences: true },
+    });
+
+    res.status(201).json(copy);
+  } catch (err) { next(err); }
+});
+
 // POST /api/campaigns/:id/pause
 router.post('/:id/pause', async (req: Request, res: Response, next: NextFunction) => {
   try {
