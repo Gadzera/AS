@@ -2,7 +2,8 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
 import { authenticate, requireOrg } from '../middleware/auth';
-import { generateOutreach, classifyReply } from '../services/claude';
+import { generateOutreach, classifyReply, generateAutoReply } from '../services/claude';
+import { sendEmail } from '../services/email';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -164,6 +165,65 @@ router.post('/classify', async (req: Request, res: Response, next: NextFunction)
     }
 
     res.json({ classification });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const autoReplySchema = z.object({
+  messageId: z.string().min(1),
+  replyText: z.string().min(1),
+  senderName: z.string().optional(),
+  senderTitle: z.string().optional(),
+  calendlyUrl: z.string().url().optional(),
+  language: z.enum(['en', 'ru', 'de']).default('en'),
+  send: z.boolean().default(false),
+});
+
+// POST /api/outreach/auto-reply
+// Generate (and optionally send) a reply to an INTERESTED lead
+router.post('/auto-reply', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId = req.user!.orgId!;
+    const data = autoReplySchema.parse(req.body);
+
+    const original = await prisma.message.findUnique({
+      where: { id: data.messageId },
+      include: { lead: true },
+    });
+
+    if (!original || original.lead.orgId !== orgId) {
+      res.status(404).json({ error: 'Message not found' });
+      return;
+    }
+
+    const reply = await generateAutoReply({
+      leadFirstName: original.lead.firstName,
+      originalMessage: original.body,
+      replyFromLead: data.replyText,
+      senderName: data.senderName,
+      senderTitle: data.senderTitle,
+      calendlyUrl: data.calendlyUrl,
+      language: data.language,
+    });
+
+    if (data.send && original.lead.email) {
+      await sendEmail({ to: original.lead.email, subject: reply.subject, body: reply.body });
+
+      await prisma.message.create({
+        data: {
+          leadId: original.lead.id,
+          direction: 'OUTBOUND',
+          channel: 'EMAIL',
+          subject: reply.subject,
+          body: reply.body,
+          aiGenerated: true,
+          sentAt: new Date(),
+        },
+      });
+    }
+
+    res.json(reply);
   } catch (err) {
     next(err);
   }

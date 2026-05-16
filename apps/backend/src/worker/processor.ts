@@ -2,6 +2,9 @@ import { PrismaClient } from '@prisma/client';
 import { generateOutreach } from '../services/claude';
 import { sendEmail } from '../services/email';
 import { sendLinkedInMessage } from '../services/unipile';
+import { scrapeWebsite } from '../utils/scraper';
+import { applySpintax } from '../utils/spintax';
+import { config } from '../config';
 
 const prisma = new PrismaClient();
 
@@ -77,6 +80,9 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
   let aiGenerated = false;
 
   if (!body || body.trim() === '' || body === 'AI_GENERATE') {
+    // Scrape lead's website for personalization context
+    const websiteContent = lead.website ? await scrapeWebsite(lead.website) : null;
+
     const generated = await generateOutreach(
       {
         firstName: lead.firstName,
@@ -95,24 +101,31 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
         name: cl.campaign.name,
         channel: step.channel,
         targetIndustry: cl.campaign.targetIndustry,
-      }
+      },
+      { websiteContent: websiteContent ?? undefined }
     );
     subject = generated.subject;
     body = generated.body;
     aiGenerated = true;
   }
 
+  // Apply spintax variations for deliverability
+  subject = applySpintax(subject);
+  body = applySpintax(body);
+
   const now = new Date();
 
   // Send via the right channel
   if (step.channel === 'EMAIL') {
-    await sendEmail({ to: lead.email!, subject, body });
+    const trackingPixel = `<img src="${config.backend.url}/api/track/open/${message.id}" width="1" height="1" style="display:none" alt="" />`;
+    const htmlBody = `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6">${body.replace(/\n/g, '<br>')}</div>${trackingPixel}`;
+    await sendEmail({ to: lead.email!, subject, body: htmlBody, html: true });
   } else if (step.channel === 'LINKEDIN') {
     await sendLinkedInMessage({ recipientProfileUrl: lead.linkedinUrl!, message: body });
   }
 
-  // Record message in DB
-  await prisma.message.create({
+  // Record message in DB first to get the ID for tracking pixel
+  const message = await prisma.message.create({
     data: {
       leadId: lead.id,
       direction: 'OUTBOUND',
