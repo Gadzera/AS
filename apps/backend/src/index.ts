@@ -13,6 +13,9 @@ import outreachRouter from './routes/outreach';
 import analyticsRouter from './routes/analytics';
 import billingRouter from './routes/billing';
 import trackRouter from './routes/track';
+import smtpRouter from './routes/smtp';
+import webhooksRouter from './routes/webhooks';
+import deliverabilityRouter from './routes/deliverability';
 
 const app = express();
 
@@ -55,6 +58,9 @@ app.use('/api/outreach', outreachRouter);
 app.use('/api/analytics', analyticsRouter);
 app.use('/api/billing', billingRouter);
 app.use('/api/track', trackRouter);
+app.use('/api/smtp', smtpRouter);
+app.use('/api/webhooks', webhooksRouter);
+app.use('/api/deliverability', deliverabilityRouter);
 
 // 404 handler
 app.use((_req, res) => {
