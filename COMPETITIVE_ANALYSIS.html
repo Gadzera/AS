@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI SDR Agent — Competitive Analysis 2025</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0d14; color: #e2e8f0; line-height: 1.6; }
+  .page { max-width: 1200px; margin: 0 auto; padding: 40px 24px; }
+
+  h1 { font-size: 32px; font-weight: 800; background: linear-gradient(135deg, #6366f1, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px; }
+  h2 { font-size: 20px; font-weight: 700; color: #f8fafc; margin: 40px 0 16px; padding-bottom: 8px; border-bottom: 1px solid #1e293b; }
+  .subtitle { color: #64748b; font-size: 14px; margin-bottom: 40px; }
+
+  /* Summary cards */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 40px; }
+  .card { background: #111827; border: 1px solid #1e293b; border-radius: 12px; padding: 20px; }
+  .card .label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #64748b; margin-bottom: 4px; }
+  .card .value { font-size: 28px; font-weight: 800; }
+  .card .desc  { font-size: 12px; color: #64748b; margin-top: 4px; }
+  .green  { color: #4ade80; }
+  .yellow { color: #facc15; }
+  .red    { color: #f87171; }
+  .blue   { color: #60a5fa; }
+  .purple { color: #c084fc; }
+
+  /* Feature matrix table */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { background: #111827; padding: 10px 12px; text-align: left; color: #94a3b8; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; border-bottom: 2px solid #1e293b; position: sticky; top: 0; }
+  tbody tr:nth-child(even) { background: #0f172a; }
+  tbody tr:hover { background: #1e293b; }
+  td { padding: 10px 12px; border-bottom: 1px solid #1e293b; vertical-align: middle; }
+  td:first-child { font-weight: 500; color: #f1f5f9; }
+  td.cat { color: #6366f1; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; background: #1e293b; }
+
+  .check  { color: #4ade80; font-size: 16px; }
+  .cross  { color: #ef4444; font-size: 16px; }
+  .warn   { color: #facc15; font-size: 14px; }
+  .us     { background: linear-gradient(135deg,rgba(99,102,241,.15),rgba(168,85,247,.1)); border-left: 3px solid #6366f1; }
+
+  /* Pricing table */
+  .pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 40px; }
+  .price-card { background: #111827; border: 1px solid #1e293b; border-radius: 12px; padding: 20px; }
+  .price-card.highlight { border-color: #6366f1; box-shadow: 0 0 0 1px #6366f1; }
+  .price-card .company { font-size: 14px; font-weight: 700; color: #f8fafc; margin-bottom: 4px; }
+  .price-card .tagline { font-size: 11px; color: #64748b; margin-bottom: 12px; }
+  .price-card .tiers { space-y: 6px; }
+  .tier { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #1e293b; font-size: 12px; }
+  .tier:last-child { border: none; }
+  .tier-name { color: #94a3b8; }
+  .tier-price { font-weight: 700; color: #f8fafc; }
+
+  /* Action items */
+  .actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+  .action-card { background: #111827; border: 1px solid #1e293b; border-radius: 12px; padding: 20px; }
+  .action-card .priority { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; margin-bottom: 8px; }
+  .p-critical { color: #f87171; }
+  .p-high     { color: #fb923c; }
+  .p-medium   { color: #facc15; }
+  .action-card h3 { font-size: 14px; font-weight: 700; color: #f8fafc; margin-bottom: 6px; }
+  .action-card p  { font-size: 12px; color: #64748b; line-height: 1.5; }
+  .action-card .eta { margin-top: 10px; font-size: 11px; color: #6366f1; font-weight: 600; }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; }
+  .badge-we  { background: rgba(99,102,241,.2); color: #818cf8; border: 1px solid rgba(99,102,241,.3); }
+  .badge-them { background: rgba(100,116,139,.1); color: #94a3b8; border: 1px solid rgba(100,116,139,.2); }
+
+  .section-note { font-size: 12px; color: #64748b; margin-top: 8px; padding: 10px 14px; background: #111827; border-radius: 8px; border-left: 3px solid #6366f1; }
+
+  .footer { margin-top: 60px; padding-top: 24px; border-top: 1px solid #1e293b; font-size: 12px; color: #475569; text-align: center; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>AI SDR Agent — Competitive Analysis</h1>
+  <p class="subtitle">Generated May 2025 · Bootstrapped · 2-person team</p>
+
+  <!-- Summary -->
+  <div class="cards">
+    <div class="card">
+      <div class="label">Market Size</div>
+      <div class="value blue">$4.7B</div>
+      <div class="desc">Sales automation TAM 2025</div>
+    </div>
+    <div class="card">
+      <div class="label">Market Growth</div>
+      <div class="value green">+18%</div>
+      <div class="desc">CAGR through 2030</div>
+    </div>
+    <div class="card">
+      <div class="label">Our Advantages</div>
+      <div class="value purple">8</div>
+      <div class="desc">Features better than competitors</div>
+    </div>
+    <div class="card">
+      <div class="label">Critical Gaps</div>
+      <div class="value yellow">4</div>
+      <div class="desc">Features blocking launch</div>
+    </div>
+    <div class="card">
+      <div class="label">Target Price</div>
+      <div class="value green">$49/mo</div>
+      <div class="desc">vs $97-159 at competitors</div>
+    </div>
+  </div>
+
+  <!-- FEATURE MATRIX -->
+  <h2>Full Feature Matrix</h2>
+  <div style="overflow-x:auto; border-radius:12px; border:1px solid #1e293b;">
+  <table>
+    <thead>
+      <tr>
+        <th style="min-width:220px">Feature</th>
+        <th class="us" style="min-width:110px">🚀 Us</th>
+        <th style="min-width:100px">Instantly</th>
+        <th style="min-width:100px">Smartlead</th>
+        <th style="min-width:100px">Lemlist</th>
+        <th style="min-width:100px">Reply.io</th>
+        <th style="min-width:100px">Apollo</th>
+        <th style="min-width:100px">Saleshandy</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- CORE SENDING -->
+      <tr><td class="cat" colspan="8">Core Email Sending</td></tr>
+      <tr>
+        <td>Multi-step sequences</td>
+        <td class="us"><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+      </tr>
+      <tr>
+        <td>Warm-up ramp-up (limit protection)</td>
+        <td class="us"><span class="check">✓</span> Auto</td>
+        <td><span class="check">✓</span> Manual</td>
+        <td><span class="check">✓</span> Auto</td>
+        <td><span class="warn">~</span> Basic</td>
+        <td><span class="warn">~</span> Basic</td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="warn">~</span></td>
+      </tr>
+      <tr>
+        <td>Email warm-up pool (real mailboxes)</td>
+        <td class="us"><span class="cross">✗</span> <small>Planned</small></td>
+        <td><span class="check">✓</span> 300k+</td>
+        <td><span class="check">✓</span> 50k+</td>
+        <td><span class="check">✓</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+      </tr>
+      <tr>
+        <td>Inbox rotation (multiple SMTP accounts)</td>
+        <td class="us"><span class="cross">✗</span> <small>Planned</small></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="check">✓</span></td>
+      </tr>
+      <tr>
+        <td>Spintax {A|B|C} randomization</td>
+        <td class="us"><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="warn">~</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="check">✓</span></td>
+      </tr>
+      <tr>
+        <td>Open tracking pixel</td>
+        <td class="us"><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+      </tr>
+      <tr>
+        <td>Click tracking</td>
+        <td class="us"><span class="cross">✗</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+      </tr>
+      <tr>
+        <td>Unsubscribe link (auto)</td>
+        <td class="us"><span class="check">✓</span> <small>Just built</small></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+      </tr>
+      <tr>
+        <td>Bounce detection + blacklist</td>
+        <td class="us"><span class="check">✓</span> <small>Just built</small></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+      </tr>
+      <tr>
+        <td>IMAP reply detection (auto-stop)</td>
+        <td class="us"><span class="check">✓</span> <small>Just built</small></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="check">✓</span></td>
+      </tr>
+      <tr>
+        <td>A/B testing (subject lines)</td>
+        <td class="us"><span class="cross">✗</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="check">✓</span></td>
+      </tr>
+
+      <!-- AI -->
+      <tr><td class="cat" colspan="8">AI & Personalization</td></tr>
+      <tr>
+        <td>AI email writing</td>
+        <td class="us"><span class="check green">✓ Claude</span></td>
+        <td><span class="warn">~</span> Templates</td>
+        <td><span class="warn">~</span> GPT-4 basic</td>
+        <td><span class="warn">~</span> Variables</td>
+        <td><span class="warn">~</span> GPT-4 basic</td>
+        <td><span class="warn">~</span> Basic</td>
+        <td><span class="cross">✗</span></td>
+      </tr>
+      <tr>
+        <td>Scrapes prospect's website for context</td>
+        <td class="us"><span class="check green">✓ Unique</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+      </tr>
+      <tr>
+        <td>Auto-classify replies (interested/not/unsub)</td>
+        <td class="us"><span class="check green">✓ Claude</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="check">✓</span> <small>+$39</small></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+      </tr>
+      <tr>
+        <td>AI auto-reply to interested leads</td>
+        <td class="us"><span class="check green">✓ Unique</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="check">✓</span> <small>+$39</small></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+      </tr>
+      <tr>
+        <td>Lead scoring (AI + heuristic)</td>
+        <td class="us"><span class="check green">✓ Unique</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="warn">~</span> Basic</td>
+        <td><span class="cross">✗</span></td>
+      </tr>
+
+      <!-- MULTICHANNEL -->
+      <tr><td class="cat" colspan="8">Multi-Channel Outreach</td></tr>
+      <tr>
+        <td>LinkedIn outreach</td>
+        <td class="us"><span class="check green">✓ Unipile</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="check">✓</span> <small>$99 plan</small></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+      </tr>
+      <tr>
+        <td>Chrome Extension (LinkedIn)</td>
+        <td class="us"><span class="check green">✓</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+      </tr>
+      <tr>
+        <td>Email + LinkedIn in one sequence</td>
+        <td class="us"><span class="check green">✓ Unique</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="check">✓</span> <small>$99</small></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+      </tr>
+
+      <!-- LEADS -->
+      <tr><td class="cat" colspan="8">Lead Database & Enrichment</td></tr>
+      <tr>
+        <td>Built-in lead database</td>
+        <td class="us"><span class="warn">~</span> PDL API</td>
+        <td><span class="check">✓</span> <small>$47/mo add-on</small></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="check green">✓ 275M</span></td>
+        <td><span class="cross">✗</span></td>
+      </tr>
+      <tr>
+        <td>Apollo.io search integration</td>
+        <td class="us"><span class="check green">✓</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+        <td>N/A</td>
+        <td><span class="cross">✗</span></td>
+      </tr>
+      <tr>
+        <td>CSV import (flexible column names)</td>
+        <td class="us"><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+      </tr>
+      <tr>
+        <td>Email validation before send</td>
+        <td class="us"><span class="cross">✗</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="warn">~</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+      </tr>
+
+      <!-- ANALYTICS -->
+      <tr><td class="cat" colspan="8">Analytics & Reporting</td></tr>
+      <tr>
+        <td>Open rate tracking</td>
+        <td class="us"><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+      </tr>
+      <tr>
+        <td>Reply rate analytics</td>
+        <td class="us"><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+      </tr>
+      <tr>
+        <td>7-day chart (sends/replies)</td>
+        <td class="us"><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="warn">~</span></td>
+      </tr>
+      <tr>
+        <td>Bounce / deliverability dashboard</td>
+        <td class="us"><span class="cross">✗</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="warn">~</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="warn">~</span></td>
+      </tr>
+
+      <!-- INTEGRATIONS -->
+      <tr><td class="cat" colspan="8">Integrations & Platform</td></tr>
+      <tr>
+        <td>Zapier / Make integration</td>
+        <td class="us"><span class="cross">✗</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="warn">~</span></td>
+      </tr>
+      <tr>
+        <td>HubSpot / Salesforce CRM sync</td>
+        <td class="us"><span class="cross">✗</span></td>
+        <td><span class="warn">~</span> Zapier</td>
+        <td><span class="warn">~</span> Zapier</td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="warn">~</span></td>
+      </tr>
+      <tr>
+        <td>API access</td>
+        <td class="us"><span class="check">✓</span> REST</td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="warn">~</span></td>
+      </tr>
+      <tr>
+        <td>Multi-user / team seats</td>
+        <td class="us"><span class="check">✓</span> Org model</td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+      </tr>
+      <tr>
+        <td>White label / agency</td>
+        <td class="us"><span class="cross">✗</span></td>
+        <td><span class="check">✓</span> <small>$358 plan</small></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="cross">✗</span></td>
+      </tr>
+
+      <!-- UX -->
+      <tr><td class="cat" colspan="8">UI / UX</td></tr>
+      <tr>
+        <td>Modern dark UI with animations</td>
+        <td class="us"><span class="check green">✓ Best in class</span></td>
+        <td><span class="warn">~</span> Dated</td>
+        <td><span class="warn">~</span> Okay</td>
+        <td><span class="check">✓</span></td>
+        <td><span class="warn">~</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="cross">✗</span> Ugly</td>
+      </tr>
+      <tr>
+        <td>Mobile-friendly</td>
+        <td class="us"><span class="check">✓</span></td>
+        <td><span class="warn">~</span></td>
+        <td><span class="warn">~</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="cross">✗</span></td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="section-note">✓ = Fully implemented &nbsp;|&nbsp; ~ = Partial / basic &nbsp;|&nbsp; ✗ = Not available &nbsp;|&nbsp; <span style="color:#4ade80">Green</span> = We're better than everyone</p>
+
+  <!-- PRICING -->
+  <h2>Pricing Comparison</h2>
+  <div class="pricing-grid">
+    <div class="price-card highlight">
+      <div class="company" style="color:#818cf8">🚀 AI SDR Agent (Us)</div>
+      <div class="tagline">Target pricing — bootstrapped</div>
+      <div class="tiers">
+        <div class="tier"><span class="tier-name">Free</span><span class="tier-price green">$0</span></div>
+        <div class="tier"><span class="tier-name">Starter</span><span class="tier-price green">$29/mo</span></div>
+        <div class="tier"><span class="tier-name">Growth</span><span class="tier-price green">$49/mo</span></div>
+        <div class="tier"><span class="tier-name">Agency</span><span class="tier-price green">$99/mo</span></div>
+      </div>
+    </div>
+    <div class="price-card">
+      <div class="company">Instantly.ai</div>
+      <div class="tagline">$40M ARR, bootstrapped</div>
+      <div class="tiers">
+        <div class="tier"><span class="tier-name">Growth</span><span class="tier-price red">$37/mo</span></div>
+        <div class="tier"><span class="tier-name">Hypergrowth</span><span class="tier-price red">$97/mo</span></div>
+        <div class="tier"><span class="tier-name">Light Speed</span><span class="tier-price red">$358/mo</span></div>
+        <div class="tier"><span class="tier-name">Lead Finder</span><span class="tier-price red">+$47/mo</span></div>
+      </div>
+    </div>
+    <div class="price-card">
+      <div class="company">Smartlead.ai</div>
+      <div class="tagline">Best deliverability</div>
+      <div class="tiers">
+        <div class="tier"><span class="tier-name">Basic</span><span class="tier-price yellow">$39/mo</span></div>
+        <div class="tier"><span class="tier-name">Pro</span><span class="tier-price yellow">$94/mo</span></div>
+        <div class="tier"><span class="tier-name">Custom</span><span class="tier-price yellow">$174/mo</span></div>
+      </div>
+    </div>
+    <div class="price-card">
+      <div class="company">Lemlist</div>
+      <div class="tagline">LinkedIn + Email, images</div>
+      <div class="tiers">
+        <div class="tier"><span class="tier-name">Email Starter</span><span class="tier-price yellow">$39/mo</span></div>
+        <div class="tier"><span class="tier-name">Email Pro</span><span class="tier-price yellow">$69/mo</span></div>
+        <div class="tier"><span class="tier-name">Multichannel</span><span class="tier-price red">$99/mo</span></div>
+        <div class="tier"><span class="tier-name">Scale</span><span class="tier-price red">$159/mo</span></div>
+      </div>
+    </div>
+    <div class="price-card">
+      <div class="company">Reply.io</div>
+      <div class="tagline">AI SDR pioneer</div>
+      <div class="tiers">
+        <div class="tier"><span class="tier-name">Starter</span><span class="tier-price yellow">$60/mo</span></div>
+        <div class="tier"><span class="tier-name">Professional</span><span class="tier-price yellow">$90/mo</span></div>
+        <div class="tier"><span class="tier-name">AI SDR add-on</span><span class="tier-price red">+$39/mo</span></div>
+      </div>
+    </div>
+    <div class="price-card">
+      <div class="company">Saleshandy</div>
+      <div class="tagline">Cheapest with features</div>
+      <div class="tiers">
+        <div class="tier"><span class="tier-name">Outreach Starter</span><span class="tier-price green">$25/mo</span></div>
+        <div class="tier"><span class="tier-name">Pro</span><span class="tier-price yellow">$74/mo</span></div>
+        <div class="tier"><span class="tier-name">Scale</span><span class="tier-price red">$149/mo</span></div>
+      </div>
+    </div>
+  </div>
+  <p class="section-note">Our positioning: same price as Saleshandy ($25-49) but with Claude AI + LinkedIn that nobody at this price point offers. The Lemlist Multichannel plan ($99) is our direct comparison — we should undercut it and win.</p>
+
+  <!-- ACTION ITEMS -->
+  <h2>What We Must Build to Win</h2>
+  <div class="actions">
+    <div class="action-card">
+      <div class="priority p-critical">🔴 Critical — Ship before launch</div>
+      <h3>Email validation before send</h3>
+      <p>Integrate ZeroBounce or Hunter verify API. Check emails before sending. Without this, bounce rate >5% = domain ban within 2 weeks.</p>
+      <div class="eta">⏱ 1 day · $20/mo API cost</div>
+    </div>
+    <div class="action-card">
+      <div class="priority p-critical">🔴 Critical — Ship before launch</div>
+      <h3>Inbox rotation (multiple SMTP)</h3>
+      <p>Allow adding 2-5 sending accounts per campaign. Rotate sends between them. Multiplies daily capacity and reduces per-domain risk.</p>
+      <div class="eta">⏱ 2 days · Free feature</div>
+    </div>
+    <div class="action-card">
+      <div class="priority p-high">🟠 High — Month 1</div>
+      <h3>Deliverability dashboard</h3>
+      <p>SPF/DKIM/DMARC checker. Bounce rate gauge. Domain reputation score. This is what customers ask on first demo call.</p>
+      <div class="eta">⏱ 3 days</div>
+    </div>
+    <div class="action-card">
+      <div class="priority p-high">🟠 High — Month 1</div>
+      <h3>A/B testing for subject lines</h3>
+      <p>Split 50/50 between two subjects. Track which wins. Auto-pick winner after 100 sends. Every competitor has this.</p>
+      <div class="eta">⏱ 1 day</div>
+    </div>
+    <div class="action-card">
+      <div class="priority p-high">🟠 High — Month 2</div>
+      <h3>Zapier webhook integration</h3>
+      <p>Send events (reply, open, bounce) to Zapier. Connects us to 6000+ apps. Required by enterprise buyers and agencies.</p>
+      <div class="eta">⏱ 1 day</div>
+    </div>
+    <div class="action-card">
+      <div class="priority p-medium">🟡 Medium — Month 3</div>
+      <h3>Mini warm-up pool</h3>
+      <p>Our own clients exchange warm-up emails. Start with 100 accounts, grow to 10k. This is the Instantly moat. Long-term build.</p>
+      <div class="eta">⏱ 2 weeks · Requires 50+ clients</div>
+    </div>
+    <div class="action-card">
+      <div class="priority p-medium">🟡 Medium — Month 3</div>
+      <h3>Personalized images (Lemlist feature)</h3>
+      <p>Embed lead's name/company/LinkedIn photo into an image in the email. Dramatically increases reply rates. Lemlist charges $99/mo for this.</p>
+      <div class="eta">⏱ 2 days with Bannerbear API</div>
+    </div>
+    <div class="action-card">
+      <div class="priority p-medium">🟡 Medium — Month 4</div>
+      <h3>HubSpot / Pipedrive native sync</h3>
+      <p>Bi-directional CRM sync. Push replied/interested leads to HubSpot deals. Required for any deal > $100/mo.</p>
+      <div class="eta">⏱ 3 days per CRM</div>
+    </div>
+  </div>
+
+  <!-- GO TO MARKET -->
+  <h2>How to Find First 100 Customers</h2>
+  <div class="actions">
+    <div class="action-card">
+      <div class="priority p-critical">Channel 1</div>
+      <h3>Use the product on ourselves</h3>
+      <p>Run an AI SDR campaign targeting "Head of Sales at SaaS companies, 10-200 employees". Send 50 emails/day. Document results publicly on Twitter/LinkedIn.</p>
+    </div>
+    <div class="action-card">
+      <div class="priority p-high">Channel 2</div>
+      <h3>Cold email communities</h3>
+      <p>Reddit r/sales, r/entrepreneur, Slack groups (Revenue Collective, Sales Hacker). Share honest "we built X, here's the result" posts. No ads, pure organic.</p>
+    </div>
+    <div class="action-card">
+      <div class="priority p-high">Channel 3</div>
+      <h3>ProductHunt launch</h3>
+      <p>Target #1 Product of the Day. Prep 2 weeks in advance. Gather 50 supporters beforehand. One good PH day = 500 signups.</p>
+    </div>
+    <div class="action-card">
+      <div class="priority p-medium">Channel 4</div>
+      <h3>Lemlist/Instantly migration</h3>
+      <p>Target frustrated Instantly users on Twitter/Reddit complaining about price increases. Offer free migration + 3 months at 50% off.</p>
+    </div>
+  </div>
+
+  <div class="footer">
+    AI SDR Agent · Competitive Analysis · May 2025 · Confidential — Internal use only
+  </div>
+</div>
+</body>
+</html>
