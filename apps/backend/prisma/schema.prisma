@@ -46,30 +46,32 @@ model ApiKey {
 
 // Leads
 model Lead {
-  id            String         @id @default(cuid())
-  orgId         String
-  org           Organization   @relation(fields: [orgId], references: [id])
-  firstName     String
-  lastName      String
-  email         String?
-  linkedinUrl   String?
-  title         String?
-  company       String?
-  companySize   String?
-  industry      String?
-  country       String?
-  city          String?
-  website       String?
-  score         Int            @default(0)
-  status        LeadStatus     @default(NEW)
-  source        String? // apollo | csv | manual
-  apolloId      String?
-  enriched      Boolean        @default(false)
-  notes         String?
-  messages      Message[]
-  campaignLeads CampaignLead[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id               String         @id @default(cuid())
+  orgId            String
+  org              Organization   @relation(fields: [orgId], references: [id])
+  firstName        String
+  lastName         String
+  email            String?
+  linkedinUrl      String?
+  title            String?
+  company          String?
+  companySize      String?
+  industry         String?
+  country          String?
+  city             String?
+  website          String?
+  score            Int            @default(0)
+  status           LeadStatus     @default(NEW)
+  source           String?
+  apolloId         String?
+  enriched         Boolean        @default(false)
+  bounced          Boolean        @default(false)
+  unsubscribeToken String?        @unique
+  notes            String?
+  messages         Message[]
+  campaignLeads    CampaignLead[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 }
 
 // Campaigns
@@ -127,7 +129,9 @@ model Message {
   subject     String?
   body        String      @db.Text
   aiGenerated Boolean     @default(false)
-  replyClass  ReplyClass? // interested | not_interested | follow_up | unsubscribe
+  replyClass  ReplyClass?
+  smtpMessageId String?   // SMTP Message-ID header for IMAP reply matching
+  bounced     Boolean     @default(false)
   sentAt      DateTime?
   openedAt    DateTime?
   repliedAt   DateTime?
