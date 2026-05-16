@@ -33,6 +33,7 @@ model Organization {
   apiKeys          ApiKey[]
   smtpAccounts     SmtpAccount[]
   webhooks         Webhook[]
+  templates        Template[]
   createdAt        DateTime      @default(now())
 }
 
@@ -231,4 +232,17 @@ enum EmailValidity {
   INVALID
   DISPOSABLE
   NO_MX
+}
+
+// Reusable email / LinkedIn message templates
+model Template {
+  id        String       @id @default(cuid())
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id])
+  name      String
+  subject   String?
+  body      String       @db.Text
+  channel   Channel      @default(EMAIL)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 }

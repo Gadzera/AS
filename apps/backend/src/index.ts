@@ -19,6 +19,8 @@ import deliverabilityRouter from './routes/deliverability';
 import crmRouter from './routes/crm';
 import bannerbearRouter from './routes/bannerbear';
 import personalizationRouter from './routes/personalization';
+import inboxRouter from './routes/inbox';
+import templatesRouter from './routes/templates';
 
 const app = express();
 
@@ -67,6 +69,8 @@ app.use('/api/deliverability', deliverabilityRouter);
 app.use('/api/crm', crmRouter);
 app.use('/api/bannerbear', bannerbearRouter);
 app.use('/api/personalization', personalizationRouter);
+app.use('/api/inbox', inboxRouter);
+app.use('/api/templates', templatesRouter);
 
 // 404 handler
 app.use((_req, res) => {
