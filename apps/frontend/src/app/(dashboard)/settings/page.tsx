@@ -59,6 +59,42 @@ export default function SettingsPage() {
   const [crmLoading, setCrmLoading]   = useState(false);
   const [syncingAll, setSyncingAll]   = useState(false);
 
+  // Profile editing
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileName, setProfileName]           = useState('');
+  const [savingProfile, setSavingProfile]       = useState(false);
+
+  const [currentPassword, setCurrentPassword]   = useState('');
+  const [newPassword, setNewPassword]           = useState('');
+  const [confirmPassword, setConfirmPassword]   = useState('');
+  const [savingPassword, setSavingPassword]     = useState(false);
+
+  const handleSaveProfile = async () => {
+    if (!profileName.trim()) return;
+    setSavingProfile(true);
+    try {
+      const r = await api.put('/auth/me', { name: profileName.trim() });
+      setUser(prev => prev ? { ...prev, name: r.data.name } : prev);
+      setShowProfileModal(false);
+      success('Profile updated');
+    } catch (err: any) {
+      toastError(err?.response?.data?.error ?? 'Failed to update profile');
+    } finally { setSavingProfile(false); }
+  };
+
+  const handleChangePassword = async () => {
+    if (newPassword !== confirmPassword) { toastError('Passwords do not match'); return; }
+    if (newPassword.length < 8) { toastError('New password must be at least 8 characters'); return; }
+    setSavingPassword(true);
+    try {
+      await api.put('/auth/me', { currentPassword, newPassword });
+      setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
+      success('Password changed');
+    } catch (err: any) {
+      toastError(err?.response?.data?.error ?? 'Failed to change password');
+    } finally { setSavingPassword(false); }
+  };
+
   // Referral
   const [referral, setReferral]       = useState<ReferralInfo | null>(null);
   const [referralLoading, setReferralLoading] = useState(false);
@@ -211,25 +247,77 @@ export default function SettingsPage() {
 
               {/* ACCOUNT */}
               {tab === 'Account' && (
-                <Card padding="md">
-                  <CardHeader><CardTitle>Account</CardTitle></CardHeader>
-                  {loading ? (
-                    <div className="space-y-2"><div className="skeleton h-4 rounded w-48" /><div className="skeleton h-4 rounded w-64" /></div>
-                  ) : (
-                    <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                      {[
-                        ['Name', user?.name], ['Email', user?.email],
-                        ['Organization', user?.org?.name], ['Role', user?.role],
-                        ['Plan', user?.org?.plan], ['Leads limit', user?.org?.leadsLimit?.toLocaleString()],
-                      ].map(([label, val]) => (
-                        <div key={label as string}>
-                          <dt className="text-gray-500 text-xs uppercase tracking-wide">{label}</dt>
-                          <dd className="font-medium text-white mt-0.5">{val ?? '—'}</dd>
-                        </div>
-                      ))}
-                    </dl>
-                  )}
-                </Card>
+                <div className="space-y-4">
+                  <Card padding="md">
+                    <CardHeader>
+                      <CardTitle>Profile</CardTitle>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => { setProfileName(user?.name ?? ''); setShowProfileModal(true); }}
+                        disabled={loading}
+                      >
+                        Edit Profile
+                      </Button>
+                    </CardHeader>
+                    {loading ? (
+                      <div className="space-y-2">
+                        <div className="skeleton h-4 rounded w-48" />
+                        <div className="skeleton h-4 rounded w-64" />
+                      </div>
+                    ) : (
+                      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                        {[
+                          ['Name', user?.name], ['Email', user?.email],
+                          ['Organization', user?.org?.name], ['Role', user?.role],
+                          ['Plan', user?.org?.plan], ['Leads limit', user?.org?.leadsLimit?.toLocaleString()],
+                        ].map(([label, val]) => (
+                          <div key={label as string}>
+                            <dt className="text-gray-500 text-xs uppercase tracking-wide">{label}</dt>
+                            <dd className="font-medium text-white mt-0.5">{val ?? '—'}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    )}
+                  </Card>
+
+                  <Card padding="md">
+                    <CardHeader><CardTitle>Change Password</CardTitle></CardHeader>
+                    <div className="space-y-3 max-w-sm">
+                      <Input
+                        label="Current Password"
+                        type="password"
+                        placeholder="••••••••"
+                        value={currentPassword}
+                        onChange={e => setCurrentPassword(e.target.value)}
+                      />
+                      <Input
+                        label="New Password"
+                        type="password"
+                        placeholder="••••••••"
+                        value={newPassword}
+                        onChange={e => setNewPassword(e.target.value)}
+                        hint="Minimum 8 characters"
+                      />
+                      <Input
+                        label="Confirm New Password"
+                        type="password"
+                        placeholder="••••••••"
+                        value={confirmPassword}
+                        onChange={e => setConfirmPassword(e.target.value)}
+                        error={confirmPassword && newPassword !== confirmPassword ? 'Passwords do not match' : undefined}
+                      />
+                      <Button
+                        size="md"
+                        loading={savingPassword}
+                        disabled={!currentPassword || !newPassword || !confirmPassword}
+                        onClick={handleChangePassword}
+                      >
+                        Update Password
+                      </Button>
+                    </div>
+                  </Card>
+                </div>
               )}
 
               {/* SENDING / SMTP ROTATION */}
@@ -702,6 +790,24 @@ export default function SettingsPage() {
           </AnimatePresence>
         </div>
       </main>
+
+      {/* Edit Profile Modal */}
+      <Modal open={showProfileModal} onClose={() => setShowProfileModal(false)} title="Edit Profile" size="sm">
+        <div className="space-y-4">
+          <Input
+            label="Name"
+            placeholder="Your name"
+            value={profileName}
+            onChange={e => setProfileName(e.target.value)}
+          />
+          <div className="flex gap-2">
+            <Button onClick={handleSaveProfile} loading={savingProfile} disabled={!profileName.trim()} className="flex-1">
+              Save Changes
+            </Button>
+            <Button variant="secondary" onClick={() => setShowProfileModal(false)}>Cancel</Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Add SMTP Modal */}
       <Modal open={showSmtpModal} onClose={() => setShowSmtpModal(false)} title="Add Sending Account" size="md">
