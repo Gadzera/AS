@@ -344,37 +344,98 @@ export default function SettingsPage() {
                     <div className="space-y-2">
                       {smtpAccounts.map((acc, idx) => {
                         const isPrimary = idx === firstActiveIdx;
+                        const result = testResult[acc.id];
                         return (
-                          <div key={acc.id} className="flex items-center justify-between p-3 bg-gray-800/40 rounded-lg border border-gray-700/60">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <p className="text-sm font-medium text-white">{acc.name}</p>
-                                {isPrimary && (
-                                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-500/15 text-brand-400 border border-brand-500/25 font-medium">
-                                    Primary
+                          <div key={acc.id} className="p-3 bg-gray-800/40 rounded-lg border border-gray-700/60">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="text-sm font-medium text-white">{acc.name}</p>
+                                  <button
+                                    title="New accounts are gradually warmed up over 14 days to protect deliverability."
+                                    className="text-gray-600 hover:text-gray-400 transition-colors flex-shrink-0"
+                                    tabIndex={-1}
+                                  >
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                  </button>
+                                  {isPrimary && (
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-500/15 text-brand-400 border border-brand-500/25 font-medium">
+                                      Primary
+                                    </span>
+                                  )}
+                                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium border ${
+                                    acc.imapEnabled
+                                      ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                      : 'bg-gray-800 text-gray-600 border-gray-700'
+                                  }`}>
+                                    IMAP: {acc.imapEnabled ? 'On' : 'Off'}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-0.5">{acc.fromEmail} · {acc.host}:{acc.port}</p>
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                                {result === 'ok' && (
+                                  <span className="flex items-center gap-1 text-xs text-green-400">
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                    </svg>
+                                    OK
                                   </span>
                                 )}
-                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium border ${
-                                  acc.imapEnabled
-                                    ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                                    : 'bg-gray-800 text-gray-600 border-gray-700'
-                                }`}>
-                                  IMAP: {acc.imapEnabled ? 'On' : 'Off'}
-                                </span>
+                                {result === 'fail' && (
+                                  <span className="flex items-center gap-1 text-xs text-red-400">
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                    Failed
+                                  </span>
+                                )}
+                                <button
+                                  onClick={() => handleTest(acc.id)}
+                                  className="text-xs px-2.5 py-1 rounded-full border font-medium transition-colors bg-gray-800 text-gray-400 border-gray-700 hover:text-gray-200 hover:border-gray-500"
+                                >
+                                  Test
+                                </button>
+                                <button
+                                  onClick={() => handleToggleSmtp(acc.id, !acc.active)}
+                                  className={`text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
+                                    acc.active ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-gray-800 text-gray-500 border-gray-700'
+                                  }`}
+                                >
+                                  {acc.active ? 'Active' : 'Paused'}
+                                </button>
+                                <Button size="sm" variant="ghost" onClick={() => handleDeleteSmtp(acc.id)}>Remove</Button>
                               </div>
-                              <p className="text-xs text-gray-500 mt-0.5">{acc.fromEmail} · {acc.host}:{acc.port}</p>
                             </div>
-                            <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-                              <button
-                                onClick={() => handleToggleSmtp(acc.id, !acc.active)}
-                                className={`text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
-                                  acc.active ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-gray-800 text-gray-500 border-gray-700'
-                                }`}
-                              >
-                                {acc.active ? 'Active' : 'Paused'}
-                              </button>
-                              <Button size="sm" variant="ghost" onClick={() => handleDeleteSmtp(acc.id)}>Remove</Button>
-                            </div>
+
+                            {acc.warmup && !acc.warmup.isWarmedUp && (
+                              <div className="mt-3 pt-3 border-t border-gray-800">
+                                <div className="flex justify-between text-xs mb-1.5">
+                                  <span className="text-gray-500">Warm-up: {acc.warmup.phase}</span>
+                                  <span className="text-gray-400">Day {acc.warmup.daysSinceCreation}/14</span>
+                                </div>
+                                <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full bg-gradient-to-r from-brand-500 to-green-500 rounded-full transition-all"
+                                    style={{ width: `${Math.min(acc.warmup.daysSinceCreation / 14 * 100, 100)}%` }}
+                                  />
+                                </div>
+                                <div className="flex justify-between text-xs mt-1 text-gray-600">
+                                  <span>Sent today: {acc.warmup.todaySent}</span>
+                                  <span>This week: {acc.warmup.weekSent}</span>
+                                </div>
+                              </div>
+                            )}
+                            {acc.warmup?.isWarmedUp && (
+                              <div className="mt-2 flex items-center gap-1.5 text-xs text-green-400">
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                </svg>
+                                Account warmed up
+                              </div>
+                            )}
                           </div>
                         );
                       })}
