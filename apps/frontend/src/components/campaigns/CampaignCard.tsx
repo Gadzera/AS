@@ -8,9 +8,11 @@ interface CampaignCardProps {
   campaign: Campaign;
   onStart?: (id: string) => void;
   onPause?: (id: string) => void;
+  onDuplicate?: (id: string) => void;
+  duplicating?: boolean;
 }
 
-export default function CampaignCard({ campaign, onStart, onPause }: CampaignCardProps) {
+export default function CampaignCard({ campaign, onStart, onPause, onDuplicate, duplicating }: CampaignCardProps) {
   const channelIcon = campaign.channel === 'EMAIL' ? '📧' : '💼';
 
   return (

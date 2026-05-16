@@ -34,7 +34,25 @@ type SecondaryTab = typeof SECONDARY_TABS[number];
 const PRIMARY_TABS = ['SMTP', 'CRM', 'Profile'] as const;
 type PrimaryTab = typeof PRIMARY_TABS[number];
 
-interface SmtpAccount { id: string; name: string; fromEmail: string; active: boolean; host: string; port: number; imapHost?: string | null; imapPort?: number | null; imapUser?: string | null; imapEnabled: boolean; }
+interface SmtpAccount {
+  id: string;
+  name: string;
+  fromEmail: string;
+  active: boolean;
+  host: string;
+  port: number;
+  imapHost?: string | null;
+  imapPort?: number | null;
+  imapUser?: string | null;
+  imapEnabled: boolean;
+  warmup?: {
+    daysSinceCreation: number;
+    phase: string;
+    todaySent: number;
+    weekSent: number;
+    isWarmedUp: boolean;
+  };
+}
 interface Webhook     { id: string; name: string; url: string; events: string[]; active: boolean; }
 interface ReferralInfo { code: string; referrals: number; bonusLeads: number; shareUrl: string; }
 
@@ -61,6 +79,7 @@ export default function SettingsPage() {
   const [showSmtpModal, setShowSmtpModal] = useState(false);
   const [smtpForm, setSmtpForm] = useState({ name: '', host: 'smtp.gmail.com', port: 587, user: '', pass: '', fromName: '', fromEmail: '', imapHost: '', imapPort: 993, imapUser: '', imapPass: '', imapEnabled: false });
   const [addingSmtp, setAddingSmtp] = useState(false);
+  const [testResult, setTestResult] = useState<Record<string, 'ok' | 'fail' | null>>({});
 
   // Webhooks
   const [webhooks, setWebhooks] = useState<Webhook[]>([]);
@@ -201,6 +220,17 @@ export default function SettingsPage() {
   const handleToggleSmtp = async (id: string, active: boolean) => {
     await api.put(`/smtp/${id}`, { active });
     setSmtpAccounts(prev => prev.map(a => a.id === id ? { ...a, active } : a));
+  };
+
+  const handleTest = async (id: string) => {
+    setTestResult(prev => ({ ...prev, [id]: null }));
+    try {
+      await api.post(`/smtp/${id}/verify`);
+      setTestResult(prev => ({ ...prev, [id]: 'ok' }));
+    } catch {
+      setTestResult(prev => ({ ...prev, [id]: 'fail' }));
+    }
+    setTimeout(() => setTestResult(prev => ({ ...prev, [id]: null })), 3000);
   };
 
   const handleAddWebhook = async () => {
