@@ -164,6 +164,8 @@ export const analyticsApi = {
   stats: () => api.get<AnalyticsStats>('/analytics/stats').then((r) => r.data),
   campaignStats: (id: string) =>
     api.get<CampaignStats>(`/analytics/campaign/${id}`).then((r) => r.data),
+  abTest: (campaignId: string) =>
+    api.get(`/analytics/ab/${campaignId}`).then((r) => r.data),
 };
 
 // ============ Billing ============

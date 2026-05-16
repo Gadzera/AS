@@ -66,6 +66,12 @@ model SmtpAccount {
   fromName  String?
   fromEmail String
   active    Boolean      @default(true)
+  // IMAP settings for reply polling (optional — if not set, replies are not tracked for this account)
+  imapHost  String?
+  imapPort  Int?
+  imapUser  String?
+  imapPass  String?      // encrypted, same as pass if not set separately
+  imapEnabled Boolean    @default(false)
   // Warm-up tracking
   createdAt DateTime     @default(now())
   messages  Message[]

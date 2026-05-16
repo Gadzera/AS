@@ -12,13 +12,18 @@ const router = Router();
 router.use(authenticate, requireOrg);
 
 const accountSchema = z.object({
-  name:      z.string().min(1),
-  host:      z.string().min(1),
-  port:      z.number().int().default(587),
-  user:      z.string().min(1),
-  pass:      z.string().min(1),
-  fromName:  z.string().optional(),
-  fromEmail: z.string().email(),
+  name:        z.string().min(1),
+  host:        z.string().min(1),
+  port:        z.number().int().default(587),
+  user:        z.string().min(1),
+  pass:        z.string().min(1),
+  fromName:    z.string().optional(),
+  fromEmail:   z.string().email(),
+  imapHost:    z.string().optional().nullable(),
+  imapPort:    z.number().int().optional().nullable(),
+  imapUser:    z.string().optional().nullable(),
+  imapPass:    z.string().optional().nullable(),
+  imapEnabled: z.boolean().optional().default(false),
 });
 
 // GET /api/smtp — list accounts
@@ -27,7 +32,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     const accounts = await prisma.smtpAccount.findMany({
       where: { orgId: req.user!.orgId! },
       orderBy: { createdAt: 'asc' },
-      select: { id: true, name: true, host: true, port: true, fromEmail: true, fromName: true, active: true, createdAt: true },
+      select: { id: true, name: true, host: true, port: true, fromEmail: true, fromName: true, active: true, imapHost: true, imapPort: true, imapUser: true, imapEnabled: true, createdAt: true },
     });
     res.json(accounts);
   } catch (err) { next(err); }
@@ -37,8 +42,14 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data    = accountSchema.parse(req.body);
+    const { imapPass: rawImapPass, ...rest } = data;
     const account = await prisma.smtpAccount.create({
-      data: { ...data, pass: encrypt(data.pass), orgId: req.user!.orgId! },
+      data: {
+        ...rest,
+        pass:     encrypt(data.pass),
+        imapPass: rawImapPass ? encrypt(rawImapPass) : null,
+        orgId:    req.user!.orgId!,
+      },
     });
     // Verify immediately
     const ok = await verifySmtpAccount(account);
@@ -52,18 +63,31 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   } catch (err) { next(err); }
 });
 
-// PUT /api/smtp/:id — toggle active
+// PUT /api/smtp/:id — update account settings (active toggle + IMAP config)
 router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { active } = z.object({ active: z.boolean() }).parse(req.body);
+    const updateSchema = z.object({
+      active:      z.boolean().optional(),
+      imapHost:    z.string().optional().nullable(),
+      imapPort:    z.number().int().optional().nullable(),
+      imapUser:    z.string().optional().nullable(),
+      imapPass:    z.string().optional().nullable(),
+      imapEnabled: z.boolean().optional(),
+    });
+    const data = updateSchema.parse(req.body);
     const account = await prisma.smtpAccount.findFirst({
       where: { id: req.params.id, orgId: req.user!.orgId! },
     });
     if (!account) { res.status(404).json({ error: 'Not found' }); return; }
+
+    const { imapPass: rawImapPass, ...rest } = data;
     const updated = await prisma.smtpAccount.update({
       where: { id: req.params.id },
-      data: { active },
-      select: { id: true, name: true, host: true, port: true, fromEmail: true, fromName: true, active: true },
+      data: {
+        ...rest,
+        ...(rawImapPass !== undefined ? { imapPass: rawImapPass ? encrypt(rawImapPass) : null } : {}),
+      },
+      select: { id: true, name: true, host: true, port: true, fromEmail: true, fromName: true, active: true, imapHost: true, imapPort: true, imapUser: true, imapEnabled: true },
     });
     res.json(updated);
   } catch (err) { next(err); }

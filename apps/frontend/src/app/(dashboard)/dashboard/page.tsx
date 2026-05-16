@@ -130,7 +130,8 @@ export default function DashboardPage() {
   }, []);
 
   const dailyChart = (stats as any)?.dailyChart ?? [];
-  const openRate   = (stats as any)?.openRate ?? 0;
+  const openRate   = (stats as any)?.openRate  ?? 0;
+  const clickRate  = (stats as any)?.clickRate ?? 0;
 
   const pipelineData = stats?.leadsByStatus
     ? Object.entries(stats.leadsByStatus).map(([status, count]) => ({ status, count, fill: statusColors[status] ?? '#6366f1' }))
@@ -149,9 +150,9 @@ export default function DashboardPage() {
       <main className="flex-1 p-6 overflow-y-auto space-y-6">
 
         {/* ── KPI Cards ── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
           {loading ? (
-            [...Array(4)].map((_, i) => <Skeleton key={i} className="h-28" />)
+            [...Array(5)].map((_, i) => <Skeleton key={i} className="h-28" />)
           ) : (<>
             <StatCard
               label="Total Leads" value={stats?.totalLeads?.toLocaleString() ?? '0'}
@@ -164,14 +165,19 @@ export default function DashboardPage() {
               icon={<svg className="w-7 h-7 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>}
             />
             <StatCard
-              label="Open Rate" value={`${openRate}%`} sub="Tracking pixel"
+              label="Open Rate" value={`${openRate}%`} sub="Last 7 days"
               color="yellow"
               icon={<svg className="w-7 h-7 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>}
             />
             <StatCard
-              label="Reply Rate" value={`${stats?.replyRate ?? 0}%`} sub="Last 7 days"
+              label="Click Rate" value={`${clickRate}%`} sub="Link clicks"
               color="green"
-              icon={<svg className="w-7 h-7 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>}
+              icon={<svg className="w-7 h-7 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" /></svg>}
+            />
+            <StatCard
+              label="Reply Rate" value={`${stats?.replyRate ?? 0}%`} sub="Last 7 days"
+              color="purple"
+              icon={<svg className="w-7 h-7 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>}
             />
           </>)}
         </div>

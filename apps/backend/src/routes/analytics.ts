@@ -23,6 +23,7 @@ router.get('/stats', async (req: Request, res: Response, next: NextFunction) => 
       emailsSentThisWeek,
       emailsReplied,
       emailsOpened,
+      emailsClicked,
       recentMessages,
       leadsByStatus,
       last7DaysSent,
@@ -43,6 +44,9 @@ router.get('/stats', async (req: Request, res: Response, next: NextFunction) => 
       }),
       prisma.message.count({
         where: { lead: { orgId }, direction: 'OUTBOUND', openedAt: { not: null }, sentAt: { gte: oneWeekAgo } },
+      }),
+      prisma.message.count({
+        where: { lead: { orgId }, direction: 'OUTBOUND', clickedAt: { not: null }, sentAt: { gte: oneWeekAgo } },
       }),
       prisma.message.findMany({
         where: { lead: { orgId } },
@@ -66,6 +70,8 @@ router.get('/stats', async (req: Request, res: Response, next: NextFunction) => 
       ? Math.round((emailsReplied / emailsSentThisWeek) * 100) : 0;
     const openRate = emailsSentThisWeek > 0
       ? Math.round((emailsOpened / emailsSentThisWeek) * 100) : 0;
+    const clickRate = emailsSentThisWeek > 0
+      ? Math.round((emailsClicked / emailsSentThisWeek) * 100) : 0;
 
     // Build daily chart data for last 7 days
     const dailyMap: Record<string, { sent: number; replies: number }> = {};
@@ -94,6 +100,7 @@ router.get('/stats', async (req: Request, res: Response, next: NextFunction) => 
       emailsSentThisWeek,
       replyRate,
       openRate,
+      clickRate,
       hotLeads,
       dailyChart,
       recentActivity: recentMessages.map((m) => ({

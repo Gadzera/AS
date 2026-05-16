@@ -76,6 +76,7 @@ export interface Campaign {
     email: string;
   };
   sequences?: Sequence[];
+  campaignLeads?: unknown[];
 }
 
 export interface Sequence {

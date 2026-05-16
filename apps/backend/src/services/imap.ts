@@ -1,10 +1,11 @@
 import { prisma } from '../lib/prisma';
-import { ImapFlow, FetchMessageObject } from 'imapflow';
+import { ImapFlow } from 'imapflow';
 import { simpleParser, ParsedMail } from 'mailparser';
 import { Readable } from 'stream';
 
 import { config } from '../config';
 import { redis } from '../worker/queue';
+import { decrypt } from '../utils/encryption';
 import { upsertHubSpotContact } from './hubspot';
 import { upsertPipedriveContact } from './pipedrive';
 import { createNotification, updateOnboardingStep } from './onboarding';
@@ -35,23 +36,19 @@ function normalizeId(id: string): string {
   return id.replace(/[<>]/g, '').trim();
 }
 
-export async function pollInbox(): Promise<void> {
-  if (!config.smtp.user || !config.imap.host) return;
+interface ImapCredentials {
+  host: string;
+  port: number;
+  user: string;
+  pass: string;
+}
 
-  const lockKey = 'imap:poll:lock';
-  const lockTtl = 4 * 60_000 + 50_000; // slightly less than poll interval
-
-  const acquired = await redis.set(lockKey, '1', 'PX', lockTtl, 'NX');
-  if (!acquired) {
-    console.log('[IMAP] Poll already running, skipping');
-    return;
-  }
-
+async function pollSingleInbox(creds: ImapCredentials, label: string): Promise<void> {
   const client = new ImapFlow({
-    host:   config.imap.host,
-    port:   config.imap.port,
-    secure: config.imap.port === 993,
-    auth:   { user: config.smtp.user, pass: config.smtp.pass },
+    host:   creds.host,
+    port:   creds.port,
+    secure: creds.port === 993,
+    auth:   { user: creds.user, pass: creds.pass },
     logger: false,
     connectionTimeout: 30_000,
     greetingTimeout:   15_000,
@@ -87,16 +84,54 @@ export async function pollInbox(): Promise<void> {
           await handleReply(inReplyTo, references, parsed);
         }
       } catch (msgErr) {
-        console.error('[IMAP] Error processing message:', (msgErr as Error).message);
+        console.error(`[IMAP:${label}] Error processing message:`, (msgErr as Error).message);
       } finally {
-        // Always mark as SEEN so it won't be re-processed on the next poll
         await client.messageFlagsAdd({ uid: msg.uid }, ['\\Seen']).catch(() => null);
       }
     }
   } catch (err) {
-    console.error('[IMAP] Poll error:', err instanceof Error ? err.message : String(err));
+    console.error(`[IMAP:${label}] Poll error:`, err instanceof Error ? err.message : String(err));
   } finally {
     await client.logout().catch(() => null);
+  }
+}
+
+export async function pollInbox(): Promise<void> {
+  const lockKey = 'imap:poll:lock';
+  const lockTtl = 4 * 60_000 + 50_000;
+
+  const acquired = await redis.set(lockKey, '1', 'PX', lockTtl, 'NX');
+  if (!acquired) {
+    console.log('[IMAP] Poll already running, skipping');
+    return;
+  }
+
+  try {
+    // 1. Global IMAP (backward-compat for single-tenant setups)
+    if (config.smtp.user && config.imap.host) {
+      await pollSingleInbox(
+        { host: config.imap.host, port: config.imap.port, user: config.smtp.user, pass: config.smtp.pass },
+        'global'
+      );
+    }
+
+    // 2. Per-org SMTP accounts with IMAP enabled
+    const accounts = await prisma.smtpAccount.findMany({
+      where: { imapEnabled: true, active: true },
+      select: { id: true, imapHost: true, imapPort: true, imapUser: true, imapPass: true, user: true, pass: true },
+    });
+
+    for (const account of accounts) {
+      const host = account.imapHost;
+      const port = account.imapPort ?? 993;
+      const user = account.imapUser ?? account.user;
+      const pass = account.imapPass ? decrypt(account.imapPass) : decrypt(account.pass);
+
+      if (!host) continue;
+
+      await pollSingleInbox({ host, port, user, pass }, account.id);
+    }
+  } finally {
     await redis.del(lockKey).catch(() => null);
   }
 }
@@ -108,14 +143,12 @@ async function handleBounce(parsed: ParsedMail): Promise<void> {
 
   const bouncedEmail = match[0].toLowerCase();
 
-  // Atomically mark bounced — skip if already processed
   const result = await prisma.lead.updateMany({
     where: { email: bouncedEmail, bounced: false },
     data:  { bounced: true, status: 'LOST' },
   });
   if (result.count === 0) return;
 
-  // Lead exists and was just marked bounced — fetch ID for cascade updates
   const lead = await prisma.lead.findFirst({ where: { email: bouncedEmail }, select: { id: true } });
   if (!lead) return;
 
@@ -179,7 +212,6 @@ async function handleReply(
     },
   });
 
-  // Push to CRM when lead becomes HOT (interested reply)
   if (newStatus === 'HOT') {
     upsertHubSpotContact({ email: lead.email, firstName: lead.firstName, lastName: lead.lastName, company: lead.company, title: lead.title, status: 'HOT' }).catch(() => null);
     upsertPipedriveContact({ email: lead.email, firstName: lead.firstName, lastName: lead.lastName, company: lead.company, title: lead.title }).catch(() => null);
@@ -200,7 +232,6 @@ async function handleReply(
     }).catch(() => null);
   }
 
-  // Autopilot hooks
   await incrementReplied(lead.orgId).catch(() => null);
 
   if (replyClass === 'INTERESTED') {
@@ -223,7 +254,6 @@ async function handleReply(
 }
 
 async function classifyReply(text: string): Promise<'INTERESTED' | 'NOT_INTERESTED' | 'FOLLOW_UP' | 'UNSUBSCRIBE'> {
-  // Strip quoted content before classification to avoid false positives from original message
   const clean = text
     .replace(/^>.*$/gm, '')
     .replace(/On .+wrote:/gs, '')
@@ -232,7 +262,6 @@ async function classifyReply(text: string): Promise<'INTERESTED' | 'NOT_INTEREST
 
   const lower = clean.toLowerCase();
 
-  // Out-of-office: treat as FOLLOW_UP, don't change lead status
   if (/out.of.office|i.?m (away|on vacation|on leave)|auto.?reply|автоответ|нет на месте|в отпуске/i.test(lower))
     return 'FOLLOW_UP';
 
@@ -243,7 +272,6 @@ async function classifyReply(text: string): Promise<'INTERESTED' | 'NOT_INTEREST
   if (/yes|interested|tell me more|sounds good|let.?s chat|schedule|book|demo|call|meeting|pricing|how much|love to/i.test(lower))
     return 'INTERESTED';
 
-  // Use LLM for ambiguous replies
   try {
     const { default: Anthropic } = await import('@anthropic-ai/sdk');
     const client = new Anthropic({ apiKey: config.ai.apiKey });
