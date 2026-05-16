@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api';
 import Topbar from '@/components/layout/Topbar';
+import PageTransition from '@/components/layout/PageTransition';
 import Button from '@/components/ui/Button';
 import EmailEditor from '@/components/ui/EmailEditor';
 import { useToast } from '@/components/ui/Toast';
@@ -194,6 +195,7 @@ export default function InboxPage() {
   return (
     <>
       <Topbar title="Inbox" subtitle={`${total} conversations`} />
+      <PageTransition>
       <main className="flex-1 flex overflow-hidden">
 
         {/* Left: conversation list */}
@@ -569,6 +571,7 @@ export default function InboxPage() {
           )}
         </div>
       </main>
+      </PageTransition>
     </>
   );
 }

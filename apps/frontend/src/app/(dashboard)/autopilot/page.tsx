@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useSpring } from 'framer-motion';
 import { api } from '@/lib/api';
 import Topbar from '@/components/layout/Topbar';
+import PageTransition from '@/components/layout/PageTransition';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
