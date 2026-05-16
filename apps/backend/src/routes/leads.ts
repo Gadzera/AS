@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
 import { authenticate, requireOrg } from '../middleware/auth';
 import { searchLeads, enrichLead, mapApolloPersonToLead } from '../services/apollo';
+import { updateOnboardingStep } from '../services/onboarding';
 import { scoreLeadLocal, scoreLeadAI } from '../services/scorer';
 import { parseCSV } from '../utils/csv';
 import { searchPDL } from '../services/pdl';
@@ -102,6 +103,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
       },
     });
 
+    updateOnboardingStep(orgId, 'firstLeadAdded').catch(() => null);
     res.status(201).json(lead);
   } catch (err) {
     next(err);

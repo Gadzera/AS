@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
 import { config } from '../config';
 import { authenticate } from '../middleware/auth';
+import { triggerOnboarding } from '../services/onboarding';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -60,6 +61,19 @@ router.post('/register', async (req: Request, res: Response, next: NextFunction)
       email: user.email,
       role: user.role,
     });
+
+    // Apply referral code if provided
+    const refCode = req.body.referralCode as string | undefined;
+    if (refCode && org.id) {
+      const referrer = await prisma.organization.findUnique({ where: { referralCode: refCode } });
+      if (referrer && referrer.id !== org.id) {
+        await prisma.organization.update({ where: { id: org.id }, data: { referredByOrgId: referrer.id, bonusLeads: 200 } });
+        await prisma.organization.update({ where: { id: referrer.id }, data: { bonusLeads: { increment: 500 } } });
+      }
+    }
+
+    // Trigger onboarding emails + initial notification (non-blocking)
+    triggerOnboarding(user.id, org.id).catch(() => null);
 
     res.status(201).json({
       token,

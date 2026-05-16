@@ -21,6 +21,8 @@ import bannerbearRouter from './routes/bannerbear';
 import personalizationRouter from './routes/personalization';
 import inboxRouter from './routes/inbox';
 import templatesRouter from './routes/templates';
+import notificationsRouter from './routes/notifications';
+import referralRouter from './routes/referral';
 
 const app = express();
 
@@ -71,6 +73,8 @@ app.use('/api/bannerbear', bannerbearRouter);
 app.use('/api/personalization', personalizationRouter);
 app.use('/api/inbox', inboxRouter);
 app.use('/api/templates', templatesRouter);
+app.use('/api/notifications', notificationsRouter);
+app.use('/api/referral', referralRouter);
 
 // 404 handler
 app.use((_req, res) => {

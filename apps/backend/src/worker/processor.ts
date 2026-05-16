@@ -13,6 +13,7 @@ import { applySpintax } from '../utils/spintax';
 import { validateEmail } from '../utils/emailValidation';
 import { generateUnsubscribeToken, getUnsubscribeUrl } from '../utils/unsubscribe';
 import { substituteVariables } from '../utils/variables';
+import { createNotification, updateOnboardingStep } from '../services/onboarding';
 import { config } from '../config';
 
 const prisma = new PrismaClient();
@@ -238,6 +239,9 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
     message: { id: message.id, subject },
   }).catch(() => null);
 
+  // Onboarding: mark first send
+  updateOnboardingStep(lead.orgId, 'firstSent').catch(() => null);
+
   // Advance sequence
   const nextStep = cl.currentStep + 1;
   if (nextStep < sequences.length) {
@@ -254,6 +258,12 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
       timestamp: now.toISOString(),
       lead: { id: lead.id, email: lead.email, firstName: lead.firstName, lastName: lead.lastName, company: lead.company, status: 'CONVERTED' },
       campaign: { id: cl.campaignId, name: cl.campaign.name },
+    }).catch(() => null);
+    createNotification(lead.orgId, {
+      type: 'CAMPAIGN_COMPLETED',
+      title: `Кампания завершена`,
+      body: `${lead.firstName} ${lead.lastName} прошёл все шаги последовательности.`,
+      link: `/inbox?leadId=${lead.id}`,
     }).catch(() => null);
     console.log(`[Worker] ${lead.firstName} ${lead.lastName}: sequence complete`);
   }

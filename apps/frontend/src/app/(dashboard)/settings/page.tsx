@@ -17,11 +17,12 @@ const PLANS = [
   { id: 'AGENCY',  name: 'Agency',   price: '$99/mo',  features: ['Unlimited leads', 'Unlimited campaigns', 'All channels', 'White-label', 'Priority support'] },
 ];
 
-const TABS = ['Account', 'Sending', 'Integrations', 'Deliverability', 'Webhooks', 'Billing'] as const;
+const TABS = ['Account', 'Sending', 'Integrations', 'Deliverability', 'Webhooks', 'Billing', 'Referral'] as const;
 type Tab = typeof TABS[number];
 
 interface SmtpAccount { id: string; name: string; fromEmail: string; active: boolean; host: string; port: number; }
 interface Webhook     { id: string; name: string; url: string; events: string[]; active: boolean; }
+interface ReferralInfo { code: string; referrals: number; bonusLeads: number; shareUrl: string; }
 
 export default function SettingsPage() {
   const { success, error: toastError } = useToast();
@@ -47,6 +48,11 @@ export default function SettingsPage() {
   const [crmStatus, setCrmStatus]     = useState<{ hubspot: boolean; pipedrive: boolean } | null>(null);
   const [crmLoading, setCrmLoading]   = useState(false);
   const [syncingAll, setSyncingAll]   = useState(false);
+
+  // Referral
+  const [referral, setReferral]       = useState<ReferralInfo | null>(null);
+  const [referralLoading, setReferralLoading] = useState(false);
+  const [refCopied, setRefCopied]     = useState(false);
 
   // Spam score checker
   const [spamSubject, setSpamSubject] = useState('');
@@ -82,6 +88,10 @@ export default function SettingsPage() {
     if (tab === 'Integrations') {
       setCrmLoading(true);
       api.get('/crm/status').then(r => setCrmStatus(r.data)).catch(() => {}).finally(() => setCrmLoading(false));
+    }
+    if (tab === 'Referral' && !referral) {
+      setReferralLoading(true);
+      api.get('/referral/code').then(r => setReferral(r.data)).catch(() => {}).finally(() => setReferralLoading(false));
     }
   }, [tab]);
 
@@ -598,6 +608,83 @@ export default function SettingsPage() {
                     })}
                   </div>
                 </Card>
+              )}
+
+              {/* REFERRAL */}
+              {tab === 'Referral' && (
+                <div className="space-y-4">
+                  <Card padding="md">
+                    <CardHeader><CardTitle>Реферальная программа</CardTitle></CardHeader>
+                    <p className="text-sm text-gray-400 mb-4">
+                      Приглашайте коллег и получайте <span className="text-brand-400 font-medium">+500 лидов</span> за каждого нового пользователя. Они получат <span className="text-brand-400 font-medium">+200 лидов</span> в подарок.
+                    </p>
+
+                    {referralLoading ? (
+                      <div className="space-y-3">
+                        <div className="skeleton h-10 rounded-lg" />
+                        <div className="skeleton h-10 rounded-lg" />
+                      </div>
+                    ) : referral ? (
+                      <div className="space-y-4">
+                        {/* Referral code */}
+                        <div>
+                          <label className="text-xs text-gray-500 uppercase tracking-wide mb-1.5 block">Ваш код</label>
+                          <div className="flex gap-2">
+                            <div className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2.5 font-mono text-lg font-bold text-brand-400 tracking-widest">
+                              {referral.code}
+                            </div>
+                            <button
+                              onClick={() => { navigator.clipboard.writeText(referral.code); setRefCopied(true); setTimeout(() => setRefCopied(false), 2000); }}
+                              className="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-sm text-gray-300 transition-colors"
+                            >
+                              {refCopied ? '✓' : 'Копировать'}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Share URL */}
+                        <div>
+                          <label className="text-xs text-gray-500 uppercase tracking-wide mb-1.5 block">Ссылка для приглашения</label>
+                          <div className="flex gap-2">
+                            <div className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-400 truncate">
+                              {referral.shareUrl}
+                            </div>
+                            <button
+                              onClick={() => { navigator.clipboard.writeText(referral.shareUrl); setRefCopied(true); setTimeout(() => setRefCopied(false), 2000); }}
+                              className="px-4 py-2.5 bg-brand-500/20 hover:bg-brand-500/30 border border-brand-500/30 rounded-lg text-sm text-brand-400 transition-colors whitespace-nowrap"
+                            >
+                              Скопировать ссылку
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Stats */}
+                        <div className="grid grid-cols-2 gap-4 pt-2">
+                          <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 text-center">
+                            <p className="text-3xl font-bold text-white">{referral.referrals}</p>
+                            <p className="text-xs text-gray-500 mt-1">Приглашено пользователей</p>
+                          </div>
+                          <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 text-center">
+                            <p className="text-3xl font-bold text-brand-400">{(referral.bonusLeads).toLocaleString()}</p>
+                            <p className="text-xs text-gray-500 mt-1">Бонусных лидов заработано</p>
+                          </div>
+                        </div>
+
+                        {/* How it works */}
+                        <div className="bg-gray-900/40 border border-gray-800/60 rounded-xl p-4">
+                          <p className="text-xs font-semibold text-gray-300 mb-2">Как это работает</p>
+                          <ol className="text-xs text-gray-500 space-y-1.5 list-none">
+                            <li className="flex gap-2"><span className="text-brand-400 font-bold">1.</span> Поделитесь своей реферальной ссылкой</li>
+                            <li className="flex gap-2"><span className="text-brand-400 font-bold">2.</span> Друг регистрируется и получает +200 лидов</li>
+                            <li className="flex gap-2"><span className="text-brand-400 font-bold">3.</span> Вы получаете +500 лидов на баланс мгновенно</li>
+                          </ol>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">Не удалось загрузить реферальный код</p>
+                    )}
+                  </Card>
+                </div>
               )}
 
             </motion.div>

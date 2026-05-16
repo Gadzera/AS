@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
 import { authenticate, requireOrg } from '../middleware/auth';
+import { updateOnboardingStep } from '../services/onboarding';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -51,6 +52,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
       },
     });
 
+    updateOnboardingStep(orgId, 'firstCampaign').catch(() => null);
     res.status(201).json(campaign);
   } catch (err) {
     next(err);

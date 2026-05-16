@@ -4,6 +4,7 @@ import { PrismaClient } from '@prisma/client';
 import { authenticate, requireOrg } from '../middleware/auth';
 import { verifySmtpAccount } from '../services/smtpRotation';
 import { encrypt } from '../utils/encryption';
+import { updateOnboardingStep } from '../services/onboarding';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -45,6 +46,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
       res.status(400).json({ error: 'Could not connect to SMTP server. Check credentials.' });
       return;
     }
+    updateOnboardingStep(req.user!.orgId!, 'smtpAdded').catch(() => null);
     res.status(201).json({ id: account.id, name: account.name, fromEmail: account.fromEmail, active: account.active });
   } catch (err) { next(err); }
 });
