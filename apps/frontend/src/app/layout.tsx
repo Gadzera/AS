@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { ToastProvider } from '@/components/ui/Toast';
+import PostHogProvider from '@/components/analytics/PostHogProvider';
 
 export const metadata: Metadata = {
   title: 'AI SDR Agent — B2B Sales Automation',
@@ -15,9 +16,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
       <body className="bg-[#080b10] text-gray-100 antialiased min-h-screen">
-        <ToastProvider>
-          {children}
-        </ToastProvider>
+        <PostHogProvider>
+          <ToastProvider>
+            {children}
+          </ToastProvider>
+        </PostHogProvider>
       </body>
     </html>
   );

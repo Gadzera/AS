@@ -17,7 +17,7 @@ const PLANS = [
   { id: 'AGENCY',  name: 'Agency',   price: '$99/mo',  features: ['Unlimited leads', 'Unlimited campaigns', 'All channels', 'White-label', 'Priority support'] },
 ];
 
-const TABS = ['Account', 'Sending', 'Integrations', 'Webhooks', 'Deliverability', 'Billing'] as const;
+const TABS = ['Account', 'Sending', 'Integrations', 'Deliverability', 'Webhooks', 'Billing'] as const;
 type Tab = typeof TABS[number];
 
 interface SmtpAccount { id: string; name: string; fromEmail: string; active: boolean; host: string; port: number; }
@@ -47,6 +47,12 @@ export default function SettingsPage() {
   const [crmStatus, setCrmStatus]     = useState<{ hubspot: boolean; pipedrive: boolean } | null>(null);
   const [crmLoading, setCrmLoading]   = useState(false);
   const [syncingAll, setSyncingAll]   = useState(false);
+
+  // Spam score checker
+  const [spamSubject, setSpamSubject] = useState('');
+  const [spamBody,    setSpamBody]    = useState('');
+  const [spamResult,  setSpamResult]  = useState<{ score: number; grade: string; issues: string[]; passed: string[] } | null>(null);
+  const [spamLoading, setSpamLoading] = useState(false);
 
   // Deliverability
   const [domainInput, setDomainInput] = useState('');
@@ -134,6 +140,21 @@ export default function SettingsPage() {
     } catch { toastError('DNS check failed'); }
     finally { setDnsLoading(false); }
   };
+
+  const checkSpam = async () => {
+    if (!spamSubject && !spamBody) return;
+    setSpamLoading(true);
+    try {
+      const r = await api.post('/personalization/spam-check', { subject: spamSubject, body: spamBody });
+      setSpamResult(r.data);
+    } catch { toastError('Spam check failed'); }
+    finally { setSpamLoading(false); }
+  };
+
+  const spamGradeColor = (g: string) =>
+    g === 'A' ? 'text-green-400' : g === 'B' ? 'text-emerald-400' : g === 'C' ? 'text-yellow-400' : g === 'D' ? 'text-orange-400' : 'text-red-400';
+  const spamGradeBg = (g: string) =>
+    g === 'A' ? 'bg-green-500/10 border-green-500/20' : g === 'B' ? 'bg-emerald-500/10 border-emerald-500/20' : g === 'C' ? 'bg-yellow-500/10 border-yellow-500/20' : g === 'D' ? 'bg-orange-500/10 border-orange-500/20' : 'bg-red-500/10 border-red-500/20';
 
   const scoreColor = (s: number) => s >= 80 ? 'text-green-400' : s >= 50 ? 'text-yellow-400' : 'text-red-400';
   const scoreBg    = (s: number) => s >= 80 ? 'bg-green-500/10 border-green-500/20' : s >= 50 ? 'bg-yellow-500/10 border-yellow-500/20' : 'bg-red-500/10 border-red-500/20';
@@ -376,6 +397,84 @@ export default function SettingsPage() {
               {/* DELIVERABILITY */}
               {tab === 'Deliverability' && (
                 <div className="space-y-4">
+
+                  {/* Spam Score Checker */}
+                  <Card padding="md">
+                    <CardHeader>
+                      <div>
+                        <CardTitle>Spam Score Checker</CardTitle>
+                        <p className="text-xs text-gray-500 mt-0.5">Test your email before sending — no external service, runs instantly</p>
+                      </div>
+                    </CardHeader>
+                    <div className="space-y-3">
+                      <Input
+                        label="Subject line"
+                        placeholder="Quick question about {company}'s growth..."
+                        value={spamSubject}
+                        onChange={e => setSpamSubject(e.target.value)}
+                      />
+                      <div>
+                        <label className="text-xs font-medium text-gray-400 uppercase tracking-wide">Email body</label>
+                        <textarea
+                          className="mt-1 w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:border-brand-500 focus:outline-none resize-none h-28"
+                          placeholder="Hi {firstName}, I noticed..."
+                          value={spamBody}
+                          onChange={e => setSpamBody(e.target.value)}
+                        />
+                      </div>
+                      <Button onClick={checkSpam} loading={spamLoading} disabled={!spamSubject && !spamBody} size="md">
+                        Check Spam Score
+                      </Button>
+
+                      {spamResult && (
+                        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3 pt-2">
+                          {/* Grade badge */}
+                          <div className={`flex items-center gap-4 p-4 rounded-xl border ${spamGradeBg(spamResult.grade)}`}>
+                            <div className={`text-5xl font-black ${spamGradeColor(spamResult.grade)}`}>{spamResult.grade}</div>
+                            <div>
+                              <p className="text-white font-semibold">Spam Score: {spamResult.score}/100</p>
+                              <p className="text-xs text-gray-400 mt-0.5">
+                                {spamResult.grade === 'A' ? 'Excellent — very unlikely to be flagged' :
+                                 spamResult.grade === 'B' ? 'Good — safe to send' :
+                                 spamResult.grade === 'C' ? 'Moderate — fix issues before sending' :
+                                 spamResult.grade === 'D' ? 'Poor — many spam triggers detected' :
+                                 'Failing — will likely land in spam'}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Issues */}
+                          {spamResult.issues.length > 0 && (
+                            <div className="p-3 bg-red-500/5 border border-red-500/20 rounded-lg">
+                              <p className="text-xs font-semibold text-red-400 mb-2">Issues to fix:</p>
+                              <ul className="space-y-1">
+                                {spamResult.issues.map((issue, i) => (
+                                  <li key={i} className="text-xs text-gray-400 flex items-start gap-1.5">
+                                    <span className="text-red-400 mt-0.5">✗</span>{issue}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {/* Passed */}
+                          {spamResult.passed.length > 0 && (
+                            <div className="p-3 bg-green-500/5 border border-green-500/20 rounded-lg">
+                              <p className="text-xs font-semibold text-green-400 mb-2">Passed checks:</p>
+                              <ul className="space-y-1">
+                                {spamResult.passed.map((p, i) => (
+                                  <li key={i} className="text-xs text-gray-400 flex items-start gap-1.5">
+                                    <span className="text-green-400 mt-0.5">✓</span>{p}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </motion.div>
+                      )}
+                    </div>
+                  </Card>
+
                   {/* Stats */}
                   {delivStats && (
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
