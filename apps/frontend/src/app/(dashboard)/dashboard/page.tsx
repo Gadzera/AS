@@ -109,50 +109,92 @@ const statusColors: Record<string, string> = {
 };
 
 interface OnboardingProgress {
-  smtpAdded: boolean; firstLeadAdded: boolean;
-  firstCampaign: boolean; firstSent: boolean; firstReply: boolean;
+  smtpAdded: boolean;
+  firstLeadAdded: boolean;
+  firstCampaign: boolean;
+  firstSent: boolean;
+  firstReply: boolean;
 }
 
+const ONBOARDING_STEPS = [
+  { key: 'smtpAdded',      label: 'Connect email account',  link: '/settings' },
+  { key: 'firstLeadAdded', label: 'Import your first leads', link: '/leads' },
+  { key: 'firstCampaign',  label: 'Create a campaign',      link: '/campaigns' },
+  { key: 'firstSent',      label: 'Send first message',     link: '/campaigns' },
+  { key: 'firstReply',     label: 'Receive a reply',        link: '/inbox' },
+];
+
 // ─── Onboarding Checklist ────────────────────────────────────────────────────
-function OnboardingChecklist({ progress }: { progress: OnboardingProgress }) {
-  const steps = [
-    { key: 'smtpAdded',      label: 'Подключить почту для отправки', done: progress.smtpAdded,      link: '/settings' },
-    { key: 'firstLeadAdded', label: 'Добавить первого лида',          done: progress.firstLeadAdded, link: '/leads' },
-    { key: 'firstCampaign',  label: 'Создать кампанию',               done: progress.firstCampaign,  link: '/campaigns' },
-    { key: 'firstSent',      label: 'Отправить первое письмо',         done: progress.firstSent,      link: '/campaigns' },
-    { key: 'firstReply',     label: 'Получить первый ответ',           done: progress.firstReply,     link: '/inbox' },
-  ];
-  const done = steps.filter(s => s.done).length;
-  const pct = Math.round(done / steps.length * 100);
-  if (done === steps.length) return null;
+function OnboardingChecklist({ progress, onDismiss }: { progress: OnboardingProgress; onDismiss: () => void }) {
+  const steps = ONBOARDING_STEPS.map(s => ({
+    ...s,
+    done: progress[s.key as keyof OnboardingProgress],
+  }));
+  const doneCount = steps.filter(s => s.done).length;
+  const total = steps.length;
+
+  if (doneCount === total) return null;
 
   return (
-    <div className="bg-gradient-to-br from-brand-500/10 to-purple-600/5 border border-brand-500/20 rounded-xl p-5">
+    <motion.div
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 20 }}
+      transition={{ duration: 0.35, ease: 'easeOut' }}
+      className="bg-gradient-to-br from-brand-500/10 to-purple-600/5 border border-brand-500/20 rounded-xl p-5"
+    >
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h3 className="text-sm font-semibold text-white">Начало работы</h3>
-          <p className="text-xs text-gray-500 mt-0.5">{done} из {steps.length} шагов выполнено</p>
+          <h3 className="text-sm font-semibold text-white">Getting Started</h3>
+          <p className="text-xs text-gray-500 mt-0.5">{doneCount}/{total} complete</p>
         </div>
-        <div className="text-right">
-          <span className="text-xl font-bold text-brand-400">{pct}%</span>
+        <div className="flex items-center gap-3">
+          <span className="text-xl font-bold text-brand-400">{Math.round(doneCount / total * 100)}%</span>
+          <button
+            onClick={onDismiss}
+            className="text-gray-600 hover:text-gray-400 transition-colors p-1 rounded"
+            title="Dismiss"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
       </div>
       <div className="h-1.5 bg-gray-800 rounded-full mb-4 overflow-hidden">
-        <div className="h-full bg-gradient-to-r from-brand-500 to-purple-500 rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
+        <div
+          className="h-full bg-gradient-to-r from-brand-500 to-purple-500 rounded-full transition-all duration-700"
+          style={{ width: `${Math.round(doneCount / total * 100)}%` }}
+        />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
         {steps.map((step) => (
-          <Link key={step.key} href={step.link} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors ${
-            step.done ? 'bg-green-500/10 border border-green-500/20 text-green-400' : 'bg-gray-800/60 border border-gray-700/50 text-gray-400 hover:border-brand-500/30 hover:text-gray-300'
-          }`}>
-            <span className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 ${step.done ? 'bg-green-500' : 'bg-gray-700'}`}>
-              {step.done && <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+          <Link
+            key={step.key}
+            href={step.link}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors ${
+              step.done
+                ? 'bg-green-500/10 border border-green-500/20 text-green-400'
+                : 'bg-gray-800/60 border border-gray-700/50 text-gray-400 hover:border-brand-500/30 hover:text-gray-300'
+            }`}
+          >
+            <span className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 ${step.done ? 'bg-green-500' : 'bg-gray-700 border border-gray-600'}`}>
+              {step.done && (
+                <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              )}
             </span>
-            <span className={step.done ? 'line-through opacity-60' : ''}>{step.label}</span>
+            <span className={`flex-1 truncate ${step.done ? 'line-through opacity-60' : ''}`}>{step.label}</span>
+            {!step.done && (
+              <svg className="w-3 h-3 text-gray-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            )}
           </Link>
         ))}
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -161,11 +203,20 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<AnalyticsStats & { openRate?: number; dailyChart?: any[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [onboarding, setOnboarding] = useState<OnboardingProgress | null>(null);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && localStorage.getItem('onboarding_dismissed') === '1') {
+      setOnboardingDismissed(true);
+    }
     analyticsApi.stats().then(setStats).catch(console.error).finally(() => setLoading(false));
-    api.get('/notifications/onboarding').then(r => setOnboarding(r.data)).catch(() => null);
+    api.get<OnboardingProgress>('/notifications/onboarding').then(r => setOnboarding(r.data)).catch(() => null);
   }, []);
+
+  const handleDismissOnboarding = () => {
+    localStorage.setItem('onboarding_dismissed', '1');
+    setOnboardingDismissed(true);
+  };
 
   const dailyChart = (stats as any)?.dailyChart ?? [];
   const openRate   = (stats as any)?.openRate  ?? 0;
@@ -240,7 +291,11 @@ export default function DashboardPage() {
         </AnimatePresence>
 
         {/* ── Onboarding ── */}
-        {onboarding && <OnboardingChecklist progress={onboarding} />}
+        <AnimatePresence>
+          {onboarding && !onboardingDismissed && (
+            <OnboardingChecklist progress={onboarding} onDismiss={handleDismissOnboarding} />
+          )}
+        </AnimatePresence>
 
         {/* ── Charts row ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

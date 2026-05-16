@@ -14,6 +14,7 @@ import LeadsTable from '@/components/leads/LeadsTable';
 import Modal from '@/components/ui/Modal';
 import { LeadStatusBadge, ScoreBadge } from '@/components/ui/Badge';
 import TagManager from '@/components/ui/TagManager';
+import { useToast } from '@/components/ui/Toast';
 
 const STATUS_OPTIONS: LeadStatus[] = [
   'NEW', 'CONTACTED', 'REPLIED', 'HOT', 'CONVERTED', 'LOST', 'UNSUBSCRIBED',
@@ -422,6 +423,7 @@ function CampaignPickerModal({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function LeadsPage() {
+  const { error: toastError } = useToast();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -535,8 +537,8 @@ export default function LeadsPage() {
       await leadsApi.bulkDelete(selectedIds);
       setSelectedIds([]);
       fetchLeads();
-    } catch (err) {
-      console.error('Bulk delete failed:', err);
+    } catch (err: any) {
+      toastError(err?.response?.data?.error ?? 'Failed to delete leads');
     }
   };
 
@@ -544,7 +546,7 @@ export default function LeadsPage() {
   const handleAddSelectionToCampaign = (campaignId: string) => {
     api.post('/leads/bulk', { action: 'add-to-campaign', leadIds: selectedIds, campaignId })
       .then(() => { setSelectedIds([]); })
-      .catch((err) => console.error('Add to campaign failed:', err));
+      .catch((err: any) => toastError(err?.response?.data?.error ?? 'Failed to add leads to campaign'));
   };
 
   // Single lead add to campaign
@@ -556,7 +558,7 @@ export default function LeadsPage() {
   const handleSingleAddToCampaign = (campaignId: string) => {
     if (!addToCampaignLead) return;
     api.post('/leads/bulk', { action: 'add-to-campaign', leadIds: [addToCampaignLead.id], campaignId })
-      .catch((err) => console.error('Add to campaign failed:', err));
+      .catch((err: any) => toastError(err?.response?.data?.error ?? 'Failed to add lead to campaign'));
     setAddToCampaignLead(null);
   };
 
