@@ -33,7 +33,7 @@ export function buildTransporter(account: SmtpAccount): nodemailer.Transporter {
 
 export async function sendViaAccount(
   account: SmtpAccount,
-  opts: { to: string; subject: string; body: string }
+  opts: { to: string; subject: string; body: string; inReplyTo?: string; references?: string }
 ): Promise<{ messageId: string }> {
   const transporter = buildTransporter(account);
   const from = account.fromName
@@ -42,9 +42,12 @@ export async function sendViaAccount(
 
   const info = await transporter.sendMail({
     from,
-    to:      opts.to,
-    subject: opts.subject,
-    html:    opts.body,
+    to:         opts.to,
+    subject:    opts.subject,
+    html:       opts.body,
+    // Thread headers — critical for Gmail/Outlook threading
+    ...(opts.inReplyTo && { inReplyTo: opts.inReplyTo }),
+    ...(opts.references && { references: opts.references }),
   });
 
   return { messageId: info.messageId };
