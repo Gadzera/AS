@@ -88,7 +88,7 @@ function LeadDrawer({
               {/* Avatar + name */}
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-brand-500/30 to-purple-500/30 text-brand-400 border border-brand-500/20 flex items-center justify-center text-lg font-bold shrink-0">
-                  {lead.firstName.charAt(0)}{lead.lastName.charAt(0)}
+                  {lead.firstName?.[0] ?? ''}{lead.lastName?.[0] ?? ''}
                 </div>
                 <div>
                   <h3 className="font-semibold text-white">{lead.firstName} {lead.lastName}</h3>

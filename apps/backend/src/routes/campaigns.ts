@@ -148,7 +148,7 @@ router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
     }
 
     const campaign = await prisma.campaign.update({
-      where: { id: req.params.id },
+      where: { id: req.params.id, orgId },
       data,
     });
 

@@ -32,7 +32,8 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
 router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orgId = req.user!.orgId!;
-    await prisma.tag.deleteMany({ where: { id: req.params.id, orgId } });
+    const result = await prisma.tag.deleteMany({ where: { id: req.params.id, orgId } });
+    if (result.count === 0) { res.status(404).json({ error: 'Tag not found' }); return; }
     res.json({ deleted: true });
   } catch (err) { next(err); }
 });

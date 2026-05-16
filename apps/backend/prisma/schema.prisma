@@ -18,6 +18,8 @@ model User {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   campaigns    Campaign[]
+
+  @@index([orgId])
 }
 
 model Organization {
@@ -154,6 +156,7 @@ model Campaign {
 
   @@index([orgId])
   @@index([orgId, status])
+  @@index([userId])
 }
 
 model Sequence {
@@ -170,7 +173,7 @@ model Sequence {
   channel    Channel  @default(EMAIL)
   createdAt  DateTime @default(now())
 
-  @@index([campaignId, stepNumber])
+  @@unique([campaignId, stepNumber])
 }
 
 model CampaignLead {
@@ -216,6 +219,7 @@ model Message {
 
   @@index([leadId])
   @@index([smtpMessageId])
+  @@index([smtpAccountId])
   @@index([direction, sentAt])
   @@index([leadId, direction, sentAt])
 }

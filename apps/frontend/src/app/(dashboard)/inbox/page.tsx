@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import DOMPurify from 'dompurify';
 import { api } from '@/lib/api';
 import Topbar from '@/components/layout/Topbar';
 import PageTransition from '@/components/layout/PageTransition';
@@ -388,7 +389,7 @@ export default function InboxPage() {
                               {msg.body.startsWith('<') ? (
                                 <div
                                   className="prose prose-invert prose-sm max-w-none"
-                                  dangerouslySetInnerHTML={{ __html: msg.body }}
+                                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(msg.body) }}
                                 />
                               ) : (
                                 <p className="whitespace-pre-wrap">{msg.body.slice(0, 800)}{msg.body.length > 800 ? '…' : ''}</p>
