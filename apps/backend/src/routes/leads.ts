@@ -1,0 +1,279 @@
+import { Router, Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
+import { PrismaClient } from '@prisma/client';
+import { authenticate, requireOrg } from '../middleware/auth';
+import { searchLeads, enrichLead, mapApolloPersonToLead } from '../services/apollo';
+import { scoreLeadLocal, scoreLeadAI } from '../services/scorer';
+
+const router = Router();
+const prisma = new PrismaClient();
+
+router.use(authenticate, requireOrg);
+
+const createLeadSchema = z.object({
+  firstName: z.string().min(1),
+  lastName: z.string().min(1),
+  email: z.string().email().optional(),
+  linkedinUrl: z.string().url().optional(),
+  title: z.string().optional(),
+  company: z.string().optional(),
+  companySize: z.string().optional(),
+  industry: z.string().optional(),
+  country: z.string().optional(),
+  city: z.string().optional(),
+  website: z.string().optional(),
+  notes: z.string().optional(),
+  source: z.string().optional(),
+});
+
+const apolloSearchSchema = z.object({
+  personTitles: z.array(z.string()).optional(),
+  personLocations: z.array(z.string()).optional(),
+  organizationNumEmployeesRanges: z.array(z.string()).optional(),
+  organizationIndustryTagIds: z.array(z.string()).optional(),
+  page: z.number().int().positive().optional(),
+  perPage: z.number().int().positive().max(100).optional(),
+  importToOrg: z.boolean().optional(),
+});
+
+// GET /api/leads
+router.get('/', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId = req.user!.orgId!;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 25;
+    const search = (req.query.search as string) || '';
+    const status = req.query.status as string | undefined;
+    const country = req.query.country as string | undefined;
+    const industry = req.query.industry as string | undefined;
+
+    const where: Record<string, unknown> = { orgId };
+
+    if (search) {
+      where.OR = [
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { company: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+    if (status) where.status = status;
+    if (country) where.country = { contains: country, mode: 'insensitive' };
+    if (industry) where.industry = { contains: industry, mode: 'insensitive' };
+
+    const [leads, total] = await Promise.all([
+      prisma.lead.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: [{ score: 'desc' }, { createdAt: 'desc' }],
+      }),
+      prisma.lead.count({ where }),
+    ]);
+
+    res.json({
+      leads,
+      total,
+      page,
+      pages: Math.ceil(total / limit),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/leads
+router.post('/', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId = req.user!.orgId!;
+    const data = createLeadSchema.parse(req.body);
+
+    const score = scoreLeadLocal({ ...data });
+
+    const lead = await prisma.lead.create({
+      data: {
+        ...data,
+        orgId,
+        score,
+        source: data.source ?? 'manual',
+      },
+    });
+
+    res.status(201).json(lead);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/leads/:id
+router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId = req.user!.orgId!;
+    const lead = await prisma.lead.findFirst({
+      where: { id: req.params.id, orgId },
+      include: {
+        messages: {
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        },
+        campaignLeads: {
+          include: { campaign: true },
+        },
+      },
+    });
+
+    if (!lead) {
+      res.status(404).json({ error: 'Lead not found' });
+      return;
+    }
+
+    res.json(lead);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT /api/leads/:id
+router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId = req.user!.orgId!;
+    const data = createLeadSchema.partial().parse(req.body);
+
+    const existing = await prisma.lead.findFirst({ where: { id: req.params.id, orgId } });
+    if (!existing) {
+      res.status(404).json({ error: 'Lead not found' });
+      return;
+    }
+
+    const merged = { ...existing, ...data };
+    const score = scoreLeadLocal(merged);
+
+    const lead = await prisma.lead.update({
+      where: { id: req.params.id },
+      data: { ...data, score },
+    });
+
+    res.json(lead);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /api/leads/:id
+router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId = req.user!.orgId!;
+    const existing = await prisma.lead.findFirst({ where: { id: req.params.id, orgId } });
+    if (!existing) {
+      res.status(404).json({ error: 'Lead not found' });
+      return;
+    }
+
+    await prisma.lead.delete({ where: { id: req.params.id } });
+    res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/leads/search — Apollo.io search
+router.post('/search', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId = req.user!.orgId!;
+    const filters = apolloSearchSchema.parse(req.body);
+
+    const results = await searchLeads(filters);
+    const mappedPeople = results.people.map(mapApolloPersonToLead);
+
+    if (filters.importToOrg) {
+      // Import leads to database
+      const org = await prisma.organization.findUnique({ where: { id: orgId } });
+      const currentCount = await prisma.lead.count({ where: { orgId } });
+
+      const limit = org?.leadsLimit ?? 500;
+      const available = limit - currentCount;
+
+      if (available <= 0) {
+        res.status(402).json({ error: 'Leads limit reached for your plan' });
+        return;
+      }
+
+      const toImport = mappedPeople.slice(0, available);
+      const scores = toImport.map((l) => scoreLeadLocal(l));
+
+      const created = await prisma.$transaction(
+        toImport.map((person, i) =>
+          prisma.lead.create({
+            data: {
+              ...person,
+              orgId,
+              score: scores[i],
+            },
+          })
+        )
+      );
+
+      res.json({
+        imported: created.length,
+        total: results.total,
+        leads: created,
+      });
+    } else {
+      // Return preview without importing
+      const scored = mappedPeople.map((p) => ({
+        ...p,
+        score: scoreLeadLocal(p),
+      }));
+      res.json({ people: scored, total: results.total, page: results.page });
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/leads/:id/enrich
+router.post('/:id/enrich', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId = req.user!.orgId!;
+    const lead = await prisma.lead.findFirst({ where: { id: req.params.id, orgId } });
+
+    if (!lead) {
+      res.status(404).json({ error: 'Lead not found' });
+      return;
+    }
+
+    if (!lead.email) {
+      res.status(400).json({ error: 'Lead must have email to enrich' });
+      return;
+    }
+
+    const enriched = await enrichLead(lead.email);
+    if (!enriched) {
+      res.status(404).json({ error: 'No enrichment data found for this email' });
+      return;
+    }
+
+    const updates: Record<string, unknown> = { enriched: true };
+    if (enriched.title && !lead.title) updates.title = enriched.title;
+    if (enriched.linkedinUrl && !lead.linkedinUrl) updates.linkedinUrl = enriched.linkedinUrl;
+    if (enriched.organization?.name && !lead.company) updates.company = enriched.organization.name;
+    if (enriched.organization?.industry && !lead.industry)
+      updates.industry = enriched.organization.industry;
+    if (enriched.country && !lead.country) updates.country = enriched.country;
+    if (enriched.city && !lead.city) updates.city = enriched.city;
+
+    const updatedLead = { ...lead, ...updates };
+    updates.score = scoreLeadLocal(updatedLead as typeof lead);
+
+    const saved = await prisma.lead.update({
+      where: { id: req.params.id },
+      data: updates,
+    });
+
+    res.json(saved);
+  } catch (err) {
+    next(err);
+  }
+});
+
+export default router;
