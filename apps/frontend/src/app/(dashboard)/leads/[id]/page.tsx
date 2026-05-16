@@ -6,7 +6,7 @@ import { leadsApi, outreachApi } from '@/lib/api';
 import { Lead, Message } from '@/types';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
-import { Card, CardHeader, CardTitle } from '@/components/ui/Card';
+import Card, { CardHeader, CardTitle } from '@/components/ui/Card';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 

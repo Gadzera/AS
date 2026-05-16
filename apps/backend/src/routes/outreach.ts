@@ -90,6 +90,10 @@ router.post('/generate', async (req: Request, res: Response, next: NextFunction)
     });
 
     // Optionally save as draft message
+    if (data.saveAsMessage && !lead) {
+      res.status(400).json({ error: 'saveAsMessage requires a valid leadId' });
+      return;
+    }
     if (data.saveAsMessage && lead) {
       const message = await prisma.message.create({
         data: {

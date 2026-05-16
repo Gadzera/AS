@@ -71,7 +71,17 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
         _count: { select: { campaignLeads: true } },
         user: { select: { name: true, email: true } },
         campaignLeads: {
-          include: { lead: true },
+          include: {
+            lead: {
+              select: {
+                id: true, orgId: true, firstName: true, lastName: true,
+                email: true, linkedinUrl: true, title: true, company: true,
+                companySize: true, industry: true, country: true, city: true,
+                website: true, score: true, status: true, source: true,
+                enriched: true, bounced: true, notes: true, createdAt: true, updatedAt: true,
+              },
+            },
+          },
           take: 50,
           orderBy: { createdAt: 'desc' },
         },
@@ -133,10 +143,12 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
       return;
     }
 
-    // Delete related records first
-    await prisma.campaignLead.deleteMany({ where: { campaignId: req.params.id } });
-    await prisma.sequence.deleteMany({ where: { campaignId: req.params.id } });
-    await prisma.campaign.delete({ where: { id: req.params.id } });
+    // Delete related records in a transaction to prevent partial state
+    await prisma.$transaction([
+      prisma.campaignLead.deleteMany({ where: { campaignId: req.params.id } }),
+      prisma.sequence.deleteMany({ where: { campaignId: req.params.id } }),
+      prisma.campaign.delete({ where: { id: req.params.id } }),
+    ]);
 
     res.json({ success: true });
   } catch (err) {

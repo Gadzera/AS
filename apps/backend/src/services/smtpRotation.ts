@@ -37,8 +37,9 @@ export async function sendViaAccount(
   opts: { to: string; subject: string; body: string; inReplyTo?: string; references?: string }
 ): Promise<{ messageId: string }> {
   const transporter = buildTransporter(account);
-  const from = account.fromName
-    ? `"${account.fromName}" <${account.fromEmail}>`
+  const safeName = account.fromName?.replace(/[\r\n"]/g, '') ?? '';
+  const from = safeName
+    ? `"${safeName}" <${account.fromEmail}>`
     : account.fromEmail;
 
   const info = await transporter.sendMail({
