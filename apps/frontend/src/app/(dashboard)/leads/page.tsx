@@ -386,13 +386,14 @@ function CampaignPickerModal({
   onClose: () => void;
   onPick: (campaignId: string) => void;
 }) {
+  const { error: toastError } = useToast();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setLoading(true);
-    campaignsApi.list().then(setCampaigns).catch(() => {}).finally(() => setLoading(false));
+    campaignsApi.list().then(setCampaigns).catch(() => { toastError('Failed to load campaigns'); }).finally(() => setLoading(false));
   }, [open]);
 
   return (
