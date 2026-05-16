@@ -14,9 +14,9 @@ const ONBOARDING_EMAILS = [
 <p>Рады видеть <strong>${orgName}</strong> в сервисе. За 15 минут вы можете запустить первую кампанию и получить первые ответы от потенциальных клиентов.</p>
 <p><strong>3 шага для старта:</strong></p>
 <ol>
-  <li>🔌 <strong>Подключите SMTP</strong> — Настройки → Sending → Add SMTP Account</li>
-  <li>👥 <strong>Загрузите лидов</strong> — через CSV или поиск по Apollo</li>
-  <li>🚀 <strong>Запустите кампанию</strong> — создайте последовательность и нажмите Start</li>
+  <li><strong>Подключите SMTP</strong> — Настройки &rarr; Sending &rarr; Add SMTP Account</li>
+  <li><strong>Загрузите лидов</strong> — через CSV или поиск по Apollo</li>
+  <li><strong>Запустите кампанию</strong> — создайте последовательность и нажмите Start</li>
 </ol>
 <p>Нужна помощь? Просто ответьте на это письмо.</p>
 </div>`,
@@ -30,9 +30,9 @@ const ONBOARDING_EMAILS = [
 <p>Если ещё не запустили — вот самый быстрый способ:</p>
 <p>Возьмите любые 20 контактов из вашей базы, загрузите в систему и напишите простое письмо с одним вопросом. Ответы придут уже в первые 48 часов.</p>
 <p><strong>Средние результаты наших пользователей:</strong><br>
-📬 Open rate: 45–60%<br>
-💬 Reply rate: 8–15%<br>
-🔥 Hot leads: 2–5% от отправленных</p>
+Open rate: 45&ndash;60%<br>
+Reply rate: 8&ndash;15%<br>
+Hot leads: 2&ndash;5% от отправленных</p>
 <p>Удачи!</p>
 </div>`,
   },

@@ -156,7 +156,7 @@ async function handleReply(
     upsertPipedriveContact({ email: lead.email, firstName: lead.firstName, lastName: lead.lastName, company: lead.company, title: lead.title }).catch(() => null);
     createNotification(lead.orgId, {
       type: 'HOT_LEAD',
-      title: `🔥 Горячий лид: ${lead.firstName} ${lead.lastName}`,
+      title: `Горячий лид: ${lead.firstName} ${lead.lastName}`,
       body: `${lead.company ?? lead.email} заинтересован. Ответьте как можно скорее.`,
       link: `/inbox?leadId=${lead.id}`,
     }).catch(() => null);

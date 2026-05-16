@@ -285,15 +285,17 @@ export default function SettingsPage() {
 
                     <div className="space-y-3">
                       {[
-                        { id: 'hubspot',   name: 'HubSpot',   logo: '🟠', desc: 'Syncs HOT leads to HubSpot Contacts automatically', env: 'HUBSPOT_ACCESS_TOKEN', docs: 'Private App token from HubSpot Settings → Integrations → Private Apps' },
-                        { id: 'pipedrive', name: 'Pipedrive', logo: '🟢', desc: 'Syncs HOT leads to Pipedrive Persons automatically', env: 'PIPEDRIVE_API_KEY + PIPEDRIVE_DOMAIN', docs: 'API key from Pipedrive Settings → Personal Preferences → API' },
+                        { id: 'hubspot',   name: 'HubSpot',   desc: 'Syncs hot leads to HubSpot Contacts automatically', env: 'HUBSPOT_ACCESS_TOKEN', docs: 'Private App token from HubSpot Settings > Integrations > Private Apps' },
+                        { id: 'pipedrive', name: 'Pipedrive', desc: 'Syncs hot leads to Pipedrive Persons automatically', env: 'PIPEDRIVE_API_KEY + PIPEDRIVE_DOMAIN', docs: 'API key from Pipedrive Settings > Personal Preferences > API' },
                       ].map(crm => {
                         const connected = crmStatus ? crmStatus[crm.id as keyof typeof crmStatus] : null;
                         return (
                           <div key={crm.id} className="p-4 bg-gray-800/40 rounded-xl border border-gray-700/60">
                             <div className="flex items-start justify-between gap-4">
                               <div className="flex items-center gap-3">
-                                <span className="text-2xl">{crm.logo}</span>
+                                <div className="w-8 h-8 bg-gray-700 border border-gray-600 rounded-lg flex items-center justify-center">
+                                  <span className="text-[10px] font-bold text-gray-300">{crm.name.slice(0, 2).toUpperCase()}</span>
+                                </div>
                                 <div>
                                   <div className="flex items-center gap-2">
                                     <p className="font-semibold text-white text-sm">{crm.name}</p>
@@ -375,7 +377,6 @@ export default function SettingsPage() {
 
                   {webhooks.length === 0 ? (
                     <div className="text-center py-10">
-                      <div className="text-3xl mb-2">⚡</div>
                       <p className="text-gray-500 text-sm">No webhooks yet</p>
                       <p className="text-gray-600 text-xs mt-1">Get notified on reply, open, bounce, interested</p>
                       <Button size="sm" className="mt-4" onClick={() => setShowWebhookModal(true)}>Add webhook</Button>
@@ -474,7 +475,7 @@ export default function SettingsPage() {
                               <ul className="space-y-1">
                                 {spamResult.passed.map((p, i) => (
                                   <li key={i} className="text-xs text-gray-400 flex items-start gap-1.5">
-                                    <span className="text-green-400 mt-0.5">✓</span>{p}
+                                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0 mt-1" />{p}
                                   </li>
                                 ))}
                               </ul>
@@ -534,7 +535,7 @@ export default function SettingsPage() {
                           { label: 'DMARC', valid: dnsResult.dmarc.valid, detail: dnsResult.dmarc.policy ? `policy: ${dnsResult.dmarc.policy}` : 'Not found' },
                         ].map(item => (
                           <div key={item.label} className="flex items-start gap-3 p-3 bg-gray-800/40 rounded-lg border border-gray-700/60">
-                            <span className={item.valid ? 'text-green-400 text-lg' : 'text-red-400 text-lg'}>{item.valid ? '✓' : '✗'}</span>
+                            <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${item.valid ? 'bg-green-500' : 'bg-red-500'}`} />
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-semibold text-white">{item.label}</p>
                               <p className="text-xs text-gray-500 font-mono truncate">{item.detail}</p>
@@ -637,7 +638,7 @@ export default function SettingsPage() {
                               onClick={() => { navigator.clipboard.writeText(referral.code); setRefCopied(true); setTimeout(() => setRefCopied(false), 2000); }}
                               className="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-sm text-gray-300 transition-colors"
                             >
-                              {refCopied ? '✓' : 'Копировать'}
+                              {refCopied ? 'Скопировано' : 'Копировать'}
                             </button>
                           </div>
                         </div>

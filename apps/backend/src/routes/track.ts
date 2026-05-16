@@ -103,14 +103,16 @@ function unsubscribePage(message: string, success: boolean): string {
            min-height: 100vh; margin: 0; background: #f9fafb; }
     .card { background: white; border-radius: 12px; padding: 48px; max-width: 400px; text-align: center;
             box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
-    .icon { font-size: 40px; margin-bottom: 16px; }
+    .dot { width: 40px; height: 40px; border-radius: 50%; margin: 0 auto 16px; }
+    .dot-ok { background: #22c55e; }
+    .dot-err { background: #ef4444; }
     h1 { font-size: 20px; color: #111; margin: 0 0 8px; }
     p { color: #666; font-size: 14px; margin: 0; line-height: 1.6; }
   </style>
 </head>
 <body>
   <div class="card">
-    <div class="icon">${success ? '✅' : '❌'}</div>
+    <div class="dot ${success ? 'dot-ok' : 'dot-err'}"></div>
     <h1>${success ? 'Done' : 'Error'}</h1>
     <p>${message}</p>
   </div>
