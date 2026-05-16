@@ -17,6 +17,7 @@ const createCampaignSchema = z.object({
   targetCountry: z.string().optional(),
   targetSize: z.string().optional(),
   dailyLimit: z.number().int().positive().max(500).default(50),
+  abTestEnabled: z.boolean().optional(),
 });
 
 // GET /api/campaigns

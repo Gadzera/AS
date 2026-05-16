@@ -10,6 +10,7 @@ import { sequencesApi, outreachApi } from '@/lib/api';
 interface SequenceBuilderProps {
   campaignId: string;
   sequences: Sequence[];
+  abTestEnabled?: boolean;
   onUpdate: () => void;
 }
 
@@ -18,13 +19,15 @@ const CHANNEL_COLORS: Record<string, string> = {
   LINKEDIN: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
 };
 
-export default function SequenceBuilder({ campaignId, sequences, onUpdate }: SequenceBuilderProps) {
+export default function SequenceBuilder({ campaignId, sequences, abTestEnabled = false, onUpdate }: SequenceBuilderProps) {
   const [adding, setAdding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [form, setForm] = useState({
     subject: '',
     body: '',
+    subjectB: '',
+    bodyB: '',
     delayDays: 0,
     channel: 'EMAIL' as 'EMAIL' | 'LINKEDIN',
   });
@@ -56,8 +59,12 @@ export default function SequenceBuilder({ campaignId, sequences, onUpdate }: Seq
         subject: form.subject || undefined,
         body: form.body,
         channel: form.channel,
+        ...(abTestEnabled && {
+          subjectB: form.subjectB || undefined,
+          bodyB: form.bodyB || undefined,
+        }),
       });
-      setForm({ subject: '', body: '', delayDays: 0, channel: 'EMAIL' });
+      setForm({ subject: '', body: '', subjectB: '', bodyB: '', delayDays: 0, channel: 'EMAIL' });
       setAdding(false);
       onUpdate();
     } catch (err) {
@@ -123,6 +130,20 @@ export default function SequenceBuilder({ campaignId, sequences, onUpdate }: Seq
               className="text-sm text-gray-400 line-clamp-3 prose prose-sm prose-invert max-w-none"
               dangerouslySetInnerHTML={{ __html: step.body }}
             />
+            {abTestEnabled && step.bodyB && (
+              <div className="mt-3 pt-3 border-t border-yellow-500/20">
+                <p className="text-[10px] font-semibold text-yellow-500 uppercase tracking-wide mb-1">Variant B</p>
+                {step.subjectB && (
+                  <p className="text-xs font-medium text-gray-400 mb-1">
+                    Тема: <span className="text-gray-200">{step.subjectB}</span>
+                  </p>
+                )}
+                <div
+                  className="text-sm text-gray-400 line-clamp-2 prose prose-sm prose-invert max-w-none"
+                  dangerouslySetInnerHTML={{ __html: step.bodyB }}
+                />
+              </div>
+            )}
           </div>
         </div>
       ))}
@@ -191,6 +212,32 @@ export default function SequenceBuilder({ campaignId, sequences, onUpdate }: Seq
               minHeight={180}
             />
           </div>
+
+          {abTestEnabled && (
+            <div className="border border-yellow-500/20 bg-yellow-500/5 rounded-xl p-4 space-y-3">
+              <p className="text-xs font-semibold text-yellow-400 uppercase tracking-wide">Variant B</p>
+              {form.channel === 'EMAIL' && (
+                <div>
+                  <label className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1 block">Тема письма — Вариант B</label>
+                  <input
+                    className="block w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-yellow-500/30"
+                    placeholder="Альтернативная тема для A/B теста"
+                    value={form.subjectB}
+                    onChange={(e) => setForm({ ...form, subjectB: e.target.value })}
+                  />
+                </div>
+              )}
+              <div>
+                <label className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1 block">Текст сообщения — Вариант B</label>
+                <EmailEditor
+                  value={form.bodyB}
+                  onChange={(html) => setForm({ ...form, bodyB: html })}
+                  placeholder="Альтернативный текст для A/B теста..."
+                  minHeight={140}
+                />
+              </div>
+            </div>
+          )}
 
           <div className="flex gap-2 pt-1">
             <Button onClick={handleAdd} loading={saving}>

@@ -22,6 +22,7 @@ export default function CampaignsPage() {
     targetCountry: '',
     targetSize: '',
     dailyLimit: 50,
+    abTestEnabled: false,
   });
 
   const fetchCampaigns = async () => {
@@ -50,7 +51,7 @@ export default function CampaignsPage() {
         targetSize: form.targetSize || undefined,
       });
       setShowCreateModal(false);
-      setForm({ name: '', channel: 'EMAIL', targetIndustry: '', targetCountry: '', targetSize: '', dailyLimit: 50 });
+      setForm({ name: '', channel: 'EMAIL', targetIndustry: '', targetCountry: '', targetSize: '', dailyLimit: 50, abTestEnabled: false });
       fetchCampaigns();
     } catch (err) {
       console.error(err);
@@ -174,6 +175,23 @@ export default function CampaignsPage() {
             value={form.dailyLimit}
             onChange={(e) => setForm({ ...form, dailyLimit: parseInt(e.target.value) || 50 })}
           />
+
+          <label className="flex items-center gap-3 cursor-pointer select-none">
+            <div className="relative">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={form.abTestEnabled}
+                onChange={(e) => setForm({ ...form, abTestEnabled: e.target.checked })}
+              />
+              <div className="w-9 h-5 bg-gray-700 peer-checked:bg-brand-500 rounded-full transition-colors" />
+              <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-200">Enable A/B testing</p>
+              <p className="text-xs text-gray-500">Split-test two message variants per sequence step</p>
+            </div>
+          </label>
 
           <div className="flex gap-2 pt-2">
             <Button

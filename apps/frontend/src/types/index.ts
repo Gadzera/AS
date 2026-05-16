@@ -64,6 +64,7 @@ export interface Campaign {
   targetCountry?: string | null;
   targetSize?: string | null;
   dailyLimit: number;
+  abTestEnabled: boolean;
   createdAt: string;
   updatedAt: string;
   _count?: {
@@ -84,6 +85,8 @@ export interface Sequence {
   delayDays: number;
   subject?: string | null;
   body: string;
+  subjectB?: string | null;
+  bodyB?: string | null;
   channel: Channel;
   createdAt: string;
 }
@@ -196,6 +199,7 @@ export interface CreateCampaignForm {
   targetCountry?: string;
   targetSize?: string;
   dailyLimit: number;
+  abTestEnabled?: boolean;
 }
 
 export interface GenerateOutreachForm {

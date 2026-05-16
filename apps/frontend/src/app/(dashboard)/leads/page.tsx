@@ -172,14 +172,40 @@ export default function LeadsPage() {
           </div>
 
           {loading ? (
-            <div className="py-12 text-center text-gray-400">Loading...</div>
+            <div className="animate-pulse">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="flex items-center gap-4 px-6 py-4 border-b border-gray-100 last:border-0">
+                  <div className="h-4 bg-gray-200 rounded w-32" />
+                  <div className="h-4 bg-gray-200 rounded w-24" />
+                  <div className="h-4 bg-gray-200 rounded w-40" />
+                  <div className="h-4 bg-gray-200 rounded w-20" />
+                  <div className="h-4 bg-gray-200 rounded w-16 ml-auto" />
+                </div>
+              ))}
+            </div>
           ) : (
             <>
-              <LeadsTable
-                leads={leads}
-                onGenerateOutreach={handleGenerateOutreach}
-                onView={(lead) => window.open(`/leads/${lead.id}`, '_blank')}
-              />
+              {!loading && leads.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                  <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center">
+                    <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </div>
+                  <div className="text-center">
+                    <h3 className="text-sm font-semibold text-gray-900">No leads yet</h3>
+                    <p className="text-sm text-gray-500 mt-1">Import leads via CSV or use Apollo search to get started.</p>
+                  </div>
+                  <Button onClick={() => fileInputRef.current?.click()}>Import CSV</Button>
+                </div>
+              )}
+              {leads.length > 0 && (
+                <LeadsTable
+                  leads={leads}
+                  onGenerateOutreach={handleGenerateOutreach}
+                  onView={(lead) => window.open(`/leads/${lead.id}`, '_blank')}
+                />
+              )}
 
               {/* Pagination */}
               {pages > 1 && (
