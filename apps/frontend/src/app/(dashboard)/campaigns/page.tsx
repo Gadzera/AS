@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { campaignsApi } from '@/lib/api';
 import type { Campaign } from '@/types';
 import Topbar from '@/components/layout/Topbar';
+import PageTransition from '@/components/layout/PageTransition';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import CampaignCard from '@/components/campaigns/CampaignCard';
@@ -82,6 +83,7 @@ export default function CampaignsPage() {
   return (
     <>
       <Topbar title="Campaigns" />
+      <PageTransition>
       <main className="flex-1 p-6 overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <p className="text-gray-500">{campaigns.length} campaign{campaigns.length !== 1 ? 's' : ''}</p>
