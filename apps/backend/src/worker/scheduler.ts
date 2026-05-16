@@ -49,9 +49,12 @@ export async function enqueueDueSends(): Promise<void> {
   }
 }
 
+// Минимальный интервал между запусками автопилота для одной организации (10 минут)
+const AUTOPILOT_MIN_INTERVAL_MS = 10 * 60_000;
+
 export async function runAutopilotDiscovery(): Promise<void> {
   const lockKey = 'autopilot:discovery:lock';
-  const lockTtl = 30 * 60_000; // 30 minutes
+  const lockTtl = 5 * 60_000; // 5 минут — максимальное время одного прохода
 
   const acquired = await redis.set(lockKey, '1', 'PX', lockTtl, 'NX');
   if (!acquired) return;
@@ -63,16 +66,21 @@ export async function runAutopilotDiscovery(): Promise<void> {
 
     for (const cfg of configs) {
       try {
-        // Check that at least 23 hours have passed since the last run
+        // Пропускаем если прошло меньше минимального интервала
         if (cfg.lastRunAt) {
-          const hoursSince = (Date.now() - cfg.lastRunAt.getTime()) / 3_600_000;
-          if (hoursSince < 23) continue;
+          const elapsed = Date.now() - cfg.lastRunAt.getTime();
+          if (elapsed < AUTOPILOT_MIN_INTERVAL_MS) continue;
         }
 
         await outreachQueue.add(
           'autopilot-discover',
           { orgId: cfg.orgId, configId: cfg.id },
-          { attempts: 2, removeOnComplete: true }
+          {
+            jobId: `autopilot-${cfg.orgId}-${Date.now()}`,
+            attempts: 2,
+            removeOnComplete: true,
+            removeOnFail: { count: 20 },
+          }
         );
 
         await prisma.autopilotConfig.update({

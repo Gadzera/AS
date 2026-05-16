@@ -110,8 +110,8 @@ runImapPoll();
 runAutopilot();
 
 const schedulerInterval  = setInterval(runScheduler,  60_000);
-const imapInterval       = setInterval(runImapPoll,   5 * 60_000); // every 5 min
-const autopilotInterval  = setInterval(runAutopilot,  60 * 60_000); // every hour
+const imapInterval       = setInterval(runImapPoll,   5 * 60_000);  // каждые 5 мин
+const autopilotInterval  = setInterval(runAutopilot,  10 * 60_000); // каждые 10 мин
 
 async function shutdown(): Promise<void> {
   console.log('[Worker] Shutting down...');

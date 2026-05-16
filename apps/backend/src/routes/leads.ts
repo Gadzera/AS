@@ -497,7 +497,7 @@ router.post('/bulk', async (req: Request, res: Response, next: NextFunction) => 
         select: { firstName: true, lastName: true, email: true, title: true, company: true, industry: true, country: true, city: true, status: true, score: true },
       });
       const header = 'firstName,lastName,email,title,company,industry,country,city,status,score\n';
-      const csv    = leads.map(l => exportRowToCsv(Object.values(l))).join('\n');
+      const csv    = leads.map(l => exportRowToCsv(Object.values(l).map(v => v == null ? null : String(v)))).join('\n');
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', 'attachment; filename="leads.csv"');
       res.send(header + csv);
