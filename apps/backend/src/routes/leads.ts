@@ -46,7 +46,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orgId = req.user!.orgId!;
     const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 25;
+    const limit = Math.min(parseInt(req.query.limit as string) || 25, 200);
     const search = (req.query.search as string) || '';
     const status = req.query.status as string | undefined;
     const country = req.query.country as string | undefined;
@@ -480,7 +480,7 @@ router.post('/bulk', async (req: Request, res: Response, next: NextFunction) => 
       const firstStep  = campaign.sequences[0];
       const nextSendAt = new Date(Date.now() + (firstStep?.delayDays ?? 0) * 86_400_000);
       const result = await prisma.campaignLead.createMany({
-        data: leadIds.map(leadId => ({ campaignId, leadId, currentStep: 0, status: 'NEW', nextSendAt })),
+        data: ownedIds.map(leadId => ({ campaignId, leadId, currentStep: 0, status: 'NEW', nextSendAt })),
         skipDuplicates: true,
       });
       res.json({ added: result.count });

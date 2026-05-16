@@ -12,19 +12,19 @@ const router = Router();
 router.use(authenticate, requireOrg);
 
 const generateSchema = z.object({
-  leadId: z.string().min(1),
+  leadId: z.string().optional(),
   campaignId: z.string().optional(),
   language: z.enum(['en', 'ru', 'de']).default('en'),
   tone: z.enum(['professional', 'casual', 'friendly']).default('professional'),
-  senderName: z.string().optional(),
-  senderTitle: z.string().optional(),
-  senderCompany: z.string().optional(),
-  valueProposition: z.string().optional(),
+  senderName: z.string().max(100).optional(),
+  senderTitle: z.string().max(100).optional(),
+  senderCompany: z.string().max(100).optional(),
+  valueProposition: z.string().max(1000).optional(),
   saveAsMessage: z.boolean().default(false),
 });
 
 const classifySchema = z.object({
-  messageBody: z.string().min(1),
+  messageBody: z.string().min(1).max(10000),
   leadId: z.string().optional(),
   messageId: z.string().optional(),
 });
@@ -35,15 +35,30 @@ router.post('/generate', async (req: Request, res: Response, next: NextFunction)
     const orgId = req.user!.orgId!;
     const data = generateSchema.parse(req.body);
 
-    // Fetch lead
-    const lead = await prisma.lead.findFirst({
-      where: { id: data.leadId, orgId },
-    });
+    // Fetch lead (optional — if not provided, try to get a sample from the campaign)
+    let lead = data.leadId
+      ? await prisma.lead.findFirst({ where: { id: data.leadId, orgId } })
+      : null;
 
-    if (!lead) {
+    if (!lead && data.campaignId) {
+      const cl = await prisma.campaignLead.findFirst({
+        where: { campaign: { id: data.campaignId, orgId } },
+        include: { lead: true },
+      });
+      lead = cl?.lead ?? null;
+    }
+
+    if (!lead && data.leadId) {
       res.status(404).json({ error: 'Lead not found' });
       return;
     }
+
+    // Use generic placeholder when no lead is available
+    const leadContext = lead ?? {
+      firstName: 'Alex', lastName: 'Smith', email: null, title: null,
+      company: 'Your Target Company', companySize: null, industry: null,
+      country: null, city: null, website: null, linkedinUrl: null,
+    };
 
     // Fetch campaign if provided
     let campaign: { name: string; channel: string; targetIndustry: string | null } = {
@@ -65,7 +80,7 @@ router.post('/generate', async (req: Request, res: Response, next: NextFunction)
       }
     }
 
-    const result = await generateOutreach(lead, campaign, {
+    const result = await generateOutreach(leadContext, campaign, {
       language: data.language,
       tone: data.tone,
       senderName: data.senderName,
@@ -75,7 +90,7 @@ router.post('/generate', async (req: Request, res: Response, next: NextFunction)
     });
 
     // Optionally save as draft message
-    if (data.saveAsMessage) {
+    if (data.saveAsMessage && lead) {
       const message = await prisma.message.create({
         data: {
           leadId: lead.id,

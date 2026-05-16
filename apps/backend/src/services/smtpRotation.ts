@@ -1,6 +1,6 @@
 import { prisma } from '../lib/prisma';
 import nodemailer from 'nodemailer';
-import { PrismaClient, SmtpAccount } from '@prisma/client';
+import { SmtpAccount } from '@prisma/client';
 import { config } from '../config';
 import { decrypt } from '../utils/encryption';
 

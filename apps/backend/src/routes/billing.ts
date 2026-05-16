@@ -185,6 +185,8 @@ router.post(
                 leadsLimit: planLimits[plan] ?? 500,
               },
             });
+          } else {
+            console.error('[Billing] checkout.session.completed missing metadata — orgId, plan, or subscriptionId absent. Session:', session);
           }
           break;
         }

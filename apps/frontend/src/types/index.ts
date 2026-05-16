@@ -122,9 +122,11 @@ export interface AnalyticsStats {
   activeCampaigns: number;
   emailsSentThisWeek: number;
   replyRate: number;
+  openRate: number;
   hotLeads: Lead[];
   recentActivity: ActivityItem[];
   leadsByStatus: Record<string, number>;
+  dailyChart?: Array<{ date: string; sent: number; replies: number }>;
 }
 
 export interface ActivityItem {
@@ -172,6 +174,7 @@ export interface RegisterForm {
   password: string;
   name: string;
   orgName: string;
+  referralCode?: string;
 }
 
 export interface CreateLeadForm {
@@ -196,7 +199,7 @@ export interface CreateCampaignForm {
 }
 
 export interface GenerateOutreachForm {
-  leadId: string;
+  leadId?: string;
   campaignId?: string;
   language: 'en' | 'ru' | 'de';
   tone: 'professional' | 'casual' | 'friendly';
