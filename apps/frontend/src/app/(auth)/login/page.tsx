@@ -10,10 +10,10 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 
 const features = [
-  { icon: '⚡', text: 'AI writes hyper-personalized cold emails in seconds' },
-  { icon: '🔥', text: 'Warm-up protection keeps your domain reputation safe' },
-  { icon: '🎯', text: 'Smart sequences follow up until leads reply' },
-  { icon: '📊', text: 'Real-time analytics — opens, clicks, replies' },
+  { text: 'Generates hyper-personalized cold emails automatically' },
+  { text: 'Warm-up protection keeps your domain reputation safe' },
+  { text: 'Smart sequences follow up until leads reply' },
+  { text: 'Real-time analytics — opens, clicks, replies' },
 ];
 
 export default function LoginPage() {
@@ -91,7 +91,7 @@ export default function LoginPage() {
                 transition={{ delay: 0.1 + i * 0.08, duration: 0.3 }}
                 className="flex items-center gap-3"
               >
-                <span className="text-base">{f.icon}</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-brand-500 shrink-0" />
                 <span className="text-sm text-gray-400">{f.text}</span>
               </motion.div>
             ))}

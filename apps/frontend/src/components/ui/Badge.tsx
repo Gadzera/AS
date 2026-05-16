@@ -44,7 +44,7 @@ export function LeadStatusBadge({ status }: { status: LeadStatus | string }) {
     NEW:         { variant: 'blue',   label: 'New',         dot: true },
     CONTACTED:   { variant: 'yellow', label: 'Contacted',   dot: true },
     REPLIED:     { variant: 'purple', label: 'Replied',     dot: true },
-    HOT:         { variant: 'red',    label: '🔥 Hot' },
+    HOT:         { variant: 'red',    label: 'Hot', dot: true },
     CONVERTED:   { variant: 'green',  label: 'Converted',   dot: true },
     LOST:        { variant: 'gray',   label: 'Lost' },
     UNSUBSCRIBED:{ variant: 'gray',   label: 'Unsubscribed' },

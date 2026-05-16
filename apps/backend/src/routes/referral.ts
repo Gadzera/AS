@@ -54,7 +54,7 @@ router.post('/apply', async (req: Request, res: Response, next: NextFunction) =>
 
     await createNotification(referrer.id, {
       type: 'REFERRAL_JOINED',
-      title: '🎁 По вашей ссылке зарегистрировался новый пользователь',
+      title: 'По вашей реферальной ссылке зарегистрировался новый пользователь',
       body: '+500 лидов добавлено к вашему балансу.',
       link: '/settings',
     });

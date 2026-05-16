@@ -107,8 +107,8 @@ function OnboardingChecklist({ progress }: { progress: OnboardingProgress }) {
           <Link key={step.key} href={step.link} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors ${
             step.done ? 'bg-green-500/10 border border-green-500/20 text-green-400' : 'bg-gray-800/60 border border-gray-700/50 text-gray-400 hover:border-brand-500/30 hover:text-gray-300'
           }`}>
-            <span className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[9px] font-bold ${step.done ? 'bg-green-500 text-white' : 'bg-gray-700 text-gray-500'}`}>
-              {step.done ? '✓' : ''}
+            <span className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 ${step.done ? 'bg-green-500' : 'bg-gray-700'}`}>
+              {step.done && <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
             </span>
             <span className={step.done ? 'line-through opacity-60' : ''}>{step.label}</span>
           </Link>
@@ -252,7 +252,7 @@ export default function DashboardPage() {
           {/* Hot Leads */}
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-white">🔥 Hot Leads</h3>
+              <h3 className="text-sm font-semibold text-white">Hot Leads</h3>
               <Link href="/inbox?filter=hot" className="text-xs text-brand-400 hover:text-brand-300 transition-colors">
                 View all →
               </Link>

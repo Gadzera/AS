@@ -163,7 +163,7 @@ export default function LeadDetailPage() {
           {inbound.some((m) => m.replyClass === 'INTERESTED') && (
             <div className="bg-green-900/30 border border-green-700 rounded-xl p-4 flex items-center justify-between">
               <div>
-                <p className="text-green-400 font-semibold">🔥 This lead is interested!</p>
+                <p className="text-green-400 font-semibold">This lead is interested</p>
                 <p className="text-green-300 text-sm">They replied positively. Send a follow-up and book a call.</p>
               </div>
             </div>

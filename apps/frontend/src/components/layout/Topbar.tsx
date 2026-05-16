@@ -33,13 +33,13 @@ const PLAN_COLORS: Record<string, string> = {
   ENTERPRISE: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
 };
 
-const NOTIF_ICONS: Record<string, string> = {
-  HOT_LEAD:           '🔥',
-  REPLY_RECEIVED:     '💬',
-  CAMPAIGN_COMPLETED: '✅',
-  ONBOARDING:         '👋',
-  REFERRAL_JOINED:    '🎁',
-  UPGRADE_NUDGE:      '⚡',
+const NOTIF_DOT: Record<string, string> = {
+  HOT_LEAD:           'bg-red-500',
+  REPLY_RECEIVED:     'bg-blue-500',
+  CAMPAIGN_COMPLETED: 'bg-green-500',
+  ONBOARDING:         'bg-brand-500',
+  REFERRAL_JOINED:    'bg-purple-500',
+  UPGRADE_NUDGE:      'bg-yellow-500',
 };
 
 function timeAgo(dateStr: string): string {
@@ -178,7 +178,7 @@ export default function Topbar({ title, subtitle }: TopbarProps) {
                           !n.read && 'bg-brand-500/5'
                         )}
                       >
-                        <span className="text-lg flex-shrink-0 mt-0.5">{NOTIF_ICONS[n.type] ?? '🔔'}</span>
+                        <span className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 ${NOTIF_DOT[n.type] ?? 'bg-gray-500'}`} />
                         <div className="flex-1 min-w-0">
                           {n.link ? (
                             <a href={n.link} onClick={() => setNotifOpen(false)} className="block">
