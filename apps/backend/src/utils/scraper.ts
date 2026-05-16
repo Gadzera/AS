@@ -22,14 +22,14 @@ export async function scrapeWebsite(url: string): Promise<string | null> {
     const text = html
       .replace(/<script\b[\s\S]*?<\/script>/gi, ' ')
       .replace(/<style\b[\s\S]*?<\/style>/gi, ' ')
-      .replace(/<[^>]{0,2000}>/g, ' ')
+      .replace(/<[^>]{0,500}>/g, ' ')
       .replace(/&nbsp;/g, ' ')
       .replace(/&amp;/g, '&')
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
       .replace(/\s+/g, ' ')
       .trim()
-      .slice(0, 2_000);
+      .slice(0, 8_000);
 
     return text || null;
   } catch {

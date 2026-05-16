@@ -162,8 +162,10 @@ export interface CampaignStats {
   totalEnrolled: number;
   statusBreakdown: Record<string, number>;
   totalMessages: number;
-  openRate: number;
-  replyRate: number;
+  openRate:   number;
+  clickRate:  number;
+  bounceRate: number;
+  replyRate:  number;
 }
 
 // ============ Form Types ============

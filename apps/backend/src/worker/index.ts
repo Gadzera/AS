@@ -1,7 +1,7 @@
 import { Worker } from 'bullmq';
 import { redis, outreachQueue } from './queue';
 import { processCampaignLead } from './processor';
-import { enqueueDueSends, runAutopilotDiscovery } from './scheduler';
+import { enqueueDueSends, runAutopilotDiscovery, checkCampaignHealth } from './scheduler';
 import { pollInbox } from '../services/imap';
 import { sendScheduledEmail } from '../services/onboarding';
 import { prisma } from '../lib/prisma';
@@ -104,20 +104,28 @@ async function runAutopilot(): Promise<void> {
   catch (err) { console.error('[Autopilot]', (err as Error).message); }
 }
 
+async function runHealthCheck(): Promise<void> {
+  try { await checkCampaignHealth(); }
+  catch (err) { console.error('[Health]', (err as Error).message); }
+}
+
 // Start immediately, then on intervals
 runScheduler();
 runImapPoll();
 runAutopilot();
+runHealthCheck();
 
-const schedulerInterval  = setInterval(runScheduler,  60_000);
-const imapInterval       = setInterval(runImapPoll,   5 * 60_000);  // каждые 5 мин
-const autopilotInterval  = setInterval(runAutopilot,  10 * 60_000); // каждые 10 мин
+const schedulerInterval  = setInterval(runScheduler,   60_000);
+const imapInterval       = setInterval(runImapPoll,    5 * 60_000);   // каждые 5 мин
+const autopilotInterval  = setInterval(runAutopilot,   10 * 60_000);  // каждые 10 мин
+const healthInterval     = setInterval(runHealthCheck, 30 * 60_000);  // каждые 30 мин
 
 async function shutdown(): Promise<void> {
   console.log('[Worker] Shutting down...');
   clearInterval(schedulerInterval);
   clearInterval(imapInterval);
   clearInterval(autopilotInterval);
+  clearInterval(healthInterval);
   await worker.close();
   await outreachQueue.close();
   await redis.quit();
