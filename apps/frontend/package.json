@@ -11,10 +11,11 @@
   "dependencies": {
     "axios": "^1.7.2",
     "clsx": "^2.1.1",
+    "framer-motion": "^11.3.0",
     "next": "14.2.4",
+    "posthog-js": "^1.373.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "framer-motion": "^11.3.0",
     "recharts": "^2.12.7"
   },
   "devDependencies": {

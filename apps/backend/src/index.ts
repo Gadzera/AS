@@ -18,6 +18,7 @@ import webhooksRouter from './routes/webhooks';
 import deliverabilityRouter from './routes/deliverability';
 import crmRouter from './routes/crm';
 import bannerbearRouter from './routes/bannerbear';
+import personalizationRouter from './routes/personalization';
 
 const app = express();
 
@@ -65,6 +66,7 @@ app.use('/api/webhooks', webhooksRouter);
 app.use('/api/deliverability', deliverabilityRouter);
 app.use('/api/crm', crmRouter);
 app.use('/api/bannerbear', bannerbearRouter);
+app.use('/api/personalization', personalizationRouter);
 
 // 404 handler
 app.use((_req, res) => {

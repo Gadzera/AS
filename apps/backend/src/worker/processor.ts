@@ -5,6 +5,7 @@ import { sendLinkedInMessage } from '../services/unipile';
 import { getNextSmtpAccount, sendViaAccount } from '../services/smtpRotation';
 import { fireWebhooks } from '../services/webhooks';
 import { generatePersonalizedImage } from '../services/bannerbear';
+import { getPersonalizationUrl } from '../services/imagePersonalization';
 import { upsertHubSpotContact } from '../services/hubspot';
 import { upsertPipedriveContact } from '../services/pipedrive';
 import { scrapeWebsite } from '../utils/scraper';
@@ -152,10 +153,20 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
       // Inbox rotation: try org accounts, fall back to global SMTP
       const smtpAccount = await getNextSmtpAccount(lead.orgId);
 
-      // Personalized image via Bannerbear (non-blocking on failure)
+      // Personalized image: self-hosted first (free), Bannerbear as fallback if configured
       let personalizedImageUrl: string | null = null;
       if (cl.campaign.bannerbearTemplateId) {
+        // Try Bannerbear (external paid service) if template ID is set
         personalizedImageUrl = await generatePersonalizedImage(lead, cl.campaign.bannerbearTemplateId).catch(() => null);
+      }
+      if (!personalizedImageUrl) {
+        // Always embed self-hosted personalized image (free, no limit)
+        personalizedImageUrl = getPersonalizationUrl(config.backend.url, {
+          firstName: lead.firstName,
+          company:   lead.company ?? '',
+          title:     lead.title   ?? undefined,
+          template:  '1',
+        });
       }
 
       const unsubUrl = getUnsubscribeUrl(lead.unsubscribeToken!);
