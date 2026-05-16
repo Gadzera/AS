@@ -6,7 +6,7 @@ import { authenticate, requireOrg } from '../middleware/auth';
 import { searchLeads, enrichLead, mapApolloPersonToLead } from '../services/apollo';
 import { updateOnboardingStep } from '../services/onboarding';
 import { scoreLeadLocal, scoreLeadAI } from '../services/scorer';
-import { parseCSV } from '../utils/csv';
+import { parseCSV, exportRowToCsv } from '../utils/csv';
 import { searchPDL } from '../services/pdl';
 import { generateUnsubscribeToken } from '../utils/unsubscribe';
 
@@ -16,19 +16,19 @@ const router = Router();
 router.use(authenticate, requireOrg);
 
 const createLeadSchema = z.object({
-  firstName: z.string().min(1),
-  lastName: z.string().min(1),
+  firstName: z.string().min(1).max(100),
+  lastName: z.string().min(1).max(100),
   email: z.string().email().optional(),
-  linkedinUrl: z.string().url().optional(),
-  title: z.string().optional(),
-  company: z.string().optional(),
-  companySize: z.string().optional(),
-  industry: z.string().optional(),
-  country: z.string().optional(),
-  city: z.string().optional(),
-  website: z.string().optional(),
-  notes: z.string().optional(),
-  source: z.string().optional(),
+  linkedinUrl: z.string().url().max(500).optional(),
+  title: z.string().max(200).optional(),
+  company: z.string().max(200).optional(),
+  companySize: z.string().max(50).optional(),
+  industry: z.string().max(100).optional(),
+  country: z.string().max(100).optional(),
+  city: z.string().max(100).optional(),
+  website: z.string().max(500).optional(),
+  notes: z.string().max(5000).optional(),
+  source: z.string().max(100).optional(),
 });
 
 const apolloSearchSchema = z.object({
@@ -101,6 +101,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
         orgId,
         score,
         source: data.source ?? 'manual',
+        unsubscribeToken: generateUnsubscribeToken(),
       },
     });
 
@@ -286,7 +287,7 @@ router.post('/:id/enrich', async (req: Request, res: Response, next: NextFunctio
 router.post('/import', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orgId = req.user!.orgId!;
-    const { csvContent } = z.object({ csvContent: z.string().min(1) }).parse(req.body);
+    const { csvContent } = z.object({ csvContent: z.string().min(1).max(5_000_000) }).parse(req.body);
 
     const org = await prisma.organization.findUnique({ where: { id: orgId } });
     const currentCount = await prisma.lead.count({ where: { orgId } });
@@ -342,6 +343,7 @@ router.post('/import', async (req: Request, res: Response, next: NextFunction) =
             industry: row.industry || null, country: row.country || null,
             city: row.city || null, website: row.website || null,
             source: 'csv', score,
+            unsubscribeToken: generateUnsubscribeToken(),
           },
         });
         imported++;
@@ -456,9 +458,11 @@ router.post('/bulk', async (req: Request, res: Response, next: NextFunction) => 
     if (ownedIds.length === 0) { res.status(400).json({ error: 'No valid leads found' }); return; }
 
     if (action === 'delete') {
-      await prisma.campaignLead.deleteMany({ where: { leadId: { in: ownedIds } } });
-      await prisma.message.deleteMany({ where: { leadId: { in: ownedIds } } });
-      const { count: deleted } = await prisma.lead.deleteMany({ where: { id: { in: ownedIds }, orgId } });
+      const [,, { count: deleted }] = await prisma.$transaction([
+        prisma.campaignLead.deleteMany({ where: { leadId: { in: ownedIds } } }),
+        prisma.message.deleteMany({ where: { leadId: { in: ownedIds } } }),
+        prisma.lead.deleteMany({ where: { id: { in: ownedIds }, orgId } }),
+      ]);
       res.json({ deleted });
       return;
     }
@@ -493,7 +497,7 @@ router.post('/bulk', async (req: Request, res: Response, next: NextFunction) => 
         select: { firstName: true, lastName: true, email: true, title: true, company: true, industry: true, country: true, city: true, status: true, score: true },
       });
       const header = 'firstName,lastName,email,title,company,industry,country,city,status,score\n';
-      const csv    = leads.map(l => Object.values(l).map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+      const csv    = leads.map(l => exportRowToCsv(Object.values(l))).join('\n');
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', 'attachment; filename="leads.csv"');
       res.send(header + csv);

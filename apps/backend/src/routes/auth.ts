@@ -10,12 +10,15 @@ import { triggerOnboarding } from '../services/onboarding';
 
 const router = Router();
 
+// Pre-hashed constant for timing-safe login (prevents email enumeration via response time)
+const DUMMY_HASH = '$2b$12$invalidhashfortimingprotectiononly000000000000000000000';
 
 const registerSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8),
-  name: z.string().min(1),
-  orgName: z.string().min(1),
+  password: z.string().min(8).max(128),
+  name: z.string().min(1).max(100),
+  orgName: z.string().min(1).max(100),
+  referralCode: z.string().max(20).optional(),
 });
 
 const loginSchema = z.object({
@@ -63,13 +66,22 @@ router.post('/register', async (req: Request, res: Response, next: NextFunction)
       role: user.role,
     });
 
-    // Apply referral code if provided
-    const refCode = req.body.referralCode as string | undefined;
-    if (refCode && org.id) {
+    // Apply referral code if provided (validated via schema)
+    const refCode = data.referralCode;
+    if (refCode) {
       const referrer = await prisma.organization.findUnique({ where: { referralCode: refCode } });
       if (referrer && referrer.id !== org.id) {
-        await prisma.organization.update({ where: { id: org.id }, data: { referredByOrgId: referrer.id, bonusLeads: 200 } });
-        await prisma.organization.update({ where: { id: referrer.id }, data: { bonusLeads: { increment: 500 } } });
+        // Use a transaction with idempotency guard to prevent double-credit
+        await prisma.$transaction([
+          prisma.organization.update({
+            where: { id: org.id, referredByOrgId: null },
+            data: { referredByOrgId: referrer.id, bonusLeads: 200 },
+          }),
+          prisma.organization.update({
+            where: { id: referrer.id },
+            data: { bonusLeads: { increment: 500 } },
+          }),
+        ]).catch(() => null); // Ignore if already credited (unique constraint on referredByOrgId)
       }
     }
 
@@ -97,13 +109,9 @@ router.post('/login', async (req: Request, res: Response, next: NextFunction) =>
     const data = loginSchema.parse(req.body);
 
     const user = await prisma.user.findUnique({ where: { email: data.email } });
-    if (!user) {
-      res.status(401).json({ error: 'Invalid credentials' });
-      return;
-    }
-
-    const valid = await bcrypt.compare(data.password, user.passwordHash);
-    if (!valid) {
+    // Always run bcrypt to prevent timing-based email enumeration
+    const valid = await bcrypt.compare(data.password, user?.passwordHash ?? DUMMY_HASH);
+    if (!user || !valid) {
       res.status(401).json({ error: 'Invalid credentials' });
       return;
     }
@@ -158,6 +166,45 @@ router.get('/me', authenticate, async (req: Request, res: Response, next: NextFu
           }
         : null,
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT /api/auth/me — update name and/or password
+router.put('/me', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const schema = z.object({
+      name: z.string().min(1).max(100).optional(),
+      currentPassword: z.string().optional(),
+      newPassword: z.string().min(8).max(128).optional(),
+    });
+    const data = schema.parse(req.body);
+
+    const user = await prisma.user.findUnique({ where: { id: req.user!.userId } });
+    if (!user) { res.status(404).json({ error: 'User not found' }); return; }
+
+    const updates: { name?: string; passwordHash?: string } = {};
+
+    if (data.name) updates.name = data.name;
+
+    if (data.newPassword) {
+      if (!data.currentPassword) {
+        res.status(400).json({ error: 'currentPassword required to set a new password' });
+        return;
+      }
+      const valid = await bcrypt.compare(data.currentPassword, user.passwordHash);
+      if (!valid) { res.status(401).json({ error: 'Current password is incorrect' }); return; }
+      updates.passwordHash = await bcrypt.hash(data.newPassword, 12);
+    }
+
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({ error: 'No fields to update' });
+      return;
+    }
+
+    const updated = await prisma.user.update({ where: { id: user.id }, data: updates });
+    res.json({ id: updated.id, email: updated.email, name: updated.name, role: updated.role });
   } catch (err) {
     next(err);
   }

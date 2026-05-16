@@ -45,6 +45,11 @@ function parseLine(line: string): string[] {
   return values;
 }
 
+function sanitizeCell(value: string): string {
+  // Prevent CSV formula injection when opened in spreadsheet apps
+  return /^[=+\-@\t]/.test(value) ? `'${value}` : value;
+}
+
 export function parseCSV(content: string): CSVRow[] {
   const lines = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n');
   if (lines.length < 2) return [];
@@ -62,9 +67,19 @@ export function parseCSV(content: string): CSVRow[] {
       const values = parseLine(line);
       const row: CSVRow = {};
       headers.forEach((key, i) => {
-        if (key && values[i]) (row as Record<string, string>)[key] = values[i];
+        if (key && values[i]) (row as Record<string, string>)[key] = sanitizeCell(values[i]);
       });
       return row;
     })
     .filter((row) => row.firstName || row.email);
+}
+
+export function exportRowToCsv(values: (string | null | undefined)[]): string {
+  return values
+    .map(v => {
+      const s = String(v ?? '');
+      const safe = sanitizeCell(s);
+      return `"${safe.replace(/"/g, '""')}"`;
+    })
+    .join(',');
 }

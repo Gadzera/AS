@@ -97,6 +97,17 @@ router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
       return;
     }
 
+    // Prevent duplicate stepNumbers within the same campaign
+    if (data.stepNumber !== undefined && data.stepNumber !== sequence.stepNumber) {
+      const conflict = await prisma.sequence.findFirst({
+        where: { campaignId: sequence.campaignId, stepNumber: data.stepNumber, id: { not: req.params.id } },
+      });
+      if (conflict) {
+        res.status(409).json({ error: `Step number ${data.stepNumber} already exists in this campaign` });
+        return;
+      }
+    }
+
     const updated = await prisma.sequence.update({
       where: { id: req.params.id },
       data,

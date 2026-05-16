@@ -8,11 +8,15 @@ const SEPARATOR = ':';
 const DEV_FALLBACK_KEY = 'dev-fallback-key-change-in-prod!';
 
 function getKey(): Buffer {
-  const raw = process.env.ENCRYPTION_KEY ?? DEV_FALLBACK_KEY;
   if (!process.env.ENCRYPTION_KEY && process.env.NODE_ENV === 'production') {
     throw new Error('ENCRYPTION_KEY must be set in production');
   }
-  return Buffer.from(raw.padEnd(KEY_LEN, '0').slice(0, KEY_LEN), 'utf8');
+  const raw = process.env.ENCRYPTION_KEY ?? DEV_FALLBACK_KEY;
+  const buf = Buffer.from(raw, 'utf8');
+  if (buf.length !== KEY_LEN) {
+    throw new Error(`ENCRYPTION_KEY must be exactly ${KEY_LEN} bytes (got ${buf.length})`);
+  }
+  return buf;
 }
 
 export function encrypt(plaintext: string): string {

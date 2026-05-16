@@ -59,7 +59,14 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
     return;
   }
 
-  // Validate email before first send (only once)
+  // Block known-invalid emails immediately (catches re-enrolled leads)
+  if (cl.lead.email && ['INVALID', 'DISPOSABLE', 'NO_MX'].includes(cl.lead.emailValid)) {
+    await prisma.campaignLead.update({ where: { id: campaignLeadId }, data: { status: 'LOST', nextSendAt: null } });
+    console.log(`[Worker] Skipping ${cl.lead.email}: email marked ${cl.lead.emailValid}`);
+    return;
+  }
+
+  // Validate email before first send (only once, for UNKNOWN status)
   if (cl.currentStep === 0 && cl.lead.email && cl.lead.emailValid === 'UNKNOWN') {
     const result = await validateEmail(cl.lead.email);
     const validity = result.reason === 'valid' ? 'VALID'
@@ -276,13 +283,25 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
       lead: { id: lead.id, email: lead.email, firstName: lead.firstName, lastName: lead.lastName, company: lead.company, status: 'CONVERTED' },
       campaign: { id: cl.campaignId, name: cl.campaign.name },
     }).catch(() => null);
-    createNotification(lead.orgId, {
-      type: 'CAMPAIGN_COMPLETED',
-      title: `Кампания завершена`,
-      body: `${lead.firstName} ${lead.lastName} прошёл все шаги последовательности.`,
-      link: `/inbox?leadId=${lead.id}`,
-    }).catch(() => null);
     console.log(`[Worker] ${lead.firstName} ${lead.lastName}: sequence complete`);
+
+    // Check if ALL campaign leads are in terminal states — mark campaign COMPLETED
+    const activeCount = await prisma.campaignLead.count({
+      where: {
+        campaignId: cl.campaignId,
+        status: { notIn: ['CONVERTED', 'LOST', 'UNSUBSCRIBED', 'REPLIED'] },
+      },
+    });
+    if (activeCount === 0) {
+      await prisma.campaign.update({ where: { id: cl.campaignId }, data: { status: 'COMPLETED' } });
+      createNotification(lead.orgId, {
+        type: 'CAMPAIGN_COMPLETED',
+        title: 'Кампания завершена',
+        body: `Кампания «${cl.campaign.name}» прошла все шаги для всех лидов.`,
+        link: `/campaigns/${cl.campaignId}`,
+      }).catch(() => null);
+      console.log(`[Worker] Campaign ${cl.campaign.name} completed`);
+    }
   }
 }
 

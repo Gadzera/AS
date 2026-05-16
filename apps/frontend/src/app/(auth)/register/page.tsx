@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { authApi } from '@/lib/api';
 import { setToken, setStoredUser } from '@/lib/auth';
@@ -17,15 +17,14 @@ const steps = [
 
 export default function RegisterPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [form, setForm] = useState({ email: '', password: '', name: '', orgName: '', referralCode: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const ref = searchParams.get('ref');
+    const ref = new URLSearchParams(window.location.search).get('ref');
     if (ref) setForm(f => ({ ...f, referralCode: ref }));
-  }, [searchParams]);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
