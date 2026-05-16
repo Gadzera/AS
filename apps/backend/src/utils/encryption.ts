@@ -16,6 +16,9 @@ function getKey(): Buffer {
   if (buf.length !== KEY_LEN) {
     throw new Error(`ENCRYPTION_KEY must be exactly ${KEY_LEN} bytes (got ${buf.length})`);
   }
+  if (buf.every(b => b === 0)) {
+    throw new Error('ENCRYPTION_KEY must not be a zero key');
+  }
   return buf;
 }
 

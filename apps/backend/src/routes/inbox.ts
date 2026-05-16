@@ -19,7 +19,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orgId  = req.user!.orgId!;
     const page   = Math.max(1, parseInt(req.query.page as string) || 1);
-    const limit  = Math.min(50, parseInt(req.query.limit as string) || 25);
+    const limit  = Math.min(Math.max(1, parseInt(req.query.limit as string) || 25), 50);
     const filter = (req.query.filter as string) || 'all'; // all | replied | hot | unread
 
     const statusFilter =

@@ -1,37 +1,50 @@
 import { prisma } from '../lib/prisma';
 
-import { outreachQueue } from './queue';
+import { outreachQueue, redis } from './queue';
 
 
 
 export async function enqueueDueSends(): Promise<void> {
-  const now = new Date();
+  const lockKey = 'scheduler:lock';
+  const lockTtl = 55_000;
 
-  const dueSends = await prisma.campaignLead.findMany({
-    where: {
-      nextSendAt: { lte: now, not: null },
-      campaign: { status: 'ACTIVE' },
-      status: { notIn: ['LOST', 'UNSUBSCRIBED', 'CONVERTED'] },
-    },
-    select: { id: true },
-    take: 1000,
-  });
+  const acquired = await redis.set(lockKey, '1', 'PX', lockTtl, 'NX');
+  if (!acquired) {
+    console.log('[Scheduler] Another instance is running, skipping');
+    return;
+  }
 
-  if (dueSends.length === 0) return;
+  try {
+    const now = new Date();
 
-  await outreachQueue.addBulk(
-    dueSends.map((cl) => ({
-      name: 'send-outreach',
-      data: { campaignLeadId: cl.id },
-      opts: {
-        jobId: `send-${cl.id}`,
-        attempts: 3,
-        backoff: { type: 'exponential' as const, delay: 10_000 },
-        removeOnComplete: { count: 500 },
-        removeOnFail: { count: 100 },
+    const dueSends = await prisma.campaignLead.findMany({
+      where: {
+        nextSendAt: { lte: now, not: null },
+        campaign: { status: 'ACTIVE' },
+        status: { notIn: ['LOST', 'UNSUBSCRIBED', 'CONVERTED'] },
       },
-    }))
-  );
+      select: { id: true },
+      take: 1000,
+    });
 
-  console.log(`[Scheduler] Enqueued ${dueSends.length} outreach jobs`);
+    if (dueSends.length === 0) return;
+
+    await outreachQueue.addBulk(
+      dueSends.map((cl) => ({
+        name: 'send-outreach',
+        data: { campaignLeadId: cl.id },
+        opts: {
+          jobId: `send-${cl.id}`,
+          attempts: 3,
+          backoff: { type: 'exponential' as const, delay: 10_000 },
+          removeOnComplete: { count: 500 },
+          removeOnFail: { count: 100 },
+        },
+      }))
+    );
+
+    console.log(`[Scheduler] Enqueued ${dueSends.length} outreach jobs`);
+  } finally {
+    await redis.del(lockKey).catch(() => null);
+  }
 }

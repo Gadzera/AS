@@ -11,6 +11,16 @@ import Input from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 
+const STRIPE_ORIGINS = ['https://checkout.stripe.com', 'https://billing.stripe.com'];
+function isSafeStripeUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return STRIPE_ORIGINS.some(o => parsed.origin === o);
+  } catch {
+    return false;
+  }
+}
+
 const PLANS = [
   { id: 'STARTER', name: 'Starter',  price: '$29/mo',  features: ['500 leads', '3 campaigns', 'Email outreach', 'AI writing'] },
   { id: 'GROWTH',  name: 'Growth',   price: '$49/mo',  features: ['5,000 leads', '10 campaigns', 'Email + LinkedIn', 'PDL lead finder', 'Webhooks'] },
@@ -97,7 +107,7 @@ export default function SettingsPage() {
 
   const handleCheckout = async (plan: string) => {
     setCheckoutLoading(plan);
-    try { const { url } = await billingApi.checkout(plan); if (url) window.location.href = url; }
+    try { const { url } = await billingApi.checkout(plan); if (url && isSafeStripeUrl(url)) window.location.href = url; }
     catch { toastError('Checkout failed'); }
     finally { setCheckoutLoading(null); }
   };
@@ -567,7 +577,7 @@ export default function SettingsPage() {
                     <CardTitle>Billing & Plan</CardTitle>
                     {subscription?.status === 'active' && (
                       <Button size="sm" variant="secondary" onClick={async () => {
-                        const { url } = await billingApi.portal(); if (url) window.location.href = url;
+                        const { url } = await billingApi.portal(); if (url && isSafeStripeUrl(url)) window.location.href = url;
                       }}>Manage Billing</Button>
                     )}
                   </CardHeader>

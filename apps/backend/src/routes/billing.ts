@@ -150,9 +150,8 @@ router.post(
     let event;
     try {
       event = constructWebhookEvent(req.body as Buffer, sig as string);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      res.status(400).json({ error: `Webhook signature verification failed: ${msg}` });
+    } catch {
+      res.status(400).json({ error: 'Webhook signature verification failed' });
       return;
     }
 

@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -26,8 +26,16 @@ import referralRouter from './routes/referral';
 
 const app = express();
 
+// Trust reverse proxy (nginx/ALB) so rate limiter reads real client IP
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(helmet());
+app.use('/api', (req: Request, res: Response, next: NextFunction) => {
+  if (req.path.startsWith('/personalization')) { return next(); }
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  return next();
+});
 app.use(
   cors({
     origin: config.frontendUrl,
@@ -55,12 +63,52 @@ const authLimiter = rateLimit({
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 
+// Strict limit on AI generation endpoints (cost protection)
+const aiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => (req as Request & { user?: { userId?: string } }).user?.userId ?? req.ip ?? 'anon',
+  message: { error: 'Too many generation requests, please wait' },
+});
+app.use('/api/outreach/generate', aiLimiter);
+app.use('/api/outreach/auto-reply', aiLimiter);
+app.use('/api/bannerbear/preview', aiLimiter);
+
+// Limit on external paid API endpoints
+const externalApiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => (req as Request & { user?: { orgId?: string } }).user?.orgId ?? req.ip ?? 'anon',
+  message: { error: 'Too many requests to external API, please wait' },
+});
+app.use('/api/leads/search', externalApiLimiter);
+
+// Rate limit on public tracking endpoints
+const trackLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/track', trackLimiter);
+
 // Parse raw body for Stripe webhooks BEFORE json middleware
 app.use('/api/billing/webhook', express.raw({ type: 'application/json' }));
 
 // JSON body parsing
 app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+app.use((err: SyntaxError & { status?: number }, _req: Request, res: Response, next: NextFunction) => {
+  if (err.status === 400 && 'body' in err) {
+    res.status(400).json({ error: 'Invalid JSON body' });
+    return;
+  }
+  next(err);
+});
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // Health check
 app.get('/health', (_req, res) => {

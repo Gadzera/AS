@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma';
+import { randomUUID } from 'crypto';
 
 import nodemailer from 'nodemailer';
 import { generateOutreach } from '../services/generator';
@@ -173,9 +174,60 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
 
   const now = new Date();
 
-  // Create message record FIRST (need ID for tracking pixel)
+  // Generate message ID upfront so tracking pixel URL can be embedded before DB write
+  const messageId = randomUUID();
+
+  let smtpMessageId: string | undefined;
+  let smtpAccountId: string | undefined;
+
+  if (step.channel === 'EMAIL') {
+    // Inbox rotation: try org accounts, fall back to global SMTP
+    const smtpAccount = await getNextSmtpAccount(lead.orgId);
+
+    // Personalized image: self-hosted first (free), Bannerbear as fallback if configured
+    let personalizedImageUrl: string | null = null;
+    if (cl.campaign.bannerbearTemplateId) {
+      // Try Bannerbear (external paid service) if template ID is set
+      personalizedImageUrl = await generatePersonalizedImage(lead, cl.campaign.bannerbearTemplateId).catch(() => null);
+    }
+    if (!personalizedImageUrl) {
+      // Always embed self-hosted personalized image (free, no limit)
+      personalizedImageUrl = getPersonalizationUrl(config.backend.url, {
+        firstName: lead.firstName,
+        company:   lead.company ?? '',
+        title:     lead.title   ?? undefined,
+        template:  '1',
+      });
+    }
+
+    const unsubUrl = getUnsubscribeUrl(lead.unsubscribeToken!);
+    const pixelUrl = `${config.backend.url}/api/track/open/${messageId}`;
+    const htmlBody = buildHtmlEmail(body, pixelUrl, unsubUrl, messageId, config.backend.url, personalizedImageUrl);
+
+    if (smtpAccount) {
+      const result = await sendViaAccount(smtpAccount, { to: lead.email!, subject, body: htmlBody });
+      smtpMessageId = result.messageId;
+      smtpAccountId = smtpAccount.id;
+    } else {
+      // Fallback to global SMTP config
+      const transporter = nodemailer.createTransport({
+        host: config.smtp.host, port: config.smtp.port,
+        secure: config.smtp.port === 465,
+        auth: { user: config.smtp.user, pass: config.smtp.pass },
+      });
+      const info = await transporter.sendMail({
+        from: config.smtp.from, to: lead.email!, subject, html: htmlBody,
+      });
+      smtpMessageId = info.messageId;
+    }
+  } else {
+    await sendLinkedInMessage({ recipientProfileUrl: lead.linkedinUrl!, message: body });
+  }
+
+  // Create message record only after successful send to avoid orphaned records
   const message = await prisma.message.create({
     data: {
+      id: messageId,
       leadId: lead.id,
       direction: 'OUTBOUND',
       channel: step.channel,
@@ -183,67 +235,11 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
       body,
       aiGenerated,
       abVariant: abVariant ?? null,
+      sentAt: now,
+      ...(smtpMessageId ? { smtpMessageId } : {}),
+      ...(smtpAccountId ? { smtpAccountId } : {}),
     },
   });
-
-  try {
-    if (step.channel === 'EMAIL') {
-      // Inbox rotation: try org accounts, fall back to global SMTP
-      const smtpAccount = await getNextSmtpAccount(lead.orgId);
-
-      // Personalized image: self-hosted first (free), Bannerbear as fallback if configured
-      let personalizedImageUrl: string | null = null;
-      if (cl.campaign.bannerbearTemplateId) {
-        // Try Bannerbear (external paid service) if template ID is set
-        personalizedImageUrl = await generatePersonalizedImage(lead, cl.campaign.bannerbearTemplateId).catch(() => null);
-      }
-      if (!personalizedImageUrl) {
-        // Always embed self-hosted personalized image (free, no limit)
-        personalizedImageUrl = getPersonalizationUrl(config.backend.url, {
-          firstName: lead.firstName,
-          company:   lead.company ?? '',
-          title:     lead.title   ?? undefined,
-          template:  '1',
-        });
-      }
-
-      const unsubUrl = getUnsubscribeUrl(lead.unsubscribeToken!);
-      const pixelUrl = `${config.backend.url}/api/track/open/${message.id}`;
-      const htmlBody = buildHtmlEmail(body, pixelUrl, unsubUrl, message.id, config.backend.url, personalizedImageUrl);
-
-      let smtpMessageId: string;
-
-      if (smtpAccount) {
-        const result = await sendViaAccount(smtpAccount, { to: lead.email!, subject, body: htmlBody });
-        smtpMessageId = result.messageId;
-        await prisma.message.update({
-          where: { id: message.id },
-          data: { sentAt: now, smtpMessageId, smtpAccountId: smtpAccount.id },
-        });
-      } else {
-        // Fallback to global SMTP config
-        const transporter = nodemailer.createTransport({
-          host: config.smtp.host, port: config.smtp.port,
-          secure: config.smtp.port === 465,
-          auth: { user: config.smtp.user, pass: config.smtp.pass },
-        });
-        const info = await transporter.sendMail({
-          from: config.smtp.from, to: lead.email!, subject, html: htmlBody,
-        });
-        smtpMessageId = info.messageId;
-        await prisma.message.update({
-          where: { id: message.id },
-          data: { sentAt: now, smtpMessageId },
-        });
-      }
-    } else {
-      await sendLinkedInMessage({ recipientProfileUrl: lead.linkedinUrl!, message: body });
-      await prisma.message.update({ where: { id: message.id }, data: { sentAt: now } });
-    }
-  } catch (err) {
-    await prisma.message.delete({ where: { id: message.id } }).catch(() => null);
-    throw err;
-  }
 
   // Update lead status
   if (lead.status === 'NEW' || lead.status === 'CONTACTED') {

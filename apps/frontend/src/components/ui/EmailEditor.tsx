@@ -1,5 +1,6 @@
 'use client';
 
+import DOMPurify from 'dompurify';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -67,7 +68,7 @@ function PreviewModal({ html, onClose }: { html: string; onClose: () => void }) 
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
         </div>
         <div className="p-6 text-sm text-gray-800 leading-relaxed font-[Arial,sans-serif] max-h-96 overflow-y-auto"
-          dangerouslySetInnerHTML={{ __html: preview }} />
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(preview) }} />
         <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 text-xs text-gray-400 text-center">
           Пример с данными: {sample.firstName} {sample.lastName} · {sample.company}
         </div>
@@ -98,7 +99,11 @@ export default function EmailEditor({
     extensions: [
       StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
       Underline,
-      Link.configure({ openOnClick: false, HTMLAttributes: { class: 'text-brand-400 underline' } }),
+      Link.configure({
+        openOnClick: false,
+        HTMLAttributes: { class: 'text-brand-400 underline', rel: 'noopener noreferrer' },
+        validate: (url: string) => /^https?:\/\//i.test(url),
+      }),
       Placeholder.configure({ placeholder }),
       CharacterCount,
     ],
@@ -156,7 +161,13 @@ export default function EmailEditor({
         <ToolBtn
           onClick={() => {
             const url = window.prompt('URL ссылки:');
-            if (url) editor.chain().focus().setLink({ href: url }).run();
+            if (url) {
+              if (/^https?:\/\//i.test(url.trim())) {
+                editor.chain().focus().setLink({ href: url.trim() }).run();
+              } else {
+                alert('Допускаются только ссылки http:// или https://');
+              }
+            }
           }}
           active={editor.isActive('link')}
           title="Ссылка"

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import DOMPurify from 'dompurify';
 import type { Sequence } from '@/types';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -128,7 +129,7 @@ export default function SequenceBuilder({ campaignId, sequences, abTestEnabled =
             )}
             <div
               className="text-sm text-gray-400 line-clamp-3 prose prose-sm prose-invert max-w-none"
-              dangerouslySetInnerHTML={{ __html: step.body }}
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(step.body) }}
             />
             {abTestEnabled && step.bodyB && (
               <div className="mt-3 pt-3 border-t border-yellow-500/20">
@@ -140,7 +141,7 @@ export default function SequenceBuilder({ campaignId, sequences, abTestEnabled =
                 )}
                 <div
                   className="text-sm text-gray-400 line-clamp-2 prose prose-sm prose-invert max-w-none"
-                  dangerouslySetInnerHTML={{ __html: step.bodyB }}
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(step.bodyB ?? '') }}
                 />
               </div>
             )}

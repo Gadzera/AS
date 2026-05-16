@@ -171,11 +171,6 @@ router.post('/:id/start', async (req: Request, res: Response, next: NextFunction
       return;
     }
 
-    if (campaign.status === 'ACTIVE') {
-      res.status(400).json({ error: 'Campaign is already active' });
-      return;
-    }
-
     if (campaign.sequences.length === 0) {
       res.status(400).json({ error: 'Campaign must have at least one sequence step before starting' });
       return;
@@ -221,6 +216,17 @@ router.post('/:id/start', async (req: Request, res: Response, next: NextFunction
       return;
     }
 
+    // Atomically activate — guard against concurrent double-start
+    const activated = await prisma.campaign.updateMany({
+      where: { id: campaign.id, orgId, status: { not: 'ACTIVE' } },
+      data: { status: 'ACTIVE' },
+    });
+
+    if (activated.count === 0) {
+      res.status(400).json({ error: 'Campaign is already active' });
+      return;
+    }
+
     // Create CampaignLead records
     const firstStep = campaign.sequences[0];
     const now = new Date();
@@ -237,10 +243,8 @@ router.post('/:id/start', async (req: Request, res: Response, next: NextFunction
       skipDuplicates: true,
     });
 
-    // Update campaign status
-    const updatedCampaign = await prisma.campaign.update({
+    const updatedCampaign = await prisma.campaign.findUnique({
       where: { id: campaign.id },
-      data: { status: 'ACTIVE' },
     });
 
     res.json({
