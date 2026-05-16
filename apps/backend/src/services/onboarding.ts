@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma';
 import nodemailer from 'nodemailer';
 import { config } from '../config';
 import { outreachQueue } from '../worker/queue';
+import { broadcastToOrg } from '../utils/sse';
 
 
 
@@ -70,7 +71,7 @@ export async function triggerOnboarding(userId: string, orgId: string): Promise<
   });
 
   // Welcome notification
-  await prisma.notification.create({
+  const welcomeNotif = await prisma.notification.create({
     data: {
       orgId,
       type: 'ONBOARDING',
@@ -79,6 +80,7 @@ export async function triggerOnboarding(userId: string, orgId: string): Promise<
       link: '/settings',
     },
   });
+  broadcastToOrg(orgId, 'notification', welcomeNotif);
 
   if (!config.smtp.user) return;
 
@@ -117,7 +119,7 @@ export async function updateOnboardingStep(
       where: { orgId },
       data: { completedAt: new Date() },
     });
-    await prisma.notification.create({
+    const completionNotif = await prisma.notification.create({
       data: {
         orgId,
         type: 'ONBOARDING',
@@ -126,6 +128,7 @@ export async function updateOnboardingStep(
         link: '/dashboard',
       },
     });
+    broadcastToOrg(orgId, 'notification', completionNotif);
   }
 }
 
@@ -133,5 +136,6 @@ export async function createNotification(
   orgId: string,
   data: { type: any; title: string; body: string; link?: string }
 ): Promise<void> {
-  await prisma.notification.create({ data: { orgId, ...data } });
+  const notif = await prisma.notification.create({ data: { orgId, ...data } });
+  broadcastToOrg(orgId, 'notification', notif);
 }

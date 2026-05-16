@@ -1,9 +1,63 @@
 import { prisma } from '../lib/prisma';
 import { Router, Request, Response, NextFunction } from 'express';
-
+import jwt from 'jsonwebtoken';
+import { config } from '../config';
+import { AuthPayload } from '../middleware/auth';
 import { authenticate, requireOrg } from '../middleware/auth';
+import { registerSSEClient, unregisterSSEClient, broadcastToOrg } from '../utils/sse';
 
 const router = Router();
+
+// GET /api/notifications/stream — SSE stream for real-time notifications
+// Must be declared before router.use(authenticate) so we can handle
+// token-via-query-param (EventSource cannot send custom headers).
+router.get('/stream', async (req: Request, res: Response): Promise<void> => {
+  const token = req.query.token as string | undefined;
+  if (!token) {
+    res.status(401).json({ error: 'Missing token' });
+    return;
+  }
+
+  let orgId: string;
+  try {
+    const payload = jwt.verify(token, config.jwt.secret, { algorithms: ['HS256'] }) as AuthPayload;
+
+    // Verify user still exists
+    const dbUser = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      select: { id: true, orgId: true },
+    });
+    if (!dbUser?.orgId) {
+      res.status(401).json({ error: 'Token invalid or user not found' });
+      return;
+    }
+    orgId = dbUser.orgId;
+  } catch {
+    res.status(401).json({ error: 'Token invalid or expired' });
+    return;
+  }
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // disable nginx buffering
+  res.flushHeaders();
+
+  // Send initial ping
+  res.write('event: ping\ndata: {}\n\n');
+
+  // Heartbeat every 25 seconds to keep connection alive
+  const heartbeat = setInterval(() => {
+    res.write('event: ping\ndata: {}\n\n');
+  }, 25_000);
+
+  registerSSEClient(orgId, res);
+
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    unregisterSSEClient(orgId, res);
+  });
+});
 
 router.use(authenticate, requireOrg);
 

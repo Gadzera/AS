@@ -77,9 +77,47 @@ export default function Topbar({ title, subtitle }: TopbarProps) {
   }, []);
 
   useEffect(() => {
+    // Initial fetch to populate notifications immediately
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30_000);
-    return () => clearInterval(interval);
+
+    // SSE for real-time updates — EventSource cannot send custom headers,
+    // so we pass the JWT as a query param.
+    const token = localStorage.getItem('ai_sdr_token') ?? '';
+    if (!token) {
+      // Not logged in — fall back to polling
+      const interval = setInterval(fetchNotifications, 30_000);
+      return () => clearInterval(interval);
+    }
+
+    const apiBase = process.env.NEXT_PUBLIC_API_URL ?? '';
+    const es = new EventSource(
+      `${apiBase}/api/notifications/stream?token=${encodeURIComponent(token)}`
+    );
+
+    let fallbackInterval: ReturnType<typeof setInterval> | null = null;
+
+    es.addEventListener('notification', (e: MessageEvent) => {
+      try {
+        const notif = JSON.parse(e.data) as Notification;
+        setNotifications(prev => [notif, ...prev.slice(0, 49)]);
+        setUnreadCount(prev => prev + 1);
+      } catch { /* ignore malformed event */ }
+    });
+
+    es.addEventListener('ping', () => { /* keepalive — no action needed */ });
+
+    es.onerror = () => {
+      es.close();
+      // SSE unavailable — fall back to 30-second polling
+      if (!fallbackInterval) {
+        fallbackInterval = setInterval(fetchNotifications, 30_000);
+      }
+    };
+
+    return () => {
+      es.close();
+      if (fallbackInterval) clearInterval(fallbackInterval);
+    };
   }, []);
 
   useEffect(() => {
