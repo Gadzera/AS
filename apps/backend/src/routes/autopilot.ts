@@ -48,6 +48,19 @@ router.put('/', async (req: Request, res: Response, next: NextFunction) => {
   } catch (err) { next(err); }
 });
 
+// POST /api/autopilot/run — manually enqueue an autopilot discovery job
+router.post('/run', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId = req.user!.orgId!;
+    const { outreachQueue } = await import('../worker/queue');
+    await outreachQueue.add('autopilot-discover', { orgId }, {
+      jobId: `manual-autopilot-${orgId}-${Date.now()}`,
+      removeOnComplete: true,
+    });
+    res.json({ queued: true });
+  } catch (err) { next(err); }
+});
+
 // GET /api/autopilot/pipeline — воронка продаж
 router.get('/pipeline', async (req: Request, res: Response, next: NextFunction) => {
   try {
