@@ -3,10 +3,25 @@ import { Router, Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
+import rateLimit from 'express-rate-limit';
+import RedisStore from 'rate-limit-redis';
 
 import { config } from '../config';
 import { authenticate } from '../middleware/auth';
 import { triggerOnboarding } from '../services/onboarding';
+import { redis } from '../worker/queue';
+
+const passwordChangeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many password change attempts, try again later' },
+  store: new RedisStore({
+    sendCommand: (...args: string[]) => (redis as any).call(args[0], ...args.slice(1)) as Promise<number>,
+    prefix: 'rl:pwchange:',
+  }),
+});
 
 const router = Router();
 
@@ -172,7 +187,7 @@ router.get('/me', authenticate, async (req: Request, res: Response, next: NextFu
 });
 
 // PUT /api/auth/me — update name and/or password
-router.put('/me', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+router.put('/me', authenticate, passwordChangeLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const schema = z.object({
       name: z.string().min(1).max(100).optional(),

@@ -108,7 +108,10 @@ export default function InboxPage() {
   const [replyBody,    setReplyBody]    = useState('');
   const [sending,  setSending]  = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [mobileView, setMobileView] = useState<'list' | 'thread'>('list');
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const isMobileThread = !!selected && mobileView === 'thread';
 
   const charCount = stripHtml(replyBody).length;
 
@@ -123,11 +126,12 @@ export default function InboxPage() {
     finally { setLoading(false); }
   };
 
-  const loadThread = async (leadId: string) => {
+  const loadThread = async (leadId: string, fromMobile = false) => {
     setSelected(leadId);
     setThread(null);
     setThreadLoading(true);
     setReplyBody('');
+    if (fromMobile) setMobileView('thread');
     try {
       const r = await api.get(`/inbox/${leadId}`);
       setThread(r.data);

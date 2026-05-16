@@ -13,6 +13,7 @@ import Input from '@/components/ui/Input';
 import LeadsTable from '@/components/leads/LeadsTable';
 import Modal from '@/components/ui/Modal';
 import { LeadStatusBadge, ScoreBadge } from '@/components/ui/Badge';
+import TagManager from '@/components/ui/TagManager';
 
 const STATUS_OPTIONS: LeadStatus[] = [
   'NEW', 'CONTACTED', 'REPLIED', 'HOT', 'CONVERTED', 'LOST', 'UNSUBSCRIBED',
@@ -24,10 +25,12 @@ function LeadDrawer({
   lead,
   onClose,
   onSaved,
+  onRefresh,
 }: {
   lead: Lead | null;
   onClose: () => void;
   onSaved: (updated: Lead) => void;
+  onRefresh: () => void;
 }) {
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -161,6 +164,16 @@ function LeadDrawer({
                     {new Date(lead.createdAt).toLocaleDateString()}
                   </span>
                 </DrawerField>
+              </div>
+
+              {/* Tags */}
+              <div>
+                <label className="text-xs font-medium text-gray-400 uppercase tracking-wide block mb-1.5">Tags</label>
+                <TagManager
+                  leadId={lead.id}
+                  currentTags={lead.tags ?? []}
+                  onUpdate={onRefresh}
+                />
               </div>
 
               {/* Notes */}
@@ -613,6 +626,7 @@ export default function LeadsPage() {
             onAddToCampaign={handleAddToCampaign}
             onSortChange={handleSortChange}
             onSelectionChange={handleSelectionChange}
+            onRefresh={fetchLeads}
           />
 
           {/* Pagination */}
@@ -673,6 +687,7 @@ export default function LeadsPage() {
           setLeads((prev) => prev.map((l) => (l.id === updated.id ? updated : l)));
           setDrawerLead(updated);
         }}
+        onRefresh={fetchLeads}
       />
 
       {/* Campaign picker modal — for bulk or single */}

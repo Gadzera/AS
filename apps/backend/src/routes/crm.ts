@@ -1,10 +1,26 @@
 import { prisma } from '../lib/prisma';
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
+import rateLimit from 'express-rate-limit';
+import RedisStore from 'rate-limit-redis';
 import { authenticate, requireOrg } from '../middleware/auth';
 import { testHubSpotConnection, upsertHubSpotContact } from '../services/hubspot';
 import { testPipedriveConnection, upsertPipedriveContact } from '../services/pipedrive';
 import { encrypt } from '../utils/encryption';
+import { redis } from '../worker/queue';
+
+const crmSyncBatchLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => (req as Request & { user?: { orgId?: string } }).user?.orgId ?? req.ip ?? 'anon',
+  message: { error: 'Too many CRM sync-batch requests, try again later' },
+  store: new RedisStore({
+    sendCommand: (...args: string[]) => (redis as any).call(args[0], ...args.slice(1)) as Promise<number>,
+    prefix: 'rl:crm_sync:',
+  }),
+});
 
 
 const router = Router();
@@ -87,7 +103,7 @@ router.post('/sync/:leadId', async (req: Request, res: Response, next: NextFunct
 });
 
 // POST /api/crm/sync-batch — sync all HOT leads to CRMs
-router.post('/sync-batch', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/sync-batch', crmSyncBatchLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orgId = req.user!.orgId!;
     const { status = 'HOT' } = z.object({

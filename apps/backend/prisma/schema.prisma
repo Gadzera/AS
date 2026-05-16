@@ -14,7 +14,7 @@ model User {
   name         String
   role         Role          @default(MEMBER)
   orgId        String?
-  org          Organization? @relation(fields: [orgId], references: [id])
+  org          Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   campaigns    Campaign[]
@@ -48,7 +48,7 @@ model Organization {
 model ApiKey {
   id        String       @id @default(cuid())
   orgId     String
-  org       Organization @relation(fields: [orgId], references: [id])
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   service   String
   keyValue  String
   createdAt DateTime     @default(now())
@@ -61,7 +61,7 @@ model ApiKey {
 model SmtpAccount {
   id        String       @id @default(cuid())
   orgId     String
-  org       Organization @relation(fields: [orgId], references: [id])
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   name      String       // Display name e.g. "john@acme.com"
   host      String
   port      Int          @default(587)
@@ -87,7 +87,7 @@ model SmtpAccount {
 model Webhook {
   id        String       @id @default(cuid())
   orgId     String
-  org       Organization @relation(fields: [orgId], references: [id])
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   name      String
   url       String
   events    String[]     // e.g. ["reply", "open", "bounce", "unsubscribe"]
@@ -101,7 +101,7 @@ model Webhook {
 model Lead {
   id               String         @id @default(cuid())
   orgId            String
-  org              Organization   @relation(fields: [orgId], references: [id])
+  org              Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
   firstName        String
   lastName         String
   email            String?
@@ -137,9 +137,9 @@ model Lead {
 model Campaign {
   id             String         @id @default(cuid())
   orgId          String
-  org            Organization   @relation(fields: [orgId], references: [id])
+  org            Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
   userId         String
-  user           User           @relation(fields: [userId], references: [id])
+  user           User           @relation(fields: [userId], references: [id], onDelete: Restrict)
   name           String
   status         CampaignStatus @default(DRAFT)
   channel        Channel        @default(EMAIL)
@@ -162,7 +162,7 @@ model Campaign {
 model Sequence {
   id         String   @id @default(cuid())
   campaignId String
-  campaign   Campaign @relation(fields: [campaignId], references: [id])
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   stepNumber Int
   delayDays  Int      @default(0)
   subject    String?
@@ -179,9 +179,9 @@ model Sequence {
 model CampaignLead {
   id            String     @id @default(cuid())
   campaignId    String
-  campaign      Campaign   @relation(fields: [campaignId], references: [id])
+  campaign      Campaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   leadId        String
-  lead          Lead       @relation(fields: [leadId], references: [id])
+  lead          Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
   currentStep   Int        @default(0)
   status        LeadStatus @default(NEW)
   nextSendAt    DateTime?
@@ -198,7 +198,7 @@ model CampaignLead {
 model Message {
   id            String       @id @default(cuid())
   leadId        String
-  lead          Lead         @relation(fields: [leadId], references: [id])
+  lead          Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
   smtpAccountId String?
   smtpAccount   SmtpAccount? @relation(fields: [smtpAccountId], references: [id])
   direction     Direction
@@ -282,7 +282,7 @@ enum EmailValidity {
 model Template {
   id        String       @id @default(cuid())
   orgId     String
-  org       Organization @relation(fields: [orgId], references: [id])
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   name      String
   subject   String?
   body      String       @db.Text

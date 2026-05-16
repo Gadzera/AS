@@ -1,11 +1,27 @@
 import { prisma } from '../lib/prisma';
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
+import rateLimit from 'express-rate-limit';
+import RedisStore from 'rate-limit-redis';
 
 import { authenticate, requireOrg } from '../middleware/auth';
 import { verifySmtpAccount, invalidateTransporterCache } from '../services/smtpRotation';
 import { encrypt } from '../utils/encryption';
 import { updateOnboardingStep } from '../services/onboarding';
+import { redis } from '../worker/queue';
+
+const smtpVerifyLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => (req as Request & { user?: { orgId?: string } }).user?.orgId ?? req.ip ?? 'anon',
+  message: { error: 'Too many SMTP verify attempts, try again later' },
+  store: new RedisStore({
+    sendCommand: (...args: string[]) => (redis as any).call(args[0], ...args.slice(1)) as Promise<number>,
+    prefix: 'rl:smtp_verify:',
+  }),
+});
 
 const router = Router();
 
@@ -34,7 +50,49 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
       orderBy: { createdAt: 'asc' },
       select: { id: true, name: true, host: true, port: true, fromEmail: true, fromName: true, active: true, imapHost: true, imapPort: true, imapUser: true, imapEnabled: true, createdAt: true },
     });
-    res.json(accounts);
+
+    const now = new Date();
+    const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
+    const weekAgo = new Date(Date.now() - 7 * 86_400_000);
+
+    const accountsWithStats = await Promise.all(accounts.map(async (account) => {
+      const daysSinceCreation = Math.floor((now.getTime() - account.createdAt.getTime()) / 86_400_000);
+
+      const [todaySent, weekSent] = await Promise.all([
+        prisma.message.count({
+          where: {
+            smtpAccountId: account.id,
+            direction: 'OUTBOUND',
+            sentAt: { gte: todayStart },
+          },
+        }),
+        prisma.message.count({
+          where: {
+            smtpAccountId: account.id,
+            direction: 'OUTBOUND',
+            sentAt: { gte: weekAgo },
+          },
+        }),
+      ]);
+
+      const warmupPhase = daysSinceCreation < 3 ? 'Phase 1 (20/day)'
+        : daysSinceCreation < 7 ? 'Phase 2 (50/day)'
+        : daysSinceCreation < 14 ? 'Phase 3 (100/day)'
+        : 'Warmed up';
+
+      return {
+        ...account,
+        warmup: {
+          daysSinceCreation,
+          phase: warmupPhase,
+          todaySent,
+          weekSent,
+          isWarmedUp: daysSinceCreation >= 14,
+        },
+      };
+    }));
+
+    res.json(accountsWithStats);
   } catch (err) { next(err); }
 });
 
@@ -107,7 +165,7 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
 });
 
 // POST /api/smtp/:id/verify
-router.post('/:id/verify', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/:id/verify', smtpVerifyLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const account = await prisma.smtpAccount.findFirst({
       where: { id: req.params.id, orgId: req.user!.orgId! },
