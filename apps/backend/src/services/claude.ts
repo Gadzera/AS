@@ -34,6 +34,7 @@ interface OutreachContext {
   language?: 'en' | 'ru' | 'de';
   valueProposition?: string;
   tone?: 'professional' | 'casual' | 'friendly';
+  websiteContent?: string;
 }
 
 export interface GeneratedOutreach {
@@ -86,6 +87,10 @@ export async function generateOutreach(
       ? 'This is a LinkedIn connection request / InMail message. Keep it under 300 characters for the connection note, or under 1000 characters for InMail. No formal subject line needed.'
       : 'This is a cold email. Include a compelling subject line and a well-structured body (3-5 short paragraphs).';
 
+  const websiteSnippet = context.websiteContent
+    ? `\nLead's company website content (use specific details from this to personalize):\n"""\n${context.websiteContent}\n"""`
+    : '';
+
   const prompt = `You are an expert B2B sales development representative (SDR). Your task is to write a highly personalized ${channel === 'LINKEDIN' ? 'LinkedIn' : 'email'} outreach message.
 
 ${channelInstruction}
@@ -97,7 +102,7 @@ Lead information:
 ${leadInfo}
 
 ${senderInfo ? `Sender information:\n${senderInfo}` : ''}
-
+${websiteSnippet}
 Requirements:
 1. Personalize the message based on the lead's company, industry, and role
 2. Focus on their specific pain points and how you can help
@@ -181,6 +186,66 @@ Respond with ONLY one word from this list: INTERESTED, NOT_INTERESTED, FOLLOW_UP
 
   // Default fallback
   return 'FOLLOW_UP';
+}
+
+/**
+ * Generate a follow-up reply when a lead responds with interest
+ */
+export async function generateAutoReply(params: {
+  leadFirstName: string;
+  originalMessage: string;
+  replyFromLead: string;
+  senderName?: string;
+  senderTitle?: string;
+  calendlyUrl?: string;
+  language?: 'en' | 'ru' | 'de';
+}): Promise<{ subject: string; body: string }> {
+  const { leadFirstName, originalMessage, replyFromLead, calendlyUrl, language = 'en' } = params;
+
+  const languageInstruction = { en: 'Write in English.', ru: 'Write in Russian.', de: 'Write in German.' }[language];
+
+  const calendlyLine = calendlyUrl
+    ? `Include this scheduling link: ${calendlyUrl}`
+    : 'Suggest picking a time for a 20-minute call.';
+
+  const prompt = `You are an expert B2B SDR. A lead just responded positively to your cold outreach. Write a short, warm reply to continue the conversation and book a call.
+
+${languageInstruction}
+
+Your original message:
+"""
+${originalMessage}
+"""
+
+Their reply:
+"""
+${replyFromLead}
+"""
+
+Instructions:
+1. Address ${leadFirstName} by first name
+2. Acknowledge what they said specifically
+3. Keep it under 5 sentences — don't oversell
+4. ${calendlyLine}
+5. Sound like a human, not a robot
+
+Respond with JSON: {"subject": "Re: ...", "body": "full reply text"}
+Only valid JSON, no markdown.`;
+
+  const response = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: 512,
+    messages: [{ role: 'user', content: prompt }],
+  });
+
+  const content = response.content[0];
+  if (content.type !== 'text') throw new Error('Unexpected response type from Claude');
+
+  try {
+    return JSON.parse(content.text.trim()) as { subject: string; body: string };
+  } catch {
+    return { subject: `Re: Following up, ${leadFirstName}`, body: content.text };
+  }
 }
 
 interface LeadProfile {

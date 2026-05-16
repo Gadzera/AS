@@ -12,6 +12,7 @@ import sequencesRouter from './routes/sequences';
 import outreachRouter from './routes/outreach';
 import analyticsRouter from './routes/analytics';
 import billingRouter from './routes/billing';
+import trackRouter from './routes/track';
 
 const app = express();
 
@@ -53,6 +54,7 @@ app.use('/api/sequences', sequencesRouter);
 app.use('/api/outreach', outreachRouter);
 app.use('/api/analytics', analyticsRouter);
 app.use('/api/billing', billingRouter);
+app.use('/api/track', trackRouter);
 
 // 404 handler
 app.use((_req, res) => {

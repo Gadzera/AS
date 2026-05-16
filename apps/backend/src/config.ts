@@ -62,4 +62,12 @@ export const config = {
   redis: {
     url: optional('REDIS_URL', 'redis://localhost:6379'),
   },
+
+  backend: {
+    url: optional('BACKEND_URL', 'http://localhost:3001'),
+  },
+
+  calendly: {
+    url: optional('CALENDLY_URL', ''),
+  },
 };
