@@ -51,6 +51,7 @@ export default function SettingsPage() {
   const [tab, setTab]       = useState<SecondaryTab | null>(null);
   const [user, setUser]     = useState<User | null>(null);
   const [subscription, setSubscription] = useState<{ plan: string; status: string; currentPeriodEnd?: string } | null>(null);
+  const [usage, setUsage] = useState<{ plan: string; leads: { used: number; limit: number; percent: number }; campaigns: { used: number; limit: number; active: number } } | null>(null);
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
 
@@ -130,11 +131,12 @@ export default function SettingsPage() {
   const WEBHOOK_EVENTS = ['reply', 'open', 'bounce', 'unsubscribe', 'interested', 'converted'];
 
   useEffect(() => {
-    Promise.all([authApi.me(), billingApi.subscription()])
-      .then(([u, sub]) => {
+    Promise.all([authApi.me(), billingApi.subscription(), billingApi.usage()])
+      .then(([u, sub, usg]) => {
         setUser(u);
         setProfileName(u?.name ?? '');
         setSubscription(sub as any);
+        setUsage(usg as any);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -772,20 +774,93 @@ export default function SettingsPage() {
                   {tab === 'Billing' && (
                     <Card padding="md">
                       <CardHeader>
-                        <CardTitle>Billing & Plan</CardTitle>
-                        {subscription?.status === 'active' && (
-                          <Button size="sm" variant="secondary" onClick={async () => {
-                            const { url } = await billingApi.portal(); if (url && isSafeStripeUrl(url)) window.location.href = url;
-                          }}>Manage Billing</Button>
-                        )}
+                        <div className="flex items-center gap-3">
+                          <CardTitle>Billing & Plan</CardTitle>
+                          {usage && (
+                            <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-semibold border ${
+                              usage.plan === 'AGENCY'  ? 'bg-purple-500/15 text-purple-400 border-purple-500/25' :
+                              usage.plan === 'GROWTH'  ? 'bg-blue-500/15 text-blue-400 border-blue-500/25' :
+                              'bg-gray-700/60 text-gray-400 border-gray-600'
+                            }`}>
+                              {usage.plan}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {subscription?.status === 'active' && (
+                            <Button size="sm" variant="secondary" onClick={async () => {
+                              const { url } = await billingApi.portal(); if (url && isSafeStripeUrl(url)) window.location.href = url;
+                            }}>Manage Billing</Button>
+                          )}
+                          {usage && (usage.plan === 'STARTER' || usage.plan === 'GROWTH') && (
+                            <Button size="sm" onClick={() => handleCheckout(usage.plan === 'STARTER' ? 'GROWTH' : 'AGENCY')} loading={checkoutLoading === (usage.plan === 'STARTER' ? 'GROWTH' : 'AGENCY')}>
+                              Upgrade
+                            </Button>
+                          )}
+                        </div>
                       </CardHeader>
 
                       {subscription && (
-                        <div className="mb-6 p-4 bg-gray-800/40 rounded-lg text-sm">
+                        <div className="mb-4 p-4 bg-gray-800/40 rounded-lg text-sm">
                           <p><span className="text-gray-500">Status:</span> <span className="font-medium capitalize text-white">{subscription.status}</span></p>
                           {subscription.currentPeriodEnd && (
                             <p className="mt-1"><span className="text-gray-500">Renews:</span> <span className="font-medium text-white">{new Date(subscription.currentPeriodEnd).toLocaleDateString()}</span></p>
                           )}
+                        </div>
+                      )}
+
+                      {/* Usage Card */}
+                      {usage && (
+                        <div className="mb-6 p-4 bg-gray-900/60 border border-gray-800 rounded-xl space-y-4">
+                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Current Usage</p>
+
+                          {/* Leads */}
+                          <div>
+                            <div className="flex justify-between mb-1.5 text-sm">
+                              <span className="text-gray-400">Leads</span>
+                              <span className="text-gray-300 tabular-nums">
+                                {usage.leads.used.toLocaleString()} / {usage.leads.limit >= 100000 ? '∞' : usage.leads.limit.toLocaleString()}
+                              </span>
+                            </div>
+                            <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+                              <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${Math.min(usage.leads.percent, 100)}%` }}
+                                transition={{ duration: 0.8, ease: 'easeOut' }}
+                                className={`h-full rounded-full ${usage.leads.percent > 90 ? 'bg-red-500' : usage.leads.percent > 70 ? 'bg-yellow-500' : 'bg-brand-500'}`}
+                              />
+                            </div>
+                            {usage.leads.percent > 80 && (
+                              <p className="text-[11px] text-yellow-500 mt-1">{usage.leads.percent}% used — consider upgrading</p>
+                            )}
+                          </div>
+
+                          {/* Campaigns */}
+                          <div>
+                            <div className="flex justify-between mb-1.5 text-sm">
+                              <span className="text-gray-400">Campaigns</span>
+                              <span className="text-gray-300 tabular-nums">
+                                {usage.campaigns.used} / {usage.campaigns.limit >= 1000 ? '∞' : usage.campaigns.limit}
+                                {usage.campaigns.active > 0 && (
+                                  <span className="text-gray-600 text-xs ml-1">({usage.campaigns.active} active)</span>
+                                )}
+                              </span>
+                            </div>
+                            <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+                              <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${Math.min(usage.campaigns.limit >= 1000 ? 0 : Math.round((usage.campaigns.used / usage.campaigns.limit) * 100), 100)}%` }}
+                                transition={{ duration: 0.8, ease: 'easeOut', delay: 0.1 }}
+                                className={`h-full rounded-full ${
+                                  usage.campaigns.limit < 1000 && usage.campaigns.used / usage.campaigns.limit > 0.9
+                                    ? 'bg-red-500'
+                                    : usage.campaigns.limit < 1000 && usage.campaigns.used / usage.campaigns.limit > 0.7
+                                    ? 'bg-yellow-500'
+                                    : 'bg-brand-500'
+                                }`}
+                              />
+                            </div>
+                          </div>
                         </div>
                       )}
 

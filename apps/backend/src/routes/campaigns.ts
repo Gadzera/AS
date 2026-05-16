@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { authenticate, requireOrg } from '../middleware/auth';
 import { updateOnboardingStep } from '../services/onboarding';
+import { invalidateAnalyticsCache } from './analytics';
 
 const router = Router();
 
@@ -274,6 +275,8 @@ router.post('/:id/start', async (req: Request, res: Response, next: NextFunction
       where: { id: campaign.id },
     });
 
+    invalidateAnalyticsCache(orgId, campaign.id).catch(() => null);
+
     res.json({
       campaign: updatedCampaign,
       leadsEnrolled: leads.length,
@@ -385,6 +388,8 @@ router.post('/:id/pause', async (req: Request, res: Response, next: NextFunction
       where: { id: req.params.id },
       data: { status: 'PAUSED' },
     });
+
+    invalidateAnalyticsCache(orgId, campaign.id).catch(() => null);
 
     res.json(updated);
   } catch (err) {

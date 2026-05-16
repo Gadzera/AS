@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Lead } from '@/types';
 import { LeadStatusBadge, ScoreBadge } from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
+import TagManager from '@/components/ui/TagManager';
 
 interface ColumnDef {
   id: string;
@@ -23,6 +24,7 @@ const COLUMNS: ColumnDef[] = [
   { id: 'status',   label: 'Status',   sortable: true,  defaultVisible: true },
   { id: 'country',  label: 'Country',  sortable: false, defaultVisible: true },
   { id: 'industry', label: 'Industry', sortable: false, defaultVisible: false },
+  { id: 'tags',     label: 'Tags',     sortable: false, defaultVisible: false },
   { id: 'actions',  label: 'Actions',  sortable: false, defaultVisible: true,  alwaysVisible: true },
 ];
 
@@ -34,6 +36,7 @@ export interface LeadsTableProps {
   onView?: (lead: Lead) => void;
   onSortChange?: (field: string, dir: 'asc' | 'desc') => void;
   onSelectionChange?: (ids: string[]) => void;
+  onRefresh?: () => void;
 }
 
 function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
@@ -94,6 +97,7 @@ export default function LeadsTable({
   onView,
   onSortChange,
   onSelectionChange,
+  onRefresh,
 }: LeadsTableProps) {
   const [sortField, setSortField] = useState<string>('score');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -349,6 +353,16 @@ export default function LeadsTable({
                       return (
                         <td key="industry" className="py-3 pr-4 text-gray-500 whitespace-nowrap">
                           {lead.industry ?? '—'}
+                        </td>
+                      );
+                    case 'tags':
+                      return (
+                        <td key="tags" className="py-3 pr-4">
+                          <TagManager
+                            leadId={lead.id}
+                            currentTags={lead.tags ?? []}
+                            onUpdate={() => onRefresh?.()}
+                          />
                         </td>
                       );
                     case 'actions':
