@@ -58,6 +58,9 @@ export default function SettingsPage() {
   const [crmStatus, setCrmStatus]     = useState<{ hubspot: boolean; pipedrive: boolean } | null>(null);
   const [crmLoading, setCrmLoading]   = useState(false);
   const [syncingAll, setSyncingAll]   = useState(false);
+  const [showCrmModal, setShowCrmModal] = useState<'hubspot' | 'pipedrive' | null>(null);
+  const [crmForm, setCrmForm] = useState({ hubspotToken: '', pipedriveApiKey: '', pipedriveDomain: '' });
+  const [savingCrm, setSavingCrm] = useState(false);
 
   // Profile editing
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -383,8 +386,8 @@ export default function SettingsPage() {
 
                     <div className="space-y-3">
                       {[
-                        { id: 'hubspot',   name: 'HubSpot',   desc: 'Syncs hot leads to HubSpot Contacts automatically', env: 'HUBSPOT_ACCESS_TOKEN', docs: 'Private App token from HubSpot Settings > Integrations > Private Apps' },
-                        { id: 'pipedrive', name: 'Pipedrive', desc: 'Syncs hot leads to Pipedrive Persons automatically', env: 'PIPEDRIVE_API_KEY + PIPEDRIVE_DOMAIN', docs: 'API key from Pipedrive Settings > Personal Preferences > API' },
+                        { id: 'hubspot'   as const, name: 'HubSpot',   desc: 'Syncs hot leads to HubSpot Contacts automatically' },
+                        { id: 'pipedrive' as const, name: 'Pipedrive', desc: 'Syncs hot leads to Pipedrive Persons automatically' },
                       ].map(crm => {
                         const connected = crmStatus ? crmStatus[crm.id as keyof typeof crmStatus] : null;
                         return (
@@ -408,10 +411,9 @@ export default function SettingsPage() {
                                   <p className="text-xs text-gray-500 mt-0.5">{crm.desc}</p>
                                 </div>
                               </div>
-                            </div>
-                            <div className="mt-3 p-2.5 bg-gray-900/60 rounded-lg">
-                              <p className="text-[11px] text-gray-600 font-mono">{crm.env}</p>
-                              <p className="text-[11px] text-gray-500 mt-0.5">{crm.docs}</p>
+                              <Button size="sm" variant="secondary" onClick={() => setShowCrmModal(crm.id)}>
+                                {connected ? 'Reconfigure' : 'Configure'}
+                              </Button>
                             </div>
                           </div>
                         );
@@ -875,6 +877,66 @@ export default function SettingsPage() {
           <div className="flex gap-2 pt-2">
             <Button onClick={handleAddWebhook} loading={addingWebhook} disabled={!webhookForm.url || webhookForm.events.length === 0} className="flex-1">Create Webhook</Button>
             <Button variant="secondary" onClick={() => setShowWebhookModal(false)}>Cancel</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* CRM Configure Modal */}
+      <Modal
+        open={showCrmModal !== null}
+        onClose={() => setShowCrmModal(null)}
+        title={showCrmModal === 'hubspot' ? 'Configure HubSpot' : 'Configure Pipedrive'}
+        size="md"
+      >
+        <div className="space-y-3">
+          {showCrmModal === 'hubspot' ? (
+            <Input
+              label="HubSpot Private App Token"
+              type="password"
+              placeholder="pat-na1-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+              value={crmForm.hubspotToken}
+              onChange={e => setCrmForm(f => ({ ...f, hubspotToken: e.target.value }))}
+              hint="Settings > Integrations > Private Apps > Create a private app"
+            />
+          ) : (
+            <>
+              <Input
+                label="Pipedrive API Key"
+                type="password"
+                placeholder="••••••••••••••••••••••••••••••••••••••••"
+                value={crmForm.pipedriveApiKey}
+                onChange={e => setCrmForm(f => ({ ...f, pipedriveApiKey: e.target.value }))}
+                hint="Settings > Personal Preferences > API"
+              />
+              <Input
+                label="Pipedrive Domain"
+                placeholder="yourcompany (from yourcompany.pipedrive.com)"
+                value={crmForm.pipedriveDomain}
+                onChange={e => setCrmForm(f => ({ ...f, pipedriveDomain: e.target.value }))}
+              />
+            </>
+          )}
+          <div className="flex gap-2 pt-2">
+            <Button
+              onClick={async () => {
+                setSavingCrm(true);
+                try {
+                  await api.put('/crm/keys', showCrmModal === 'hubspot'
+                    ? { hubspotToken: crmForm.hubspotToken }
+                    : { pipedriveApiKey: crmForm.pipedriveApiKey, pipedriveDomain: crmForm.pipedriveDomain }
+                  );
+                  setShowCrmModal(null);
+                  setCrmLoading(true);
+                  api.get('/crm/status').then(r => setCrmStatus(r.data)).catch(() => {}).finally(() => setCrmLoading(false));
+                } catch { /* ignore */ }
+                finally { setSavingCrm(false); }
+              }}
+              loading={savingCrm}
+              className="flex-1"
+            >
+              Save
+            </Button>
+            <Button variant="secondary" onClick={() => setShowCrmModal(null)}>Cancel</Button>
           </div>
         </div>
       </Modal>

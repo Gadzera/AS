@@ -87,11 +87,32 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
+const PLAN_LEAD_LIMITS: Record<string, number> = {
+  STARTER: 500,
+  GROWTH:  5000,
+  AGENCY:  Infinity,
+};
+
+async function checkLeadLimit(orgId: string): Promise<{ allowed: boolean; plan: string; limit: number; current: number }> {
+  const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { plan: true } });
+  const plan = org?.plan ?? 'STARTER';
+  const limit = PLAN_LEAD_LIMITS[plan] ?? 500;
+  if (!isFinite(limit)) return { allowed: true, plan, limit, current: 0 };
+  const current = await prisma.lead.count({ where: { orgId } });
+  return { allowed: current < limit, plan, limit, current };
+}
+
 // POST /api/leads
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orgId = req.user!.orgId!;
     const data = createLeadSchema.parse(req.body);
+
+    const { allowed, plan, limit } = await checkLeadLimit(orgId);
+    if (!allowed) {
+      res.status(403).json({ error: `Plan limit reached: ${plan} allows ${limit} leads. Upgrade to add more.` });
+      return;
+    }
 
     const score = scoreLeadLocal({ ...data });
 

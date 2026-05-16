@@ -171,8 +171,8 @@ router.post(
           if (orgId && plan && subscriptionId) {
             const planLimits: Record<string, number> = {
               STARTER: 500,
-              GROWTH: 2000,
-              AGENCY: 10000,
+              GROWTH: 5000,
+              AGENCY: 100000,
             };
 
             await prisma.organization.update({
@@ -206,8 +206,8 @@ router.post(
           if (org) {
             const planLimits: Record<string, number> = {
               STARTER: 500,
-              GROWTH: 2000,
-              AGENCY: 10000,
+              GROWTH: 5000,
+              AGENCY: 100000,
             };
 
             await prisma.organization.update({

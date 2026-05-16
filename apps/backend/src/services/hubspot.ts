@@ -1,5 +1,7 @@
 import axios, { AxiosError } from 'axios';
+import { prisma } from '../lib/prisma';
 import { config } from '../config';
+import { decrypt } from '../utils/encryption';
 
 const BASE = 'https://api.hubapi.com';
 
@@ -10,6 +12,15 @@ interface LeadPayload {
   company?: string | null;
   title?: string | null;
   status: string;
+  orgId?: string | null;
+}
+
+async function resolveToken(orgId?: string | null): Promise<string | null> {
+  if (orgId) {
+    const key = await prisma.apiKey.findFirst({ where: { orgId, service: 'hubspot' } });
+    if (key) return decrypt(key.keyValue);
+  }
+  return config.hubspot.accessToken || null;
 }
 
 function buildProperties(lead: LeadPayload) {
@@ -24,14 +35,14 @@ function buildProperties(lead: LeadPayload) {
 }
 
 export async function upsertHubSpotContact(lead: LeadPayload): Promise<void> {
-  if (!config.hubspot.accessToken) return;
+  const token = await resolveToken(lead.orgId);
+  if (!token) return;
 
-  const headers = { Authorization: `Bearer ${config.hubspot.accessToken}` };
+  const headers = { Authorization: `Bearer ${token}` };
   const properties = buildProperties(lead);
 
   try {
     if (lead.email) {
-      // Try create-or-update by email
       await axios.post(
         `${BASE}/crm/v3/objects/contacts/upsert`,
         { inputs: [{ idProperty: 'email', id: lead.email, properties }] },
@@ -47,11 +58,12 @@ export async function upsertHubSpotContact(lead: LeadPayload): Promise<void> {
   }
 }
 
-export async function testHubSpotConnection(): Promise<boolean> {
-  if (!config.hubspot.accessToken) return false;
+export async function testHubSpotConnection(orgId?: string | null): Promise<boolean> {
+  const token = await resolveToken(orgId);
+  if (!token) return false;
   try {
     await axios.get(`${BASE}/crm/v3/objects/contacts?limit=1`, {
-      headers: { Authorization: `Bearer ${config.hubspot.accessToken}` },
+      headers: { Authorization: `Bearer ${token}` },
       timeout: 8_000,
     });
     return true;

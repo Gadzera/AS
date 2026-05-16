@@ -269,8 +269,8 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
   }
 
   // CRM sync (non-blocking)
-  upsertHubSpotContact({ email: lead.email, firstName: lead.firstName, lastName: lead.lastName, company: lead.company, title: lead.title, status: lead.status }).catch(() => null);
-  upsertPipedriveContact({ email: lead.email, firstName: lead.firstName, lastName: lead.lastName, company: lead.company, title: lead.title }).catch(() => null);
+  upsertHubSpotContact({ email: lead.email, firstName: lead.firstName, lastName: lead.lastName, company: lead.company, title: lead.title, status: lead.status, orgId: lead.orgId }).catch(() => null);
+  upsertPipedriveContact({ email: lead.email, firstName: lead.firstName, lastName: lead.lastName, company: lead.company, title: lead.title, orgId: lead.orgId }).catch(() => null);
 
   // Fire webhooks (non-blocking)
   fireWebhooks(lead.orgId, {
