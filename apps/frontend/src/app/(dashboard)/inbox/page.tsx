@@ -204,7 +204,7 @@ export default function InboxPage() {
       <main className="flex-1 flex overflow-hidden">
 
         {/* Left: conversation list */}
-        <div className="w-80 flex-shrink-0 border-r border-gray-800/60 flex flex-col bg-[#080b10]">
+        <div className={`${isMobileThread ? 'hidden' : 'flex'} md:flex flex-col w-full md:w-80 flex-shrink-0 border-r border-gray-800/60 bg-[#080b10]`}>
           {/* Filter tabs */}
           <div className="flex gap-1 p-3 border-b border-gray-800/60">
             {FILTERS.map(f => (
@@ -308,7 +308,7 @@ export default function InboxPage() {
         </div>
 
         {/* Center + Right: thread + lead panel */}
-        <div className="flex-1 flex min-w-0">
+        <div className={`${!isMobileThread ? 'hidden' : 'flex'} md:flex flex-1 min-w-0`}>
           {/* Thread column */}
           <div className="flex-1 flex flex-col min-w-0 bg-gray-950">
             {!selected ? (

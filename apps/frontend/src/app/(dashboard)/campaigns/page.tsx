@@ -16,6 +16,7 @@ export default function CampaignsPage() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [duplicating, setDuplicating] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: '',
     channel: 'EMAIL' as 'EMAIL' | 'LINKEDIN',
@@ -54,10 +55,23 @@ export default function CampaignsPage() {
       setShowCreateModal(false);
       setForm({ name: '', channel: 'EMAIL', targetIndustry: '', targetCountry: '', targetSize: '', dailyLimit: 50, abTestEnabled: false });
       fetchCampaigns();
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      const msg = err?.response?.data?.error ?? 'Failed to create campaign';
+      alert(msg);
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleDuplicate = async (id: string) => {
+    setDuplicating(id);
+    try {
+      await campaignsApi.duplicate(id);
+      fetchCampaigns();
+    } catch (err: any) {
+      alert(err?.response?.data?.error ?? 'Failed to duplicate');
+    } finally {
+      setDuplicating(null);
     }
   };
 
@@ -118,6 +132,8 @@ export default function CampaignsPage() {
                 campaign={campaign}
                 onStart={handleStart}
                 onPause={handlePause}
+                onDuplicate={handleDuplicate}
+                duplicating={duplicating === campaign.id}
               />
             ))}
           </div>

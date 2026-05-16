@@ -296,7 +296,7 @@ model Template {
 model Notification {
   id        String           @id @default(cuid())
   orgId     String
-  org       Organization     @relation(fields: [orgId], references: [id])
+  org       Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
   type      NotificationType
   title     String
   body      String
@@ -332,7 +332,7 @@ model OnboardingProgress {
 model Tag {
   id        String       @id @default(cuid())
   orgId     String
-  org       Organization @relation(fields: [orgId], references: [id])
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   name      String
   color     String       @default("#6366f1")
   leadTags  LeadTag[]
@@ -344,9 +344,9 @@ model Tag {
 
 model LeadTag {
   leadId    String
-  lead      Lead   @relation(fields: [leadId], references: [id])
+  lead      Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
   tagId     String
-  tag       Tag    @relation(fields: [tagId], references: [id])
+  tag       Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
   @@id([leadId, tagId])
@@ -355,7 +355,7 @@ model LeadTag {
 model AutopilotConfig {
   id                  String       @id @default(cuid())
   orgId               String       @unique
-  org                 Organization @relation(fields: [orgId], references: [id])
+  org                 Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   enabled             Boolean      @default(false)
   // Какую кампанию пополнять лидами
   targetCampaignId    String?

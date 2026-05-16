@@ -6,6 +6,8 @@ import RedisStore from 'rate-limit-redis';
 import IORedis from 'ioredis';
 import { config } from './config';
 import { errorHandler } from './middleware/errorHandler';
+import { prisma } from './lib/prisma';
+import { redis } from './worker/queue';
 
 import authRouter from './routes/auth';
 import leadsRouter from './routes/leads';
@@ -132,9 +134,31 @@ app.use((err: SyntaxError & { status?: number }, _req: Request, res: Response, n
 });
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
-// Health check
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+// GET /health — public health check for monitoring
+app.get('/health', async (req, res) => {
+  const checks: Record<string, 'ok' | 'error'> = {};
+
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    checks.database = 'ok';
+  } catch {
+    checks.database = 'error';
+  }
+
+  try {
+    await redis.ping();
+    checks.redis = 'ok';
+  } catch {
+    checks.redis = 'error';
+  }
+
+  const healthy = Object.values(checks).every(v => v === 'ok');
+  res.status(healthy ? 200 : 503).json({
+    status: healthy ? 'ok' : 'degraded',
+    checks,
+    uptime: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // Routes
