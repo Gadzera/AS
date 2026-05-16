@@ -179,6 +179,8 @@ export default function LeadsTable({
         <div className="relative" ref={colPickerRef}>
           <button
             onClick={() => setColPickerOpen((v) => !v)}
+            aria-label="Toggle column visibility"
+            aria-expanded={colPickerOpen}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-400 bg-gray-800/60 border border-gray-700/60 hover:bg-gray-800 hover:text-gray-200 transition-colors"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -233,6 +235,7 @@ export default function LeadsTable({
                 checked={allSelected}
                 ref={(el) => { if (el) el.indeterminate = someSelected; }}
                 onChange={toggleAll}
+                aria-label="Select all leads"
                 className="w-3.5 h-3.5 rounded border-gray-600 bg-gray-800 text-brand-500 focus:ring-brand-500/30 focus:ring-offset-0 cursor-pointer"
               />
             </th>
@@ -243,6 +246,8 @@ export default function LeadsTable({
                   col.sortable ? 'cursor-pointer hover:text-gray-300 select-none' : ''
                 } ${col.id === 'actions' ? 'pr-0' : ''}`}
                 onClick={col.sortable ? () => handleSort(col.id) : undefined}
+                aria-label={col.sortable ? `Sort by ${col.label}` : undefined}
+                aria-sort={col.sortable && sortField === col.id ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
               >
                 {col.label}
                 {col.sortable && (
@@ -283,6 +288,7 @@ export default function LeadsTable({
                     type="checkbox"
                     checked={selectedIds.has(lead.id)}
                     onChange={() => toggleRow(lead.id)}
+                    aria-label={`Select ${lead.firstName} ${lead.lastName}`}
                     className="w-3.5 h-3.5 rounded border-gray-600 bg-gray-800 text-brand-500 focus:ring-brand-500/30 focus:ring-offset-0 cursor-pointer"
                   />
                 </td>

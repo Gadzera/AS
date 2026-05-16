@@ -79,6 +79,7 @@ function LeadDrawer({
               <h2 className="text-sm font-semibold text-white">Lead Details</h2>
               <button
                 onClick={onClose}
+                aria-label="Close lead details"
                 className="p-1.5 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-gray-800 transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -366,6 +367,7 @@ function BulkToolbar({
         onClick={onClear}
         className="p-1 text-gray-500 hover:text-gray-300 transition-colors ml-1"
         title="Clear selection"
+        aria-label="Clear selection"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
