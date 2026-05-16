@@ -38,6 +38,7 @@ model Organization {
   webhooks         Webhook[]
   templates        Template[]
   notifications    Notification[]
+  autopilotConfig  AutopilotConfig?
   createdAt        DateTime       @default(now())
 }
 
@@ -309,4 +310,39 @@ model OnboardingProgress {
   firstReply      Boolean  @default(false)
   completedAt     DateTime?
   createdAt       DateTime @default(now())
+}
+
+model AutopilotConfig {
+  id                  String       @id @default(cuid())
+  orgId               String       @unique
+  org                 Organization @relation(fields: [orgId], references: [id])
+  enabled             Boolean      @default(false)
+  // Какую кампанию пополнять лидами
+  targetCampaignId    String?
+  // Источник поиска: "apollo" | "web" | "both"
+  discoverySource     String       @default("web")
+  // Ключевые слова для поиска компаний
+  targetKeywords      String[]
+  // Фильтры
+  targetIndustry      String?
+  targetCountry       String?
+  // Должности ЛПР
+  targetTitles        String[]
+  // Сколько лидов искать в день
+  dailyDiscoveryLimit Int          @default(10)
+  // Автоответ на INTERESTED
+  autoReplyEnabled    Boolean      @default(true)
+  calendlyUrl         String?
+  senderName          String?
+  senderTitle         String?
+  // Задержка перед follow-up (дни)
+  followUpDelayDays   Int          @default(3)
+  // Счётчики
+  totalDiscovered     Int          @default(0)
+  totalContacted      Int          @default(0)
+  totalReplied        Int          @default(0)
+  totalInterested     Int          @default(0)
+  lastRunAt           DateTime?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
 }
