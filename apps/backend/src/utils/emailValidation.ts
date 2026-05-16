@@ -64,6 +64,13 @@ export type ValidationResult = {
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MX_CACHE = new Map<string, boolean>();
 
+async function resolveMxWithTimeout(domain: string): Promise<boolean> {
+  return Promise.race([
+    dns.resolveMx(domain).then(records => records.length > 0).catch(() => false),
+    new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 5_000)),
+  ]);
+}
+
 export async function validateEmail(email: string): Promise<ValidationResult> {
   if (!EMAIL_REGEX.test(email)) {
     return { valid: false, reason: 'invalid_format' };
@@ -75,16 +82,16 @@ export async function validateEmail(email: string): Promise<ValidationResult> {
     return { valid: false, reason: 'disposable' };
   }
 
-  // MX record check with cache (TTL 1 hour via in-memory)
+  // MX record check with cache (TTL 1 hour for success, 5 min for failures)
   if (!MX_CACHE.has(domain)) {
-    try {
-      const records = await dns.resolveMx(domain);
-      MX_CACHE.set(domain, records.length > 0);
+    const hasMx = await resolveMxWithTimeout(domain);
+    MX_CACHE.set(domain, hasMx);
+    if (hasMx) {
       // Evict cache entry after 1 hour
       setTimeout(() => MX_CACHE.delete(domain), 3_600_000);
-    } catch {
-      MX_CACHE.set(domain, false);
-      setTimeout(() => MX_CACHE.delete(domain), 3_600_000);
+    } else {
+      // Shorter TTL for negative results to allow recovery
+      setTimeout(() => MX_CACHE.delete(domain), 5 * 60_000);
     }
   }
 

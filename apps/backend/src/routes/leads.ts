@@ -45,8 +45,8 @@ const apolloSearchSchema = z.object({
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orgId = req.user!.orgId!;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(parseInt(req.query.limit as string) || 25, 200);
+    const page  = Math.max(1, parseInt(req.query.page  as string) || 1);
+    const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 25), 200);
     const search = (req.query.search as string) || '';
     const status = req.query.status as string | undefined;
     const country = req.query.country as string | undefined;

@@ -10,6 +10,16 @@ import Card, { CardHeader, CardTitle } from '@/components/ui/Card';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 
+function sanitizeUrl(url: string | null | undefined): string | undefined {
+  if (!url) return undefined;
+  try {
+    const parsed = new URL(url);
+    return ['http:', 'https:'].includes(parsed.protocol) ? url : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 interface LeadDetail extends Lead {
   messages: Message[];
   campaignLeads: Array<{
@@ -114,13 +124,13 @@ export default function LeadDetailPage() {
               {lead.linkedinUrl && (
                 <div>
                   <p className="text-gray-500 text-xs">LinkedIn</p>
-                  <a href={lead.linkedinUrl} target="_blank" rel="noreferrer" className="text-indigo-400 hover:underline truncate block">View Profile</a>
+                  <a href={sanitizeUrl(lead.linkedinUrl)} target="_blank" rel="noreferrer" className="text-indigo-400 hover:underline truncate block">View Profile</a>
                 </div>
               )}
               {lead.website && (
                 <div>
                   <p className="text-gray-500 text-xs">Website</p>
-                  <a href={lead.website} target="_blank" rel="noreferrer" className="text-indigo-400 hover:underline truncate block">{lead.website}</a>
+                  <a href={sanitizeUrl(lead.website)} target="_blank" rel="noreferrer" className="text-indigo-400 hover:underline truncate block">{lead.website}</a>
                 </div>
               )}
               {lead.industry && (

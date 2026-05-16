@@ -22,6 +22,18 @@ interface Notification {
   createdAt: string;
 }
 
+function sanitizeNotifLink(link: string | undefined): string | undefined {
+  if (!link) return undefined;
+  // Allow only relative paths and http/https URLs
+  if (link.startsWith('/')) return link;
+  try {
+    const parsed = new URL(link);
+    return ['http:', 'https:'].includes(parsed.protocol) ? link : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function getInitials(name: string) {
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 }
@@ -183,7 +195,7 @@ export default function Topbar({ title, subtitle }: TopbarProps) {
                         <span className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 ${NOTIF_DOT[n.type] ?? 'bg-gray-500'}`} />
                         <div className="flex-1 min-w-0">
                           {n.link ? (
-                            <a href={n.link} onClick={() => setNotifOpen(false)} className="block">
+                            <a href={sanitizeNotifLink(n.link)} onClick={() => setNotifOpen(false)} className="block">
                               <p className="text-[13px] font-medium text-white truncate">{n.title}</p>
                               <p className="text-[11px] text-gray-400 mt-0.5 line-clamp-2">{n.body}</p>
                             </a>

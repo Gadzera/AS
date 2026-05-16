@@ -10,12 +10,17 @@ const router = Router();
 
 router.use(authenticate, requireOrg);
 
+const DOMAIN_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*\.[a-z]{2,}$/i;
+
 // GET /api/deliverability/check?domain=acme.com
 router.get('/check', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const domain = req.query.domain as string;
-    if (!domain) { res.status(400).json({ error: 'domain query param required' }); return; }
-    const result = await checkDeliverability(domain.toLowerCase().trim());
+    const domain = (req.query.domain as string | undefined)?.trim();
+    if (!domain || !DOMAIN_RE.test(domain)) {
+      res.status(400).json({ error: 'Invalid domain format' });
+      return;
+    }
+    const result = await checkDeliverability(domain.toLowerCase());
     res.json(result);
   } catch (err) { next(err); }
 });

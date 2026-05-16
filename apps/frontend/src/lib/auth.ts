@@ -11,7 +11,8 @@ export function getToken(): string | null {
 export function setToken(token: string): void {
   localStorage.setItem(TOKEN_KEY, token);
   // Also set a cookie so server-side middleware can verify auth
-  document.cookie = `auth_token=${token}; path=/; SameSite=Strict; max-age=604800`;
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  document.cookie = `auth_token=${token}; path=/; SameSite=Strict; max-age=604800${secure}`;
 }
 
 export function removeToken(): void {

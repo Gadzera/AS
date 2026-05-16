@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma';
 import axios from 'axios';
+import crypto from 'crypto';
 
 export type WebhookEvent =
   | 'reply'
@@ -50,13 +51,22 @@ export async function fireWebhooks(orgId: string, payload: WebhookPayload): Prom
   await Promise.allSettled(
     webhooks
       .filter(wh => !isInternalUrl(wh.url))
-      .map(wh =>
-        axios.post(wh.url, payload, {
+      .map(wh => {
+        const body = JSON.stringify(payload);
+        const sig = wh.secret
+          ? crypto.createHmac('sha256', wh.secret).update(body).digest('hex')
+          : null;
+
+        return axios.post(wh.url, body, {
           timeout: 8_000,
-          headers: { 'Content-Type': 'application/json', 'X-AI-SDR-Event': payload.event },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-SDR-Event': payload.event,
+            ...(sig ? { 'X-SDR-Signature-256': `sha256=${sig}` } : {}),
+          },
         }).catch(err => {
           console.warn(`[Webhook] Failed to deliver to ${wh.url}: ${err.message}`);
-        })
-      )
+        });
+      })
   );
 }

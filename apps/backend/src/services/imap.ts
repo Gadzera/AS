@@ -4,6 +4,7 @@ import { simpleParser, ParsedMail } from 'mailparser';
 import { Readable } from 'stream';
 
 import { config } from '../config';
+import { redis } from '../worker/queue';
 import { upsertHubSpotContact } from './hubspot';
 import { upsertPipedriveContact } from './pipedrive';
 import { createNotification, updateOnboardingStep } from './onboarding';
@@ -36,12 +37,24 @@ function normalizeId(id: string): string {
 export async function pollInbox(): Promise<void> {
   if (!config.smtp.user || !config.imap.host) return;
 
+  const lockKey = 'imap:poll:lock';
+  const lockTtl = 4 * 60_000 + 50_000; // slightly less than poll interval
+
+  const acquired = await redis.set(lockKey, '1', 'PX', lockTtl, 'NX');
+  if (!acquired) {
+    console.log('[IMAP] Poll already running, skipping');
+    return;
+  }
+
   const client = new ImapFlow({
     host:   config.imap.host,
     port:   config.imap.port,
     secure: config.imap.port === 993,
     auth:   { user: config.smtp.user, pass: config.smtp.pass },
     logger: false,
+    connectionTimeout: 30_000,
+    greetingTimeout:   15_000,
+    socketTimeout:     60_000,
   });
 
   try {
@@ -49,36 +62,41 @@ export async function pollInbox(): Promise<void> {
     await client.mailboxOpen('INBOX');
 
     for await (const msg of client.fetch({ seen: false }, { source: true, flags: true })) {
-      const source = msg.source;
-      if (!source) continue;
-
-      let parsed: ParsedMail;
       try {
-        parsed = await simpleParser(Readable.from(source));
-      } catch {
-        continue;
+        const source = msg.source;
+        if (!source) continue;
+
+        let parsed: ParsedMail;
+        try {
+          parsed = await simpleParser(Readable.from(source));
+        } catch {
+          continue;
+        }
+
+        const from    = parsed.from?.text ?? '';
+        const subject = parsed.subject ?? '';
+        const inReplyTo = parsed.inReplyTo ? normalizeId(parsed.inReplyTo) : null;
+        const references: string[] = Array.isArray(parsed.references)
+          ? parsed.references.map(normalizeId)
+          : (typeof parsed.references === 'string' ? [normalizeId(parsed.references)] : []);
+
+        if (isBounce(from, subject)) {
+          await handleBounce(parsed);
+        } else if (inReplyTo || references.length > 0) {
+          await handleReply(inReplyTo, references, parsed);
+        }
+      } catch (msgErr) {
+        console.error('[IMAP] Error processing message:', (msgErr as Error).message);
+      } finally {
+        // Always mark as SEEN so it won't be re-processed on the next poll
+        await client.messageFlagsAdd({ uid: msg.uid }, ['\\Seen']).catch(() => null);
       }
-
-      const from    = parsed.from?.text ?? '';
-      const subject = parsed.subject ?? '';
-      const inReplyTo = parsed.inReplyTo ? normalizeId(parsed.inReplyTo) : null;
-      const references: string[] = Array.isArray(parsed.references)
-        ? parsed.references.map(normalizeId)
-        : (typeof parsed.references === 'string' ? [normalizeId(parsed.references)] : []);
-
-      if (isBounce(from, subject)) {
-        await handleBounce(parsed);
-      } else if (inReplyTo || references.length > 0) {
-        await handleReply(inReplyTo, references, parsed);
-      }
-
-      // Mark as SEEN so it won't be re-processed on the next poll
-      await client.messageFlagsAdd({ uid: msg.uid }, ['\\Seen']).catch(() => null);
     }
   } catch (err) {
     console.error('[IMAP] Poll error:', err instanceof Error ? err.message : String(err));
   } finally {
     await client.logout().catch(() => null);
+    await redis.del(lockKey).catch(() => null);
   }
 }
 
@@ -88,10 +106,18 @@ async function handleBounce(parsed: ParsedMail): Promise<void> {
   if (!match) return;
 
   const bouncedEmail = match[0].toLowerCase();
-  const lead = await prisma.lead.findFirst({ where: { email: bouncedEmail } });
-  if (!lead || lead.bounced) return;
 
-  await prisma.lead.update({ where: { id: lead.id }, data: { bounced: true, status: 'LOST' } });
+  // Atomically mark bounced — skip if already processed
+  const result = await prisma.lead.updateMany({
+    where: { email: bouncedEmail, bounced: false },
+    data:  { bounced: true, status: 'LOST' },
+  });
+  if (result.count === 0) return;
+
+  // Lead exists and was just marked bounced — fetch ID for cascade updates
+  const lead = await prisma.lead.findFirst({ where: { email: bouncedEmail }, select: { id: true } });
+  if (!lead) return;
+
   await prisma.campaignLead.updateMany({
     where: { leadId: lead.id, status: { notIn: ['CONVERTED', 'LOST', 'UNSUBSCRIBED'] } },
     data:  { status: 'LOST', nextSendAt: null },

@@ -11,7 +11,7 @@ router.use(authenticate, requireOrg);
 
 const sequenceStepSchema = z.object({
   stepNumber: z.number().int().min(1),
-  delayDays: z.number().int().min(0).default(0),
+  delayDays: z.number().int().min(0).max(365).default(0),
   subject: z.string().optional(),
   body: z.string().min(1),
   subjectB: z.string().optional(),
@@ -57,6 +57,13 @@ router.post('/:campaignId', async (req: Request, res: Response, next: NextFuncti
 
     if (!campaign) {
       res.status(404).json({ error: 'Campaign not found' });
+      return;
+    }
+
+    // Enforce max sequence steps per campaign
+    const stepCount = await prisma.sequence.count({ where: { campaignId: req.params.campaignId } });
+    if (stepCount >= 20) {
+      res.status(429).json({ error: 'Max 20 sequence steps per campaign' });
       return;
     }
 

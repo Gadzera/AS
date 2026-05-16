@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma';
 import { Router, Request, Response, NextFunction } from 'express';
 import { randomBytes } from 'crypto';
+import { z } from 'zod';
 
 import { authenticate, requireOrg } from '../middleware/auth';
 import { createNotification } from '../services/onboarding';
@@ -38,11 +39,12 @@ router.get('/code', authenticate, requireOrg, async (req: Request, res: Response
   } catch (err) { next(err); }
 });
 
+const applySchema = z.object({ code: z.string().min(1).max(50).trim() });
+
 // POST /api/referral/apply — authenticated: apply a referral code to the caller's own org
 router.post('/apply', authenticate, requireOrg, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { code } = req.body as { code: string };
-    if (!code || typeof code !== 'string') { res.status(400).json({ error: 'code required' }); return; }
+    const { code } = applySchema.parse(req.body);
 
     const orgId = req.user!.orgId!;
 

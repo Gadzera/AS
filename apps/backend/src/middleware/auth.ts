@@ -27,8 +27,7 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
 
   const token = authHeader.slice(7);
   try {
-    const payload = jwt.verify(token, config.jwt.secret) as AuthPayload;
-    req.user = payload;
+    const payload = jwt.verify(token, config.jwt.secret, { algorithms: ['HS256'] }) as AuthPayload;
 
     // Verify user still exists in DB (soft revocation)
     const dbUser = await prisma.user.findUnique({
@@ -39,6 +38,11 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
       res.status(401).json({ error: 'Token invalid or expired' });
       return;
     }
+
+    req.user = {
+      ...payload,
+      orgId: dbUser.orgId, // always taken from DB
+    };
 
     next();
   } catch (err) {

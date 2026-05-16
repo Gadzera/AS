@@ -45,8 +45,14 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 // POST /api/webhooks
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const orgId = req.user!.orgId!;
+    const count = await prisma.webhook.count({ where: { orgId } });
+    if (count >= 10) {
+      res.status(429).json({ error: 'Webhook limit reached (max 10 per organization)' });
+      return;
+    }
     const data = webhookSchema.parse(req.body);
-    const wh   = await prisma.webhook.create({ data: { ...data, orgId: req.user!.orgId! } });
+    const wh   = await prisma.webhook.create({ data: { ...data, orgId } });
     res.status(201).json(wh);
   } catch (err) { next(err); }
 });
