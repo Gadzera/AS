@@ -58,4 +58,8 @@ export const config = {
     pass: optional('SMTP_PASS', ''),
     from: optional('SMTP_FROM', 'SDR Agent <noreply@yourdomain.com>'),
   },
+
+  redis: {
+    url: optional('REDIS_URL', 'redis://localhost:6379'),
+  },
 };
