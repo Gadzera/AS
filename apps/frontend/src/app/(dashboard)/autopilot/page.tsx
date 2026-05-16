@@ -319,8 +319,8 @@ export default function AutopilotPage() {
         targetTitles:   titles,
       });
       setConfig(res.data);
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      toastError(err?.response?.data?.error ?? 'Failed to save autopilot settings');
     } finally {
       setSaving(false);
     }
