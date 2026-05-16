@@ -1,7 +1,7 @@
 import { prisma } from '../lib/prisma';
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { authenticate, requireOrg } from '../middleware/auth';
+import { authenticate, requireOrg, requireRole } from '../middleware/auth';
 
 const router = Router();
 router.use(authenticate, requireOrg);
@@ -19,11 +19,11 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   } catch (err) { next(err); }
 });
 
-// PUT /api/organization — update org name
-router.put('/', async (req: Request, res: Response, next: NextFunction) => {
+// PUT /api/organization — update org name (OWNER/ADMIN only)
+router.put('/', requireRole('OWNER', 'ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orgId = req.user!.orgId!;
-    const { name } = z.object({ name: z.string().min(2).max(100) }).parse(req.body);
+    const { name } = z.object({ name: z.string().min(2).max(100).trim() }).parse(req.body);
     const org = await prisma.organization.update({ where: { id: orgId }, data: { name } });
     res.json({ id: org.id, name: org.name });
   } catch (err) { next(err); }

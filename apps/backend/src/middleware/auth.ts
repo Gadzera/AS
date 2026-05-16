@@ -59,6 +59,7 @@ export function requireOrg(req: Request, res: Response, next: NextFunction): voi
 }
 
 export function requireRole(...roles: string[]) {
+  if (roles.length === 0) throw new Error('requireRole: at least one role must be specified');
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user || !roles.includes(req.user.role)) {
       res.status(403).json({ error: 'Insufficient permissions' });

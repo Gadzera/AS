@@ -32,6 +32,11 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orgId = req.user!.orgId!;
+    const count = await prisma.template.count({ where: { orgId } });
+    if (count >= 100) {
+      res.status(400).json({ error: 'Template limit reached (100 per organization)' });
+      return;
+    }
     const data  = templateSchema.parse(req.body);
     const tpl   = await prisma.template.create({ data: { ...data, orgId } });
     res.status(201).json(tpl);
