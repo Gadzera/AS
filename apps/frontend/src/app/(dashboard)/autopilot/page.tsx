@@ -5,6 +5,7 @@ import { motion, AnimatePresence, useMotionValue, useSpring } from 'framer-motio
 import { api } from '@/lib/api';
 import Topbar from '@/components/layout/Topbar';
 import PageTransition from '@/components/layout/PageTransition';
+import { useToast } from '@/components/ui/Toast';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -276,6 +277,7 @@ const STATIC_ACTIVITY = [
 ];
 
 export default function AutopilotPage() {
+  const { error: toastError } = useToast();
   const [config, setConfig]       = useState<AutopilotConfig>({ enabled: false });
   const [pipeline, setPipeline]   = useState<Pipeline | null>(null);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
