@@ -38,6 +38,12 @@ const LANGUAGE_INSTRUCTIONS: Record<SupportedLanguage, string> = {
   pl: 'Write in Polish.',
 };
 
+interface PreviousMessage {
+  stepNumber: number;
+  subject: string;
+  body: string;
+}
+
 interface OutreachContext {
   senderName?: string;
   senderTitle?: string;
@@ -46,6 +52,7 @@ interface OutreachContext {
   valueProposition?: string;
   tone?: 'professional' | 'casual' | 'friendly';
   websiteContent?: string;
+  previousMessages?: PreviousMessage[];
 }
 
 export interface GeneratedOutreach {
@@ -89,18 +96,28 @@ export async function generateOutreach(
     ? `\nLead's company website content:\n"""\n${context.websiteContent}\n"""`
     : '';
 
+  const previousSnippet = context.previousMessages && context.previousMessages.length > 0
+    ? `\nPrevious messages in this sequence (for context — do NOT repeat, build upon them):\n${
+        context.previousMessages.map(m => `Step ${m.stepNumber}: Subject: "${m.subject}"\n${m.body.slice(0, 400)}`).join('\n---\n')
+      }`
+    : '';
+
+  const isFollowUp = context.previousMessages && context.previousMessages.length > 0;
+
   const prompt = `You are an expert B2B sales development representative (SDR). Write a highly personalized ${channel === 'LINKEDIN' ? 'LinkedIn' : 'email'} outreach message.
 
 ${channelInstruction}
 ${languageInstruction}
 Tone: ${tone}
 Campaign: ${campaign.name}
+${isFollowUp ? 'This is a follow-up message — the lead has not replied yet.' : ''}
 
 Lead information:
 ${leadInfo}
 
 ${senderInfo ? `Sender information:\n${senderInfo}` : ''}
 ${websiteSnippet}
+${previousSnippet}
 Requirements:
 1. Personalize the message based on the lead's company, industry, and role
 2. Focus on their specific pain points and how you can help
@@ -108,6 +125,7 @@ Requirements:
 4. Include a clear, low-friction call to action (e.g., "Would you be open to a 15-minute call?")
 5. Do NOT use generic phrases like "I hope this finds you well" or "I wanted to reach out"
 6. Reference something specific about their company or industry
+${isFollowUp ? '7. Acknowledge previous outreach naturally, add new value or angle, do not simply repeat the prior message' : ''}
 
 ${channel === 'LINKEDIN'
     ? 'Respond with JSON: {"subject": "", "body": "the LinkedIn message text"}'
