@@ -4,6 +4,7 @@ import { sendEmail } from '../services/email';
 import { sendLinkedInMessage } from '../services/unipile';
 import { scrapeWebsite } from '../utils/scraper';
 import { applySpintax } from '../utils/spintax';
+import { generateUnsubscribeToken, getUnsubscribeUrl } from '../utils/unsubscribe';
 import { config } from '../config';
 
 const prisma = new PrismaClient();
@@ -19,19 +20,23 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
     },
   });
 
-  if (!cl) {
-    console.warn(`[Worker] CampaignLead ${campaignLeadId} not found`);
-    return;
-  }
-
+  if (!cl) return;
   if (cl.campaign.status !== 'ACTIVE') return;
-
   if (['LOST', 'UNSUBSCRIBED', 'CONVERTED'].includes(cl.status)) return;
 
   const { sequences } = cl.campaign;
   if (sequences.length === 0 || cl.currentStep >= sequences.length) return;
 
-  // Daily limit with automatic warm-up protection (prevents domain ban)
+  // Skip bounced leads
+  if (cl.lead.bounced) {
+    await prisma.campaignLead.update({
+      where: { id: campaignLeadId },
+      data: { status: 'LOST', nextSendAt: null },
+    });
+    return;
+  }
+
+  // Daily warm-up limit
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
@@ -39,8 +44,8 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
     (Date.now() - new Date(cl.campaign.createdAt).getTime()) / 86_400_000
   );
   const warmupLimit =
-    campaignAgeDays < 3 ? 20 :
-    campaignAgeDays < 7 ? 50 :
+    campaignAgeDays < 3  ? 20  :
+    campaignAgeDays < 7  ? 50  :
     campaignAgeDays < 14 ? 100 :
     cl.campaign.dailyLimit;
   const effectiveLimit = Math.min(warmupLimit, cl.campaign.dailyLimit);
@@ -61,7 +66,6 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
       where: { id: campaignLeadId },
       data: { nextSendAt: tomorrow },
     });
-    console.log(`[Worker] Daily limit hit for campaign ${cl.campaignId}, rescheduled to tomorrow`);
     return;
   }
 
@@ -69,49 +73,30 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
   const { lead } = cl;
 
   if (step.channel === 'EMAIL' && !lead.email) {
-    await prisma.campaignLead.update({
-      where: { id: campaignLeadId },
-      data: { status: 'LOST', nextSendAt: null },
-    });
+    await prisma.campaignLead.update({ where: { id: campaignLeadId }, data: { status: 'LOST', nextSendAt: null } });
     return;
   }
-
   if (step.channel === 'LINKEDIN' && !lead.linkedinUrl) {
-    await prisma.campaignLead.update({
-      where: { id: campaignLeadId },
-      data: { status: 'LOST', nextSendAt: null },
-    });
+    await prisma.campaignLead.update({ where: { id: campaignLeadId }, data: { status: 'LOST', nextSendAt: null } });
     return;
   }
 
-  // Generate message with Claude if no manual body written
+  // Generate text
   let subject = step.subject ?? '';
   let body = step.body ?? '';
   let aiGenerated = false;
 
   if (!body || body.trim() === '' || body === 'AI_GENERATE') {
-    // Scrape lead's website for personalization context
     const websiteContent = lead.website ? await scrapeWebsite(lead.website) : null;
-
     const generated = await generateOutreach(
       {
-        firstName: lead.firstName,
-        lastName: lead.lastName,
-        email: lead.email,
-        title: lead.title,
-        company: lead.company,
-        companySize: lead.companySize,
-        industry: lead.industry,
-        country: lead.country,
-        city: lead.city,
-        website: lead.website,
-        linkedinUrl: lead.linkedinUrl,
+        firstName: lead.firstName, lastName: lead.lastName,
+        email: lead.email, title: lead.title, company: lead.company,
+        companySize: lead.companySize, industry: lead.industry,
+        country: lead.country, city: lead.city,
+        website: lead.website, linkedinUrl: lead.linkedinUrl,
       },
-      {
-        name: cl.campaign.name,
-        channel: step.channel,
-        targetIndustry: cl.campaign.targetIndustry,
-      },
+      { name: cl.campaign.name, channel: step.channel, targetIndustry: cl.campaign.targetIndustry },
       { websiteContent: websiteContent ?? undefined }
     );
     subject = generated.subject;
@@ -119,22 +104,19 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
     aiGenerated = true;
   }
 
-  // Apply spintax variations for deliverability
   subject = applySpintax(subject);
-  body = applySpintax(body);
+  body    = applySpintax(body);
 
   const now = new Date();
 
-  // Send via the right channel
-  if (step.channel === 'EMAIL') {
-    const trackingPixel = `<img src="${config.backend.url}/api/track/open/${message.id}" width="1" height="1" style="display:none" alt="" />`;
-    const htmlBody = `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6">${body.replace(/\n/g, '<br>')}</div>${trackingPixel}`;
-    await sendEmail({ to: lead.email!, subject, body: htmlBody, html: true });
-  } else if (step.channel === 'LINKEDIN') {
-    await sendLinkedInMessage({ recipientProfileUrl: lead.linkedinUrl!, message: body });
+  // Ensure unsubscribe token exists for this lead
+  if (!lead.unsubscribeToken) {
+    const token = generateUnsubscribeToken();
+    await prisma.lead.update({ where: { id: lead.id }, data: { unsubscribeToken: token } });
+    lead.unsubscribeToken = token;
   }
 
-  // Record message in DB first to get the ID for tracking pixel
+  // Create message record FIRST so we have an ID for the tracking pixel
   const message = await prisma.message.create({
     data: {
       leadId: lead.id,
@@ -143,43 +125,75 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
       subject,
       body,
       aiGenerated,
-      sentAt: now,
+      // sentAt set after successful send
     },
   });
 
-  // Update lead status
-  if (lead.status === 'NEW' || lead.status === 'CONTACTED') {
-    await prisma.lead.update({
-      where: { id: lead.id },
-      data: { status: 'CONTACTED' },
-    });
+  try {
+    if (step.channel === 'EMAIL') {
+      const unsubUrl   = getUnsubscribeUrl(lead.unsubscribeToken!);
+      const pixelUrl   = `${config.backend.url}/api/track/open/${message.id}`;
+      const htmlBody   = buildHtmlEmail(body, pixelUrl, unsubUrl);
+
+      const { messageId: smtpMsgId } = await sendEmail({
+        to: lead.email!,
+        subject,
+        body: htmlBody,
+        html: true,
+      });
+
+      await prisma.message.update({
+        where: { id: message.id },
+        data: { sentAt: now, smtpMessageId: smtpMsgId },
+      });
+    } else {
+      await sendLinkedInMessage({ recipientProfileUrl: lead.linkedinUrl!, message: body });
+      await prisma.message.update({ where: { id: message.id }, data: { sentAt: now } });
+    }
+  } catch (err) {
+    // Delete unsent message record on failure
+    await prisma.message.delete({ where: { id: message.id } }).catch(() => null);
+    throw err;
   }
 
-  // Advance to next step or mark completed
+  // Update lead status
+  if (lead.status === 'NEW' || lead.status === 'CONTACTED') {
+    await prisma.lead.update({ where: { id: lead.id }, data: { status: 'CONTACTED' } });
+  }
+
+  // Advance sequence
   const nextStepIndex = cl.currentStep + 1;
-
   if (nextStepIndex < sequences.length) {
-    const nextStep = sequences[nextStepIndex];
-    const nextSendAt = new Date(now.getTime() + nextStep.delayDays * 24 * 60 * 60 * 1000);
-
+    const nextStep   = sequences[nextStepIndex];
+    const nextSendAt = new Date(now.getTime() + nextStep.delayDays * 86_400_000);
     await prisma.campaignLead.update({
       where: { id: campaignLeadId },
       data: { currentStep: nextStepIndex, nextSendAt, status: 'CONTACTED' },
     });
-
-    console.log(
-      `[Worker] Lead ${lead.id} (${lead.firstName} ${lead.lastName}): ` +
-        `step ${cl.currentStep + 1}/${sequences.length} sent. Next: ${nextSendAt.toISOString()}`
-    );
+    console.log(`[Worker] ${lead.firstName} ${lead.lastName}: step ${cl.currentStep + 1}/${sequences.length} sent`);
   } else {
     await prisma.campaignLead.update({
       where: { id: campaignLeadId },
       data: { status: 'CONVERTED', nextSendAt: null },
     });
-
-    console.log(
-      `[Worker] Lead ${lead.id} (${lead.firstName} ${lead.lastName}): ` +
-        `all ${sequences.length} steps completed`
-    );
+    console.log(`[Worker] ${lead.firstName} ${lead.lastName}: sequence complete`);
   }
+}
+
+function buildHtmlEmail(text: string, pixelUrl: string, unsubUrl: string): string {
+  const escaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\n/g, '<br>');
+  return `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.7;color:#333;max-width:600px">
+${escaped}
+<br><br>
+<div style="border-top:1px solid #eee;padding-top:12px;margin-top:12px">
+  <a href="${unsubUrl}" style="font-size:11px;color:#999;text-decoration:none">
+    Unsubscribe
+  </a>
+</div>
+<img src="${pixelUrl}" width="1" height="1" style="display:none" alt="">
+</div>`;
 }

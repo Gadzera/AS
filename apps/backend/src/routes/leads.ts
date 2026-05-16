@@ -5,6 +5,8 @@ import { authenticate, requireOrg } from '../middleware/auth';
 import { searchLeads, enrichLead, mapApolloPersonToLead } from '../services/apollo';
 import { scoreLeadLocal, scoreLeadAI } from '../services/scorer';
 import { parseCSV } from '../utils/csv';
+import { searchPDL } from '../services/pdl';
+import { generateUnsubscribeToken } from '../utils/unsubscribe';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -347,6 +349,82 @@ router.post('/import', async (req: Request, res: Response, next: NextFunction) =
       total: rows.length,
       limitReached: rows.length > available,
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/leads/search/pdl — People Data Labs search
+const pdlSearchSchema = z.object({
+  jobTitles:    z.array(z.string()).optional(),
+  countries:    z.array(z.string()).optional(),
+  industries:   z.array(z.string()).optional(),
+  companySizes: z.array(z.string()).optional(),
+  keywords:     z.string().optional(),
+  size:         z.number().int().min(1).max(100).optional(),
+  importAll:    z.boolean().optional(),
+});
+
+router.post('/search/pdl', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId = req.user!.orgId!;
+    const params = pdlSearchSchema.parse(req.body);
+
+    const { results, total } = await searchPDL(params);
+
+    if (!params.importAll) {
+      return res.json({ results, total });
+    }
+
+    // Import all results into org's lead DB
+    const org = await prisma.organization.findUnique({ where: { id: orgId } });
+    const existingCount = await prisma.lead.count({ where: { orgId } });
+    const available = (org?.leadsLimit ?? 500) - existingCount;
+
+    if (available <= 0) {
+      return res.status(402).json({ error: 'Lead limit reached. Upgrade your plan.' });
+    }
+
+    let imported = 0;
+    let skipped  = 0;
+
+    for (const p of results.slice(0, available)) {
+      try {
+        const exists = p.email
+          ? await prisma.lead.findFirst({ where: { orgId, email: p.email } })
+          : null;
+        if (exists) { skipped++; continue; }
+
+        const token = generateUnsubscribeToken();
+        await prisma.lead.create({
+          data: {
+            orgId,
+            firstName:       p.firstName,
+            lastName:        p.lastName,
+            email:           p.email,
+            linkedinUrl:     p.linkedinUrl,
+            title:           p.title,
+            company:         p.company,
+            companySize:     p.companySize,
+            industry:        p.industry,
+            country:         p.country,
+            city:            p.city,
+            website:         p.website,
+            source:          'pdl',
+            unsubscribeToken: token,
+            score:           scoreLeadLocal({
+              title: p.title, industry: p.industry,
+              companySize: p.companySize, country: p.country,
+            }),
+          },
+        });
+        imported++;
+      } catch {
+        skipped++;
+      }
+    }
+
+    res.json({ imported, skipped, total });
   } catch (err) {
     next(err);
   }

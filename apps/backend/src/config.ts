@@ -70,4 +70,13 @@ export const config = {
   calendly: {
     url: optional('CALENDLY_URL', ''),
   },
+
+  imap: {
+    host: optional('IMAP_HOST', 'imap.gmail.com'),
+    port: parseInt(optional('IMAP_PORT', '993'), 10),
+  },
+
+  pdl: {
+    apiKey: optional('PDL_API_KEY', ''),
+  },
 };
