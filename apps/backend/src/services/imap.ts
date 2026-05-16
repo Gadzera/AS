@@ -213,8 +213,8 @@ async function handleReply(
   });
 
   if (newStatus === 'HOT') {
-    upsertHubSpotContact({ email: lead.email, firstName: lead.firstName, lastName: lead.lastName, company: lead.company, title: lead.title, status: 'HOT' }).catch(() => null);
-    upsertPipedriveContact({ email: lead.email, firstName: lead.firstName, lastName: lead.lastName, company: lead.company, title: lead.title }).catch(() => null);
+    upsertHubSpotContact({ email: lead.email, firstName: lead.firstName, lastName: lead.lastName, company: lead.company, title: lead.title, status: 'HOT', orgId: lead.orgId }).catch(() => null);
+    upsertPipedriveContact({ email: lead.email, firstName: lead.firstName, lastName: lead.lastName, company: lead.company, title: lead.title, orgId: lead.orgId }).catch(() => null);
     createNotification(lead.orgId, {
       type: 'HOT_LEAD',
       title: `Горячий лид: ${lead.firstName} ${lead.lastName}`,

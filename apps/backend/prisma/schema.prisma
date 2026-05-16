@@ -50,6 +50,7 @@ model ApiKey {
   keyValue  String
   createdAt DateTime     @default(now())
 
+  @@unique([orgId, service])
   @@index([orgId])
 }
 

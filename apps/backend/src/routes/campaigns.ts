@@ -38,12 +38,39 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
+const PLAN_CAMPAIGN_LIMITS: Record<string, number> = {
+  STARTER: 3,
+  GROWTH:  10,
+  AGENCY:  Infinity,
+};
+
+const PLAN_LEAD_LIMITS: Record<string, number> = {
+  STARTER: 500,
+  GROWTH:  5000,
+  AGENCY:  Infinity,
+};
+
 // POST /api/campaigns
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orgId = req.user!.orgId!;
     const userId = req.user!.userId;
     const data = createCampaignSchema.parse(req.body);
+
+    // Enforce plan campaign limit
+    const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { plan: true } });
+    const plan = org?.plan ?? 'STARTER';
+    const limit = PLAN_CAMPAIGN_LIMITS[plan] ?? 3;
+
+    if (isFinite(limit)) {
+      const existing = await prisma.campaign.count({ where: { orgId, status: { notIn: ['COMPLETED'] } } });
+      if (existing >= limit) {
+        res.status(403).json({
+          error: `Plan limit reached: ${plan} allows ${limit} active campaign${limit !== 1 ? 's' : ''}. Upgrade to create more.`,
+        });
+        return;
+      }
+    }
 
     const campaign = await prisma.campaign.create({
       data: {
