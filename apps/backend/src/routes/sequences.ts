@@ -14,6 +14,8 @@ const sequenceStepSchema = z.object({
   delayDays: z.number().int().min(0).default(0),
   subject: z.string().optional(),
   body: z.string().min(1),
+  subjectB: z.string().optional(),
+  bodyB: z.string().optional(),
   channel: z.enum(['EMAIL', 'LINKEDIN']).default('EMAIL'),
 });
 

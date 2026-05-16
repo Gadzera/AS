@@ -57,6 +57,7 @@ export default function Topbar({ title, subtitle }: TopbarProps) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [notifTotal, setNotifTotal] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -84,6 +85,7 @@ export default function Topbar({ title, subtitle }: TopbarProps) {
       const r = await api.get('/notifications');
       setNotifications(r.data.notifications ?? []);
       setUnreadCount(r.data.unreadCount ?? 0);
+      setNotifTotal(r.data.total ?? 0);
     } catch { /* not logged in yet */ }
   }
 
@@ -205,6 +207,17 @@ export default function Topbar({ title, subtitle }: TopbarProps) {
                     ))
                   )}
                 </div>
+
+                {notifTotal > notifications.length && (
+                  <div className="px-4 py-2.5 border-t border-gray-800 text-center">
+                    <span className="text-xs text-gray-500">
+                      Showing {notifications.length} of {notifTotal} —{' '}
+                      <a href="/settings" className="text-brand-400 hover:text-brand-300 transition-colors">
+                        View all
+                      </a>
+                    </span>
+                  </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>

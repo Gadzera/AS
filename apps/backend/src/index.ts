@@ -95,6 +95,10 @@ app.use((_req, res) => {
 // Error handler
 app.use(errorHandler);
 
+if (!process.env.BACKEND_URL) {
+  console.warn('[Config] BACKEND_URL is not set — tracking pixels and unsubscribe links in emails will point to localhost');
+}
+
 app.listen(config.port, () => {
   console.log(`[Server] Running on http://localhost:${config.port}`);
   console.log(`[Server] Environment: ${config.nodeEnv}`);

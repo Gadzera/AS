@@ -7,17 +7,26 @@ const router = Router();
 
 router.use(authenticate, requireOrg);
 
-// GET /api/notifications — list unread + recent
+// GET /api/notifications — list with pagination
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orgId = req.user!.orgId!;
-    const notifications = await prisma.notification.findMany({
-      where: { orgId },
-      orderBy: { createdAt: 'desc' },
-      take: 30,
-    });
-    const unreadCount = notifications.filter(n => !n.read).length;
-    res.json({ notifications, unreadCount });
+    const page  = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+    const skip  = (page - 1) * limit;
+
+    const [notifications, total] = await Promise.all([
+      prisma.notification.findMany({
+        where: { orgId },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.notification.count({ where: { orgId } }),
+    ]);
+
+    const unreadCount = await prisma.notification.count({ where: { orgId, read: false } });
+    res.json({ notifications, total, page, pages: Math.ceil(total / limit), unreadCount });
   } catch (err) { next(err); }
 });
 

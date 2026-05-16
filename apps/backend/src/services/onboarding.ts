@@ -88,7 +88,7 @@ export async function triggerOnboarding(userId: string, orgId: string): Promise<
     await outreachQueue.add(
       'onboarding-email',
       { to: user.email!, subject: email.subject, html: email.body(name, org!.name), from: config.smtp.from },
-      { delay: email.delayMs, removeOnComplete: true, attempts: 3 }
+      { delay: email.delayMs, removeOnComplete: true, attempts: 3, backoff: { type: 'exponential', delay: 5000 } }
     ).catch(() => null);
   }
 }

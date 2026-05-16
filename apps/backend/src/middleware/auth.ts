@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../config';
+import { prisma } from '../lib/prisma';
 
 export interface AuthPayload {
   userId: string;
@@ -17,7 +18,7 @@ declare global {
   }
 }
 
-export function authenticate(req: Request, res: Response, next: NextFunction): void {
+export async function authenticate(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     res.status(401).json({ error: 'Missing or invalid Authorization header' });
@@ -28,6 +29,17 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
   try {
     const payload = jwt.verify(token, config.jwt.secret) as AuthPayload;
     req.user = payload;
+
+    // Verify user still exists in DB (soft revocation)
+    const dbUser = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      select: { id: true, orgId: true },
+    });
+    if (!dbUser) {
+      res.status(401).json({ error: 'Token invalid or expired' });
+      return;
+    }
+
     next();
   } catch (err) {
     res.status(401).json({ error: 'Token invalid or expired' });
