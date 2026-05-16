@@ -145,6 +145,19 @@ export const outreachApi = {
     api.post<{ subject: string; body: string }>('/outreach/auto-reply', data).then((r) => r.data),
 };
 
+// ============ Templates ============
+
+export const templatesApi = {
+  list: (channel?: string) =>
+    api.get<any[]>('/templates', { params: channel ? { channel } : {} }).then((r) => r.data),
+  create: (data: { name: string; subject?: string; body: string; channel: string }) =>
+    api.post<any>('/templates', data).then((r) => r.data),
+  update: (id: string, data: { name?: string; subject?: string; body?: string }) =>
+    api.put<any>(`/templates/${id}`, data).then((r) => r.data),
+  delete: (id: string) =>
+    api.delete(`/templates/${id}`).then((r) => r.data),
+};
+
 // ============ Analytics ============
 
 export const analyticsApi = {
