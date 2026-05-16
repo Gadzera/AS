@@ -205,7 +205,12 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
     const htmlBody = buildHtmlEmail(body, pixelUrl, unsubUrl, messageId, config.backend.url, personalizedImageUrl);
 
     if (smtpAccount) {
-      const result = await sendViaAccount(smtpAccount, { to: lead.email!, subject, body: htmlBody });
+      const result = await sendViaAccount(smtpAccount, {
+        to: lead.email!,
+        subject,
+        body: htmlBody,
+        unsubscribeUrl: unsubUrl,
+      });
       smtpMessageId = result.messageId;
       smtpAccountId = smtpAccount.id;
     } else {
@@ -217,6 +222,12 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
       });
       const info = await transporter.sendMail({
         from: config.smtp.from, to: lead.email!, subject, html: htmlBody,
+        headers: {
+          'List-Unsubscribe': `<${unsubUrl}>`,
+          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+          'Precedence': 'bulk',
+          'X-Mailer': 'SDRPlatform/1.0',
+        },
       });
       smtpMessageId = info.messageId;
     }

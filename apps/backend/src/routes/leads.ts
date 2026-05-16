@@ -120,8 +120,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
       where: { id: req.params.id, orgId },
       include: {
         messages: {
-          orderBy: { createdAt: 'desc' },
-          take: 10,
+          orderBy: { createdAt: 'asc' },
         },
         campaignLeads: {
           include: { campaign: true },
