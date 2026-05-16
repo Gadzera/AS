@@ -21,12 +21,15 @@ model User {
 }
 
 model Organization {
-  id               String        @id @default(cuid())
+  id               String         @id @default(cuid())
   name             String
-  plan             Plan          @default(STARTER)
+  plan             Plan           @default(STARTER)
   stripeCustomerId String?
   stripeSubId      String?
-  leadsLimit       Int           @default(500)
+  leadsLimit       Int            @default(500)
+  referralCode     String?        @unique
+  referredByOrgId  String?
+  bonusLeads       Int            @default(0)
   users            User[]
   leads            Lead[]
   campaigns        Campaign[]
@@ -34,7 +37,8 @@ model Organization {
   smtpAccounts     SmtpAccount[]
   webhooks         Webhook[]
   templates        Template[]
-  createdAt        DateTime      @default(now())
+  notifications    Notification[]
+  createdAt        DateTime       @default(now())
 }
 
 model ApiKey {
@@ -245,4 +249,37 @@ model Template {
   channel   Channel      @default(EMAIL)
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  orgId     String
+  org       Organization     @relation(fields: [orgId], references: [id])
+  type      NotificationType
+  title     String
+  body      String
+  link      String?
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+}
+
+enum NotificationType {
+  REPLY_RECEIVED
+  CAMPAIGN_COMPLETED
+  HOT_LEAD
+  UPGRADE_NUDGE
+  ONBOARDING
+  REFERRAL_JOINED
+}
+
+model OnboardingProgress {
+  id              String   @id @default(cuid())
+  orgId           String   @unique
+  smtpAdded       Boolean  @default(false)
+  firstLeadAdded  Boolean  @default(false)
+  firstCampaign   Boolean  @default(false)
+  firstSent       Boolean  @default(false)
+  firstReply      Boolean  @default(false)
+  completedAt     DateTime?
+  createdAt       DateTime @default(now())
 }

@@ -5,6 +5,7 @@ import { PrismaClient } from '@prisma/client';
 import { config } from '../config';
 import { upsertHubSpotContact } from './hubspot';
 import { upsertPipedriveContact } from './pipedrive';
+import { createNotification, updateOnboardingStep } from './onboarding';
 
 const prisma = new PrismaClient();
 
@@ -153,6 +154,21 @@ async function handleReply(
   if (newStatus === 'HOT') {
     upsertHubSpotContact({ email: lead.email, firstName: lead.firstName, lastName: lead.lastName, company: lead.company, title: lead.title, status: 'HOT' }).catch(() => null);
     upsertPipedriveContact({ email: lead.email, firstName: lead.firstName, lastName: lead.lastName, company: lead.company, title: lead.title }).catch(() => null);
+    createNotification(lead.orgId, {
+      type: 'HOT_LEAD',
+      title: `🔥 Горячий лид: ${lead.firstName} ${lead.lastName}`,
+      body: `${lead.company ?? lead.email} заинтересован. Ответьте как можно скорее.`,
+      link: `/inbox?leadId=${lead.id}`,
+    }).catch(() => null);
+    updateOnboardingStep(lead.orgId, 'firstReply').catch(() => null);
+  } else if (newStatus === 'REPLIED') {
+    updateOnboardingStep(lead.orgId, 'firstReply').catch(() => null);
+    createNotification(lead.orgId, {
+      type: 'REPLY_RECEIVED',
+      title: `Ответ от ${lead.firstName} ${lead.lastName}`,
+      body: `${lead.company ?? lead.email} ответил на вашу кампанию.`,
+      link: `/inbox?leadId=${lead.id}`,
+    }).catch(() => null);
   }
 
   console.log(`[IMAP] Reply from ${lead.email}: class=${replyClass} status=${newStatus}`);

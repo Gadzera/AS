@@ -175,4 +175,5 @@ export const billingApi = {
   subscription: () => api.get('/billing/subscription').then((r) => r.data),
 };
 
+export { api };
 export default api;

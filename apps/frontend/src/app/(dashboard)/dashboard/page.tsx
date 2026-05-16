@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { analyticsApi } from '@/lib/api';
+import { analyticsApi, api } from '@/lib/api';
 import type { AnalyticsStats } from '@/types';
 import Topbar from '@/components/layout/Topbar';
 import {
@@ -70,13 +70,63 @@ const statusColors: Record<string, string> = {
   HOT: '#ef4444', CONVERTED: '#22c55e', LOST: '#6b7280', UNSUBSCRIBED: '#374151',
 };
 
+interface OnboardingProgress {
+  smtpAdded: boolean; firstLeadAdded: boolean;
+  firstCampaign: boolean; firstSent: boolean; firstReply: boolean;
+}
+
+// ─── Onboarding Checklist ────────────────────────────────────────────────────
+function OnboardingChecklist({ progress }: { progress: OnboardingProgress }) {
+  const steps = [
+    { key: 'smtpAdded',      label: 'Подключить почту для отправки', done: progress.smtpAdded,      link: '/settings' },
+    { key: 'firstLeadAdded', label: 'Добавить первого лида',          done: progress.firstLeadAdded, link: '/leads' },
+    { key: 'firstCampaign',  label: 'Создать кампанию',               done: progress.firstCampaign,  link: '/campaigns' },
+    { key: 'firstSent',      label: 'Отправить первое письмо',         done: progress.firstSent,      link: '/campaigns' },
+    { key: 'firstReply',     label: 'Получить первый ответ',           done: progress.firstReply,     link: '/inbox' },
+  ];
+  const done = steps.filter(s => s.done).length;
+  const pct = Math.round(done / steps.length * 100);
+  if (done === steps.length) return null;
+
+  return (
+    <div className="bg-gradient-to-br from-brand-500/10 to-purple-600/5 border border-brand-500/20 rounded-xl p-5">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <h3 className="text-sm font-semibold text-white">Начало работы</h3>
+          <p className="text-xs text-gray-500 mt-0.5">{done} из {steps.length} шагов выполнено</p>
+        </div>
+        <div className="text-right">
+          <span className="text-xl font-bold text-brand-400">{pct}%</span>
+        </div>
+      </div>
+      <div className="h-1.5 bg-gray-800 rounded-full mb-4 overflow-hidden">
+        <div className="h-full bg-gradient-to-r from-brand-500 to-purple-500 rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+        {steps.map((step) => (
+          <Link key={step.key} href={step.link} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors ${
+            step.done ? 'bg-green-500/10 border border-green-500/20 text-green-400' : 'bg-gray-800/60 border border-gray-700/50 text-gray-400 hover:border-brand-500/30 hover:text-gray-300'
+          }`}>
+            <span className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[9px] font-bold ${step.done ? 'bg-green-500 text-white' : 'bg-gray-700 text-gray-500'}`}>
+              {step.done ? '✓' : ''}
+            </span>
+            <span className={step.done ? 'line-through opacity-60' : ''}>{step.label}</span>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const [stats, setStats] = useState<AnalyticsStats & { openRate?: number; dailyChart?: any[] } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [onboarding, setOnboarding] = useState<OnboardingProgress | null>(null);
 
   useEffect(() => {
     analyticsApi.stats().then(setStats).catch(console.error).finally(() => setLoading(false));
+    api.get('/notifications/onboarding').then(r => setOnboarding(r.data)).catch(() => null);
   }, []);
 
   const dailyChart = (stats as any)?.dailyChart ?? [];
@@ -125,6 +175,9 @@ export default function DashboardPage() {
             />
           </>)}
         </div>
+
+        {/* ── Onboarding ── */}
+        {onboarding && <OnboardingChecklist progress={onboarding} />}
 
         {/* ── Charts row ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
