@@ -95,10 +95,17 @@ router.post('/:leadId/reply', async (req: Request, res: Response, next: NextFunc
       body:    z.string().min(1),
     }).parse(req.body);
 
-    const lead = await prisma.lead.findFirst({ where: { id: req.params.leadId, orgId } });
+    const lead = await prisma.lead.findFirst({
+      where: { id: req.params.leadId, orgId },
+      include: {
+        messages: { where: { direction: 'OUTBOUND', smtpMessageId: { not: null } }, orderBy: { createdAt: 'desc' }, take: 1 },
+      },
+    });
     if (!lead) { res.status(404).json({ error: 'Lead not found' }); return; }
     if (!lead.email) { res.status(400).json({ error: 'Lead has no email address' }); return; }
 
+    const lastOutbound   = lead.messages[0];
+    const inReplyTo      = lastOutbound?.smtpMessageId ?? undefined;
     const finalSubject = substituteVariables(subject, lead);
     const finalBody    = substituteVariables(body, lead);
 
@@ -124,7 +131,7 @@ router.post('/:leadId/reply', async (req: Request, res: Response, next: NextFunc
 
       let smtpMessageId: string;
       if (smtpAccount) {
-        const r = await sendViaAccount(smtpAccount, { to: lead.email, subject: finalSubject, body: htmlBody });
+        const r = await sendViaAccount(smtpAccount, { to: lead.email, subject: finalSubject, body: htmlBody, inReplyTo, references: inReplyTo });
         smtpMessageId = r.messageId;
         await prisma.message.update({ where: { id: message.id }, data: { sentAt: new Date(), smtpMessageId, smtpAccountId: smtpAccount.id } });
       } else {

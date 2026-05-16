@@ -113,18 +113,30 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
   let aiGenerated = false;
 
   if (!body || body === 'AI_GENERATE') {
-    const websiteContent = lead.website ? await scrapeWebsite(lead.website) : null;
-    const generated = await generateOutreach(
-      { firstName: lead.firstName, lastName: lead.lastName, email: lead.email,
-        title: lead.title, company: lead.company, companySize: lead.companySize,
-        industry: lead.industry, country: lead.country, city: lead.city,
-        website: lead.website, linkedinUrl: lead.linkedinUrl },
-      { name: cl.campaign.name, channel: step.channel, targetIndustry: cl.campaign.targetIndustry },
-      { websiteContent: websiteContent ?? undefined }
-    );
-    subject = generated.subject;
-    body    = generated.body;
-    aiGenerated = true;
+    if (!config.anthropic.apiKey) {
+      // No API key — use a sensible fallback instead of crashing
+      body = `Hi ${lead.firstName},\n\nI came across ${lead.company ?? 'your company'} and wanted to reach out.\n\nWould you be open to a quick 15-minute call?\n\nBest,`;
+      subject = subject || `Quick question, ${lead.firstName}`;
+    } else {
+      try {
+        const websiteContent = lead.website ? await scrapeWebsite(lead.website) : null;
+        const generated = await generateOutreach(
+          { firstName: lead.firstName, lastName: lead.lastName, email: lead.email,
+            title: lead.title, company: lead.company, companySize: lead.companySize,
+            industry: lead.industry, country: lead.country, city: lead.city,
+            website: lead.website, linkedinUrl: lead.linkedinUrl },
+          { name: cl.campaign.name, channel: step.channel, targetIndustry: cl.campaign.targetIndustry },
+          { websiteContent: websiteContent ?? undefined }
+        );
+        subject = generated.subject;
+        body    = generated.body;
+        aiGenerated = true;
+      } catch (aiErr) {
+        console.error('[Worker] AI generation failed, using fallback:', (aiErr as Error).message);
+        body = `Hi ${lead.firstName},\n\nI wanted to reach out about ${lead.company ?? 'your work'}.\n\nWould love to connect — are you available for a quick call?\n\nBest,`;
+        subject = subject || `Quick question for ${lead.firstName}`;
+      }
+    }
   }
 
   // Ensure unsubscribe token
