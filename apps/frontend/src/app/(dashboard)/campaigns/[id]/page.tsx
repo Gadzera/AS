@@ -110,17 +110,24 @@ export default function CampaignDetailPage() {
             <CampaignStatusBadge status={campaign.status} />
           </div>
 
-          <div className="flex gap-2">
-            {(campaign.status === 'DRAFT' || campaign.status === 'PAUSED') && (
-              <Button onClick={handleStart} loading={actionLoading}>
-                Start Campaign
-              </Button>
+          <div className="flex flex-col items-end gap-2">
+            {campaign.channel === 'LINKEDIN' && (campaign.status === 'DRAFT' || campaign.status === 'PAUSED') && (
+              <p className="text-xs text-yellow-500 bg-yellow-500/10 border border-yellow-500/20 rounded-lg px-3 py-2 max-w-xs text-right">
+                Make sure your leads have LinkedIn profile URLs — leads without a URL will be skipped automatically.
+              </p>
             )}
-            {campaign.status === 'ACTIVE' && (
-              <Button variant="secondary" onClick={handlePause} loading={actionLoading}>
-                Pause Campaign
-              </Button>
-            )}
+            <div className="flex gap-2">
+              {(campaign.status === 'DRAFT' || campaign.status === 'PAUSED') && (
+                <Button onClick={handleStart} loading={actionLoading}>
+                  Start Campaign
+                </Button>
+              )}
+              {campaign.status === 'ACTIVE' && (
+                <Button variant="secondary" onClick={handlePause} loading={actionLoading}>
+                  Pause Campaign
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -154,6 +161,7 @@ export default function CampaignDetailPage() {
               <SequenceBuilder
                 campaignId={id}
                 sequences={campaign.sequences ?? []}
+                abTestEnabled={campaign.abTestEnabled}
                 onUpdate={fetchData}
               />
             </Card>
