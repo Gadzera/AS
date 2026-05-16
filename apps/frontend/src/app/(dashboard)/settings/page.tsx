@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { authApi, billingApi, api } from '@/lib/api';
 import type { User } from '@/types';
 import Topbar from '@/components/layout/Topbar';
+import PageTransition from '@/components/layout/PageTransition';
 import Card, { CardHeader, CardTitle } from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -221,6 +222,7 @@ export default function SettingsPage() {
   return (
     <>
       <Topbar title="Settings" />
+      <PageTransition>
       <main className="flex-1 p-6 overflow-y-auto">
         <div className="max-w-4xl">
           {/* Tabs */}
@@ -792,6 +794,7 @@ export default function SettingsPage() {
           </AnimatePresence>
         </div>
       </main>
+      </PageTransition>
 
       {/* Edit Profile Modal */}
       <Modal open={showProfileModal} onClose={() => setShowProfileModal(false)} title="Edit Profile" size="sm">
