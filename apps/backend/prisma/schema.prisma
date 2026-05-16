@@ -7,7 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Users & Auth
 model User {
   id           String        @id @default(cuid())
   email        String        @unique
@@ -22,29 +21,60 @@ model User {
 }
 
 model Organization {
-  id               String     @id @default(cuid())
+  id               String        @id @default(cuid())
   name             String
-  plan             Plan       @default(STARTER)
+  plan             Plan          @default(STARTER)
   stripeCustomerId String?
   stripeSubId      String?
-  leadsLimit       Int        @default(500)
+  leadsLimit       Int           @default(500)
   users            User[]
   leads            Lead[]
   campaigns        Campaign[]
   apiKeys          ApiKey[]
-  createdAt        DateTime   @default(now())
+  smtpAccounts     SmtpAccount[]
+  webhooks         Webhook[]
+  createdAt        DateTime      @default(now())
 }
 
 model ApiKey {
   id        String       @id @default(cuid())
   orgId     String
   org       Organization @relation(fields: [orgId], references: [id])
-  service   String // apollo | unipile | smtp
+  service   String
   keyValue  String
   createdAt DateTime     @default(now())
 }
 
-// Leads
+// Multiple sending accounts per org — enables inbox rotation
+model SmtpAccount {
+  id        String       @id @default(cuid())
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id])
+  name      String       // Display name e.g. "john@acme.com"
+  host      String
+  port      Int          @default(587)
+  user      String
+  pass      String
+  fromName  String?
+  fromEmail String
+  active    Boolean      @default(true)
+  // Warm-up tracking
+  createdAt DateTime     @default(now())
+  messages  Message[]
+}
+
+// Zapier / Make / custom webhooks
+model Webhook {
+  id        String       @id @default(cuid())
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id])
+  name      String
+  url       String
+  events    String[]     // e.g. ["reply", "open", "bounce", "unsubscribe"]
+  active    Boolean      @default(true)
+  createdAt DateTime     @default(now())
+}
+
 model Lead {
   id               String         @id @default(cuid())
   orgId            String
@@ -52,6 +82,7 @@ model Lead {
   firstName        String
   lastName         String
   email            String?
+  emailValid       EmailValidity  @default(UNKNOWN)
   linkedinUrl      String?
   title            String?
   company          String?
@@ -74,7 +105,6 @@ model Lead {
   updatedAt        DateTime       @updatedAt
 }
 
-// Campaigns
 model Campaign {
   id             String         @id @default(cuid())
   orgId          String
@@ -88,6 +118,7 @@ model Campaign {
   targetCountry  String?
   targetSize     String?
   dailyLimit     Int            @default(50)
+  abTestEnabled  Boolean        @default(false)
   sequences      Sequence[]
   campaignLeads  CampaignLead[]
   createdAt      DateTime       @default(now())
@@ -102,40 +133,47 @@ model Sequence {
   delayDays  Int      @default(0)
   subject    String?
   body       String   @db.Text
+  // A/B variant
+  subjectB   String?
+  bodyB      String?  @db.Text
   channel    Channel  @default(EMAIL)
   createdAt  DateTime @default(now())
 }
 
 model CampaignLead {
-  id          String     @id @default(cuid())
-  campaignId  String
-  campaign    Campaign   @relation(fields: [campaignId], references: [id])
-  leadId      String
-  lead        Lead       @relation(fields: [leadId], references: [id])
-  currentStep Int        @default(0)
-  status      LeadStatus @default(NEW)
-  nextSendAt  DateTime?
-  createdAt   DateTime   @default(now())
+  id            String     @id @default(cuid())
+  campaignId    String
+  campaign      Campaign   @relation(fields: [campaignId], references: [id])
+  leadId        String
+  lead          Lead       @relation(fields: [leadId], references: [id])
+  currentStep   Int        @default(0)
+  status        LeadStatus @default(NEW)
+  nextSendAt    DateTime?
+  abVariant     String?    // "A" or "B"
+  createdAt     DateTime   @default(now())
 
   @@unique([campaignId, leadId])
 }
 
 model Message {
-  id          String      @id @default(cuid())
-  leadId      String
-  lead        Lead        @relation(fields: [leadId], references: [id])
-  direction   Direction
-  channel     Channel
-  subject     String?
-  body        String      @db.Text
-  aiGenerated Boolean     @default(false)
-  replyClass  ReplyClass?
-  smtpMessageId String?   // SMTP Message-ID header for IMAP reply matching
-  bounced     Boolean     @default(false)
-  sentAt      DateTime?
-  openedAt    DateTime?
-  repliedAt   DateTime?
-  createdAt   DateTime    @default(now())
+  id            String       @id @default(cuid())
+  leadId        String
+  lead          Lead         @relation(fields: [leadId], references: [id])
+  smtpAccountId String?
+  smtpAccount   SmtpAccount? @relation(fields: [smtpAccountId], references: [id])
+  direction     Direction
+  channel       Channel
+  subject       String?
+  body          String       @db.Text
+  aiGenerated   Boolean      @default(false)
+  abVariant     String?
+  replyClass    ReplyClass?
+  smtpMessageId String?
+  bounced       Boolean      @default(false)
+  sentAt        DateTime?
+  openedAt      DateTime?
+  repliedAt     DateTime?
+  createdAt     DateTime     @default(now())
 }
 
 enum Role {
@@ -182,4 +220,12 @@ enum ReplyClass {
   NOT_INTERESTED
   FOLLOW_UP
   UNSUBSCRIBE
+}
+
+enum EmailValidity {
+  UNKNOWN
+  VALID
+  INVALID
+  DISPOSABLE
+  NO_MX
 }

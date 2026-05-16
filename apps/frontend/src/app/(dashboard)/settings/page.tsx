@@ -1,234 +1,457 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { authApi, billingApi } from '@/lib/api';
+import { motion, AnimatePresence } from 'framer-motion';
+import { authApi, billingApi, api } from '@/lib/api';
 import type { User } from '@/types';
 import Topbar from '@/components/layout/Topbar';
 import Card, { CardHeader, CardTitle } from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
+import Input from '@/components/ui/Input';
+import Modal from '@/components/ui/Modal';
+import { useToast } from '@/components/ui/Toast';
 
 const PLANS = [
-  {
-    id: 'STARTER',
-    name: 'Starter',
-    price: '$49/mo',
-    leads: '500 leads',
-    features: ['500 leads', '3 active campaigns', 'Email outreach', 'AI message generation'],
-  },
-  {
-    id: 'GROWTH',
-    name: 'Growth',
-    price: '$149/mo',
-    leads: '2,000 leads',
-    features: ['2,000 leads', '10 campaigns', 'Email + LinkedIn', 'Apollo.io integration', 'Priority support'],
-  },
-  {
-    id: 'AGENCY',
-    name: 'Agency',
-    price: '$399/mo',
-    leads: '10,000 leads',
-    features: ['10,000 leads', 'Unlimited campaigns', 'All channels', 'White-label options', 'Dedicated support'],
-  },
+  { id: 'STARTER', name: 'Starter',  price: '$29/mo',  features: ['500 leads', '3 campaigns', 'Email outreach', 'AI writing'] },
+  { id: 'GROWTH',  name: 'Growth',   price: '$49/mo',  features: ['5,000 leads', '10 campaigns', 'Email + LinkedIn', 'PDL lead finder', 'Webhooks'] },
+  { id: 'AGENCY',  name: 'Agency',   price: '$99/mo',  features: ['Unlimited leads', 'Unlimited campaigns', 'All channels', 'White-label', 'Priority support'] },
 ];
 
+const TABS = ['Account', 'Sending', 'Webhooks', 'Deliverability', 'Billing'] as const;
+type Tab = typeof TABS[number];
+
+interface SmtpAccount { id: string; name: string; fromEmail: string; active: boolean; host: string; port: number; }
+interface Webhook     { id: string; name: string; url: string; events: string[]; active: boolean; }
+
 export default function SettingsPage() {
-  const [user, setUser] = useState<User | null>(null);
-  const [subscription, setSubscription] = useState<{
-    plan: string;
-    status: string;
-    currentPeriodEnd?: string;
-  } | null>(null);
+  const { success, error: toastError } = useToast();
+  const [tab, setTab]       = useState<Tab>('Account');
+  const [user, setUser]     = useState<User | null>(null);
+  const [subscription, setSubscription] = useState<{ plan: string; status: string; currentPeriodEnd?: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
 
+  // SMTP accounts
+  const [smtpAccounts, setSmtpAccounts] = useState<SmtpAccount[]>([]);
+  const [showSmtpModal, setShowSmtpModal] = useState(false);
+  const [smtpForm, setSmtpForm] = useState({ name: '', host: 'smtp.gmail.com', port: 587, user: '', pass: '', fromName: '', fromEmail: '' });
+  const [addingSmtp, setAddingSmtp] = useState(false);
+
+  // Webhooks
+  const [webhooks, setWebhooks] = useState<Webhook[]>([]);
+  const [showWebhookModal, setShowWebhookModal] = useState(false);
+  const [webhookForm, setWebhookForm] = useState({ name: '', url: '', events: [] as string[] });
+  const [addingWebhook, setAddingWebhook] = useState(false);
+
+  // Deliverability
+  const [domainInput, setDomainInput] = useState('');
+  const [dnsResult, setDnsResult]     = useState<any>(null);
+  const [dnsLoading, setDnsLoading]   = useState(false);
+  const [delivStats, setDelivStats]   = useState<any>(null);
+
+  const WEBHOOK_EVENTS = ['reply', 'open', 'bounce', 'unsubscribe', 'interested', 'converted'];
+
   useEffect(() => {
     Promise.all([authApi.me(), billingApi.subscription()])
-      .then(([u, sub]) => {
-        setUser(u);
-        setSubscription(sub as typeof subscription);
-      })
+      .then(([u, sub]) => { setUser(u); setSubscription(sub as any); })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    if (tab === 'Sending') {
+      api.get('/smtp').then(r => setSmtpAccounts(r.data)).catch(() => {});
+    }
+    if (tab === 'Webhooks') {
+      api.get('/webhooks').then(r => setWebhooks(r.data)).catch(() => {});
+    }
+    if (tab === 'Deliverability') {
+      api.get('/deliverability/stats').then(r => setDelivStats(r.data)).catch(() => {});
+    }
+  }, [tab]);
+
   const handleCheckout = async (plan: string) => {
     setCheckoutLoading(plan);
-    try {
-      const { url } = await billingApi.checkout(plan);
-      if (url) window.location.href = url;
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setCheckoutLoading(null);
-    }
+    try { const { url } = await billingApi.checkout(plan); if (url) window.location.href = url; }
+    catch { toastError('Checkout failed'); }
+    finally { setCheckoutLoading(null); }
   };
 
-  const handlePortal = async () => {
+  const handleAddSmtp = async () => {
+    setAddingSmtp(true);
     try {
-      const { url } = await billingApi.portal();
-      if (url) window.location.href = url;
-    } catch (err) {
-      console.error(err);
-    }
+      await api.post('/smtp', smtpForm);
+      const r = await api.get('/smtp');
+      setSmtpAccounts(r.data);
+      setShowSmtpModal(false);
+      setSmtpForm({ name: '', host: 'smtp.gmail.com', port: 587, user: '', pass: '', fromName: '', fromEmail: '' });
+      success('SMTP account added and verified');
+    } catch (err: any) {
+      toastError(err?.response?.data?.error ?? 'Failed to add account');
+    } finally { setAddingSmtp(false); }
   };
+
+  const handleDeleteSmtp = async (id: string) => {
+    await api.delete(`/smtp/${id}`);
+    setSmtpAccounts(prev => prev.filter(a => a.id !== id));
+    success('Account removed');
+  };
+
+  const handleToggleSmtp = async (id: string, active: boolean) => {
+    await api.put(`/smtp/${id}`, { active });
+    setSmtpAccounts(prev => prev.map(a => a.id === id ? { ...a, active } : a));
+  };
+
+  const handleAddWebhook = async () => {
+    setAddingWebhook(true);
+    try {
+      await api.post('/webhooks', webhookForm);
+      const r = await api.get('/webhooks');
+      setWebhooks(r.data);
+      setShowWebhookModal(false);
+      setWebhookForm({ name: '', url: '', events: [] });
+      success('Webhook created');
+    } catch (err: any) {
+      toastError(err?.response?.data?.error ?? 'Failed to create webhook');
+    } finally { setAddingWebhook(false); }
+  };
+
+  const checkDns = async () => {
+    if (!domainInput.trim()) return;
+    setDnsLoading(true);
+    try {
+      const r = await api.get(`/deliverability/check?domain=${domainInput.trim()}`);
+      setDnsResult(r.data);
+    } catch { toastError('DNS check failed'); }
+    finally { setDnsLoading(false); }
+  };
+
+  const scoreColor = (s: number) => s >= 80 ? 'text-green-400' : s >= 50 ? 'text-yellow-400' : 'text-red-400';
+  const scoreBg    = (s: number) => s >= 80 ? 'bg-green-500/10 border-green-500/20' : s >= 50 ? 'bg-yellow-500/10 border-yellow-500/20' : 'bg-red-500/10 border-red-500/20';
 
   return (
     <>
       <Topbar title="Settings" />
       <main className="flex-1 p-6 overflow-y-auto">
-        <div className="max-w-4xl space-y-6">
-          {/* Account */}
-          <Card padding="md">
-            <CardHeader>
-              <CardTitle>Account</CardTitle>
-            </CardHeader>
-            {loading ? (
-              <div className="animate-pulse space-y-2">
-                <div className="skeleton h-4 rounded w-48" />
-                <div className="skeleton h-4 rounded w-64" />
-              </div>
-            ) : (
-              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                <div>
-                  <dt className="text-gray-500">Name</dt>
-                  <dd className="font-medium text-white">{user?.name}</dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500">Email</dt>
-                  <dd className="font-medium text-white">{user?.email}</dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500">Organization</dt>
-                  <dd className="font-medium text-white">{user?.org?.name}</dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500">Role</dt>
-                  <dd className="font-medium text-white">{user?.role}</dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500">Current plan</dt>
-                  <dd className="font-medium text-white">{user?.org?.plan}</dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500">Leads limit</dt>
-                  <dd className="font-medium text-white">{user?.org?.leadsLimit?.toLocaleString()}</dd>
-                </div>
-              </dl>
-            )}
-          </Card>
+        <div className="max-w-4xl">
+          {/* Tabs */}
+          <div className="flex gap-1 mb-6 bg-gray-900/60 border border-gray-800 rounded-xl p-1 w-fit">
+            {TABS.map(t => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  tab === t ? 'bg-brand-500/20 text-brand-400 border border-brand-500/30' : 'text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
 
-          {/* Subscription */}
-          <Card padding="md">
-            <CardHeader>
-              <CardTitle>Billing & Subscription</CardTitle>
-              {subscription?.status === 'active' && (
-                <Button size="sm" variant="secondary" onClick={handlePortal}>
-                  Manage Billing
-                </Button>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={tab}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.15 }}
+              className="space-y-6"
+            >
+
+              {/* ACCOUNT */}
+              {tab === 'Account' && (
+                <Card padding="md">
+                  <CardHeader><CardTitle>Account</CardTitle></CardHeader>
+                  {loading ? (
+                    <div className="space-y-2"><div className="skeleton h-4 rounded w-48" /><div className="skeleton h-4 rounded w-64" /></div>
+                  ) : (
+                    <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                      {[
+                        ['Name', user?.name], ['Email', user?.email],
+                        ['Organization', user?.org?.name], ['Role', user?.role],
+                        ['Plan', user?.org?.plan], ['Leads limit', user?.org?.leadsLimit?.toLocaleString()],
+                      ].map(([label, val]) => (
+                        <div key={label as string}>
+                          <dt className="text-gray-500 text-xs uppercase tracking-wide">{label}</dt>
+                          <dd className="font-medium text-white mt-0.5">{val ?? '—'}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  )}
+                </Card>
               )}
-            </CardHeader>
 
-            {subscription && (
-              <div className="mb-6 p-4 bg-gray-800/40 rounded-lg text-sm">
-                <p>
-                  <span className="text-gray-500">Status:</span>{' '}
-                  <span className="font-medium capitalize">{subscription.status}</span>
-                </p>
-                {subscription.currentPeriodEnd && (
-                  <p className="mt-1">
-                    <span className="text-gray-500">Renews:</span>{' '}
-                    <span className="font-medium">
-                      {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
-                    </span>
-                  </p>
-                )}
-              </div>
-            )}
+              {/* SENDING / SMTP ROTATION */}
+              {tab === 'Sending' && (
+                <Card padding="md">
+                  <CardHeader>
+                    <div>
+                      <CardTitle>Sending Accounts</CardTitle>
+                      <p className="text-xs text-gray-500 mt-0.5">Emails are rotated across all active accounts to maximize deliverability</p>
+                    </div>
+                    <Button size="sm" onClick={() => setShowSmtpModal(true)}>+ Add Account</Button>
+                  </CardHeader>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {PLANS.map((plan) => {
-                const isCurrent = user?.org?.plan === plan.id;
-                return (
-                  <div
-                    key={plan.id}
-                    className={`border-2 rounded-xl p-4 ${
-                      isCurrent ? 'border-brand-500/60 bg-brand-500/10' : 'border-gray-700'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-semibold text-white">{plan.name}</h3>
-                      {isCurrent && (
-                        <span className="text-xs bg-brand-500 text-white px-2 py-0.5 rounded-full">
-                          Current
-                        </span>
+                  {smtpAccounts.length === 0 ? (
+                    <div className="text-center py-10">
+                      <div className="text-3xl mb-2">📧</div>
+                      <p className="text-gray-500 text-sm">No sending accounts yet</p>
+                      <p className="text-gray-600 text-xs mt-1">Add Gmail, Zoho, or any SMTP account</p>
+                      <Button size="sm" className="mt-4" onClick={() => setShowSmtpModal(true)}>Add first account</Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {smtpAccounts.map(acc => (
+                        <div key={acc.id} className="flex items-center justify-between p-3 bg-gray-800/40 rounded-lg border border-gray-700/60">
+                          <div>
+                            <p className="text-sm font-medium text-white">{acc.name}</p>
+                            <p className="text-xs text-gray-500">{acc.fromEmail} · {acc.host}:{acc.port}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleToggleSmtp(acc.id, !acc.active)}
+                              className={`text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
+                                acc.active ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-gray-800 text-gray-500 border-gray-700'
+                              }`}
+                            >
+                              {acc.active ? 'Active' : 'Paused'}
+                            </button>
+                            <Button size="sm" variant="ghost" onClick={() => handleDeleteSmtp(acc.id)}>Remove</Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+              )}
+
+              {/* WEBHOOKS */}
+              {tab === 'Webhooks' && (
+                <Card padding="md">
+                  <CardHeader>
+                    <div>
+                      <CardTitle>Webhooks</CardTitle>
+                      <p className="text-xs text-gray-500 mt-0.5">Connect to Zapier, Make, HubSpot, or your own systems</p>
+                    </div>
+                    <Button size="sm" onClick={() => setShowWebhookModal(true)}>+ Add Webhook</Button>
+                  </CardHeader>
+
+                  {webhooks.length === 0 ? (
+                    <div className="text-center py-10">
+                      <div className="text-3xl mb-2">⚡</div>
+                      <p className="text-gray-500 text-sm">No webhooks yet</p>
+                      <p className="text-gray-600 text-xs mt-1">Get notified on reply, open, bounce, interested</p>
+                      <Button size="sm" className="mt-4" onClick={() => setShowWebhookModal(true)}>Add webhook</Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {webhooks.map(wh => (
+                        <div key={wh.id} className="p-3 bg-gray-800/40 rounded-lg border border-gray-700/60">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <p className="text-sm font-medium text-white">{wh.name}</p>
+                            <Button size="sm" variant="ghost" onClick={async () => {
+                              await api.delete(`/webhooks/${wh.id}`);
+                              setWebhooks(prev => prev.filter(w => w.id !== wh.id));
+                            }}>Remove</Button>
+                          </div>
+                          <p className="text-xs text-gray-500 font-mono truncate">{wh.url}</p>
+                          <div className="flex gap-1 mt-2 flex-wrap">
+                            {wh.events.map(e => (
+                              <span key={e} className="text-[10px] px-2 py-0.5 rounded-full bg-brand-500/10 text-brand-400 border border-brand-500/20">{e}</span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+              )}
+
+              {/* DELIVERABILITY */}
+              {tab === 'Deliverability' && (
+                <div className="space-y-4">
+                  {/* Stats */}
+                  {delivStats && (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {[
+                        { label: 'Deliverability Score', value: `${delivStats.deliverabilityScore}`, unit: '/100', color: scoreColor(delivStats.deliverabilityScore) },
+                        { label: 'Open Rate', value: `${delivStats.openRate}`, unit: '%', color: 'text-blue-400' },
+                        { label: 'Bounce Rate', value: `${delivStats.bounceRate}`, unit: '%', color: delivStats.bounceRate < 2 ? 'text-green-400' : 'text-red-400' },
+                        { label: 'Reply Rate', value: `${delivStats.replyRate}`, unit: '%', color: 'text-purple-400' },
+                      ].map(s => (
+                        <div key={s.label} className={`p-4 rounded-xl border ${scoreBg(parseInt(s.value))}`}>
+                          <p className="text-xs text-gray-500 mb-1">{s.label}</p>
+                          <p className={`text-2xl font-bold ${s.color}`}>{s.value}<span className="text-sm font-normal text-gray-500">{s.unit}</span></p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* DNS Checker */}
+                  <Card padding="md">
+                    <CardHeader><CardTitle>DNS Health Check</CardTitle></CardHeader>
+                    <div className="flex gap-2 mb-4">
+                      <Input
+                        placeholder="yourdomain.com"
+                        value={domainInput}
+                        onChange={e => setDomainInput(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && checkDns()}
+                        className="flex-1"
+                      />
+                      <Button onClick={checkDns} loading={dnsLoading} size="md">Check</Button>
+                    </div>
+
+                    {dnsResult && (
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+                        {/* Score */}
+                        <div className={`flex items-center gap-3 p-3 rounded-lg border ${scoreBg(dnsResult.score)}`}>
+                          <span className={`text-2xl font-bold ${scoreColor(dnsResult.score)}`}>{dnsResult.score}</span>
+                          <div>
+                            <p className="text-sm font-medium text-white">Domain Score</p>
+                            <p className="text-xs text-gray-500">{dnsResult.domain}</p>
+                          </div>
+                        </div>
+
+                        {/* SPF / DKIM / DMARC */}
+                        {[
+                          { label: 'SPF', valid: dnsResult.spf.valid, detail: dnsResult.spf.record ?? 'Not found' },
+                          { label: 'DKIM', valid: dnsResult.dkim.valid, detail: dnsResult.dkim.selector ? `selector: ${dnsResult.dkim.selector}` : 'Not found' },
+                          { label: 'DMARC', valid: dnsResult.dmarc.valid, detail: dnsResult.dmarc.policy ? `policy: ${dnsResult.dmarc.policy}` : 'Not found' },
+                        ].map(item => (
+                          <div key={item.label} className="flex items-start gap-3 p-3 bg-gray-800/40 rounded-lg border border-gray-700/60">
+                            <span className={item.valid ? 'text-green-400 text-lg' : 'text-red-400 text-lg'}>{item.valid ? '✓' : '✗'}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-white">{item.label}</p>
+                              <p className="text-xs text-gray-500 font-mono truncate">{item.detail}</p>
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Tips */}
+                        {dnsResult.tips.length > 0 && (
+                          <div className="p-3 bg-yellow-500/5 border border-yellow-500/20 rounded-lg">
+                            <p className="text-xs font-semibold text-yellow-400 mb-2">How to fix:</p>
+                            <ul className="space-y-1">
+                              {dnsResult.tips.map((tip: string, i: number) => (
+                                <li key={i} className="text-xs text-gray-400 font-mono leading-relaxed">{tip}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+                  </Card>
+                </div>
+              )}
+
+              {/* BILLING */}
+              {tab === 'Billing' && (
+                <Card padding="md">
+                  <CardHeader>
+                    <CardTitle>Billing & Plan</CardTitle>
+                    {subscription?.status === 'active' && (
+                      <Button size="sm" variant="secondary" onClick={async () => {
+                        const { url } = await billingApi.portal(); if (url) window.location.href = url;
+                      }}>Manage Billing</Button>
+                    )}
+                  </CardHeader>
+
+                  {subscription && (
+                    <div className="mb-6 p-4 bg-gray-800/40 rounded-lg text-sm">
+                      <p><span className="text-gray-500">Status:</span> <span className="font-medium capitalize text-white">{subscription.status}</span></p>
+                      {subscription.currentPeriodEnd && (
+                        <p className="mt-1"><span className="text-gray-500">Renews:</span> <span className="font-medium text-white">{new Date(subscription.currentPeriodEnd).toLocaleDateString()}</span></p>
                       )}
                     </div>
-                    <p className="text-2xl font-bold text-white mb-1">{plan.price}</p>
-                    <ul className="text-xs text-gray-500 space-y-1 mb-4">
-                      {plan.features.map((f) => (
-                        <li key={f} className="flex items-center gap-1">
-                          <svg className="w-3.5 h-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                          {f}
-                        </li>
-                      ))}
-                    </ul>
-                    <Button
-                      size="sm"
-                      variant={isCurrent ? 'secondary' : 'primary'}
-                      className="w-full"
-                      disabled={isCurrent}
-                      loading={checkoutLoading === plan.id}
-                      onClick={() => handleCheckout(plan.id)}
-                    >
-                      {isCurrent ? 'Current plan' : 'Upgrade'}
-                    </Button>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {PLANS.map(plan => {
+                      const isCurrent = user?.org?.plan === plan.id;
+                      return (
+                        <div key={plan.id} className={`border-2 rounded-xl p-4 ${isCurrent ? 'border-brand-500/60 bg-brand-500/10' : 'border-gray-700'}`}>
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="font-semibold text-white">{plan.name}</h3>
+                            {isCurrent && <span className="text-xs bg-brand-500 text-white px-2 py-0.5 rounded-full">Current</span>}
+                          </div>
+                          <p className="text-2xl font-bold text-white mb-3">{plan.price}</p>
+                          <ul className="text-xs text-gray-500 space-y-1.5 mb-4">
+                            {plan.features.map(f => (
+                              <li key={f} className="flex items-center gap-1.5">
+                                <svg className="w-3.5 h-3.5 text-green-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                {f}
+                              </li>
+                            ))}
+                          </ul>
+                          <Button size="sm" variant={isCurrent ? 'secondary' : 'primary'} className="w-full"
+                            disabled={isCurrent} loading={checkoutLoading === plan.id}
+                            onClick={() => handleCheckout(plan.id)}>
+                            {isCurrent ? 'Current plan' : 'Upgrade'}
+                          </Button>
+                        </div>
+                      );
+                    })}
                   </div>
+                </Card>
+              )}
+
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </main>
+
+      {/* Add SMTP Modal */}
+      <Modal open={showSmtpModal} onClose={() => setShowSmtpModal(false)} title="Add Sending Account" size="md">
+        <div className="space-y-3">
+          <Input label="Account name" placeholder="john@acme.com (Gmail)" value={smtpForm.name} onChange={e => setSmtpForm(f => ({ ...f, name: e.target.value }))} />
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="SMTP Host" placeholder="smtp.gmail.com" value={smtpForm.host} onChange={e => setSmtpForm(f => ({ ...f, host: e.target.value }))} />
+            <Input label="Port" type="number" value={smtpForm.port} onChange={e => setSmtpForm(f => ({ ...f, port: parseInt(e.target.value) || 587 }))} />
+          </div>
+          <Input label="Username" placeholder="you@gmail.com" value={smtpForm.user} onChange={e => setSmtpForm(f => ({ ...f, user: e.target.value }))} />
+          <Input label="Password / App password" type="password" placeholder="••••••••••••" value={smtpForm.pass} onChange={e => setSmtpForm(f => ({ ...f, pass: e.target.value }))} hint="For Gmail: use App Password, not your Google password" />
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="From name" placeholder="John Smith" value={smtpForm.fromName} onChange={e => setSmtpForm(f => ({ ...f, fromName: e.target.value }))} />
+            <Input label="From email" placeholder="john@acme.com" value={smtpForm.fromEmail} onChange={e => setSmtpForm(f => ({ ...f, fromEmail: e.target.value }))} />
+          </div>
+          <div className="flex gap-2 pt-2">
+            <Button onClick={handleAddSmtp} loading={addingSmtp} disabled={!smtpForm.user || !smtpForm.pass} className="flex-1">Add & Verify</Button>
+            <Button variant="secondary" onClick={() => setShowSmtpModal(false)}>Cancel</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Add Webhook Modal */}
+      <Modal open={showWebhookModal} onClose={() => setShowWebhookModal(false)} title="Add Webhook" size="md">
+        <div className="space-y-3">
+          <Input label="Name" placeholder="Notify HubSpot" value={webhookForm.name} onChange={e => setWebhookForm(f => ({ ...f, name: e.target.value }))} />
+          <Input label="URL" placeholder="https://hooks.zapier.com/..." value={webhookForm.url} onChange={e => setWebhookForm(f => ({ ...f, url: e.target.value }))} />
+          <div>
+            <label className="text-xs font-medium text-gray-400 uppercase tracking-wide">Events</label>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {WEBHOOK_EVENTS.map(evt => {
+                const active = webhookForm.events.includes(evt);
+                return (
+                  <button key={evt} onClick={() => setWebhookForm(f => ({
+                    ...f,
+                    events: active ? f.events.filter(e => e !== evt) : [...f.events, evt],
+                  }))}
+                  className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
+                    active ? 'bg-brand-500/20 text-brand-400 border-brand-500/30' : 'bg-gray-800 text-gray-500 border-gray-700 hover:text-gray-300'
+                  }`}>
+                    {evt}
+                  </button>
                 );
               })}
             </div>
-          </Card>
-
-          {/* API Keys Info */}
-          <Card padding="md">
-            <CardHeader>
-              <CardTitle>API Integrations</CardTitle>
-            </CardHeader>
-            <p className="text-sm text-gray-500 mb-4">
-              API keys are configured via environment variables on the server. Contact your admin to update them.
-            </p>
-            <div className="space-y-3">
-              {[
-                { name: 'Claude AI (Anthropic)', key: 'ANTHROPIC_API_KEY', required: true },
-                { name: 'Apollo.io', key: 'APOLLO_API_KEY', required: false },
-                { name: 'Unipile (LinkedIn)', key: 'UNIPILE_API_KEY', required: false },
-                { name: 'Stripe', key: 'STRIPE_SECRET_KEY', required: false },
-                { name: 'SMTP Email', key: 'SMTP_HOST', required: false },
-              ].map((item) => (
-                <div
-                  key={item.key}
-                  className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-white">{item.name}</p>
-                    <p className="text-xs text-gray-400 font-mono">{item.key}</p>
-                  </div>
-                  <span
-                    className={`text-xs px-2 py-1 rounded-full ${
-                      item.required
-                        ? 'bg-red-100 text-red-700'
-                        : 'bg-gray-100 text-gray-500'
-                    }`}
-                  >
-                    {item.required ? 'Required' : 'Optional'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </Card>
+          </div>
+          <div className="flex gap-2 pt-2">
+            <Button onClick={handleAddWebhook} loading={addingWebhook} disabled={!webhookForm.url || webhookForm.events.length === 0} className="flex-1">Create Webhook</Button>
+            <Button variant="secondary" onClick={() => setShowWebhookModal(false)}>Cancel</Button>
+          </div>
         </div>
-      </main>
+      </Modal>
     </>
   );
 }
