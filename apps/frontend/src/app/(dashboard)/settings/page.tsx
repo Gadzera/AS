@@ -17,7 +17,7 @@ const PLANS = [
   { id: 'AGENCY',  name: 'Agency',   price: '$99/mo',  features: ['Unlimited leads', 'Unlimited campaigns', 'All channels', 'White-label', 'Priority support'] },
 ];
 
-const TABS = ['Account', 'Sending', 'Webhooks', 'Deliverability', 'Billing'] as const;
+const TABS = ['Account', 'Sending', 'Integrations', 'Webhooks', 'Deliverability', 'Billing'] as const;
 type Tab = typeof TABS[number];
 
 interface SmtpAccount { id: string; name: string; fromEmail: string; active: boolean; host: string; port: number; }
@@ -43,6 +43,11 @@ export default function SettingsPage() {
   const [webhookForm, setWebhookForm] = useState({ name: '', url: '', events: [] as string[] });
   const [addingWebhook, setAddingWebhook] = useState(false);
 
+  // Integrations / CRM
+  const [crmStatus, setCrmStatus]     = useState<{ hubspot: boolean; pipedrive: boolean } | null>(null);
+  const [crmLoading, setCrmLoading]   = useState(false);
+  const [syncingAll, setSyncingAll]   = useState(false);
+
   // Deliverability
   const [domainInput, setDomainInput] = useState('');
   const [dnsResult, setDnsResult]     = useState<any>(null);
@@ -67,6 +72,10 @@ export default function SettingsPage() {
     }
     if (tab === 'Deliverability') {
       api.get('/deliverability/stats').then(r => setDelivStats(r.data)).catch(() => {});
+    }
+    if (tab === 'Integrations') {
+      setCrmLoading(true);
+      api.get('/crm/status').then(r => setCrmStatus(r.data)).catch(() => {}).finally(() => setCrmLoading(false));
     }
   }, [tab]);
 
@@ -224,6 +233,102 @@ export default function SettingsPage() {
                     </div>
                   )}
                 </Card>
+              )}
+
+              {/* INTEGRATIONS / CRM */}
+              {tab === 'Integrations' && (
+                <div className="space-y-4">
+                  <Card padding="md">
+                    <CardHeader>
+                      <div>
+                        <CardTitle>CRM Integrations</CardTitle>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Set <code className="text-brand-400 bg-brand-500/10 px-1 rounded">HUBSPOT_ACCESS_TOKEN</code> or <code className="text-brand-400 bg-brand-500/10 px-1 rounded">PIPEDRIVE_API_KEY</code> env vars to enable
+                        </p>
+                      </div>
+                      <Button size="sm" variant="secondary" loading={crmLoading} onClick={() => {
+                        setCrmLoading(true);
+                        api.get('/crm/status').then(r => setCrmStatus(r.data)).catch(() => {}).finally(() => setCrmLoading(false));
+                      }}>Refresh Status</Button>
+                    </CardHeader>
+
+                    <div className="space-y-3">
+                      {[
+                        { id: 'hubspot',   name: 'HubSpot',   logo: '🟠', desc: 'Syncs HOT leads to HubSpot Contacts automatically', env: 'HUBSPOT_ACCESS_TOKEN', docs: 'Private App token from HubSpot Settings → Integrations → Private Apps' },
+                        { id: 'pipedrive', name: 'Pipedrive', logo: '🟢', desc: 'Syncs HOT leads to Pipedrive Persons automatically', env: 'PIPEDRIVE_API_KEY + PIPEDRIVE_DOMAIN', docs: 'API key from Pipedrive Settings → Personal Preferences → API' },
+                      ].map(crm => {
+                        const connected = crmStatus ? crmStatus[crm.id as keyof typeof crmStatus] : null;
+                        return (
+                          <div key={crm.id} className="p-4 bg-gray-800/40 rounded-xl border border-gray-700/60">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex items-center gap-3">
+                                <span className="text-2xl">{crm.logo}</span>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-semibold text-white text-sm">{crm.name}</p>
+                                    {crmLoading ? (
+                                      <span className="text-xs text-gray-500">checking...</span>
+                                    ) : connected === true ? (
+                                      <span className="text-xs bg-green-500/10 text-green-400 border border-green-500/20 px-2 py-0.5 rounded-full">Connected</span>
+                                    ) : connected === false ? (
+                                      <span className="text-xs bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded-full">Not configured</span>
+                                    ) : null}
+                                  </div>
+                                  <p className="text-xs text-gray-500 mt-0.5">{crm.desc}</p>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="mt-3 p-2.5 bg-gray-900/60 rounded-lg">
+                              <p className="text-[11px] text-gray-600 font-mono">{crm.env}</p>
+                              <p className="text-[11px] text-gray-500 mt-0.5">{crm.docs}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </Card>
+
+                  <Card padding="md">
+                    <CardHeader>
+                      <div>
+                        <CardTitle>Bulk CRM Sync</CardTitle>
+                        <p className="text-xs text-gray-500 mt-0.5">Push all HOT leads to configured CRMs at once</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        loading={syncingAll}
+                        disabled={!crmStatus?.hubspot && !crmStatus?.pipedrive}
+                        onClick={async () => {
+                          setSyncingAll(true);
+                          try {
+                            const r = await api.post('/crm/sync-batch', { status: 'HOT' });
+                            success(`Synced ${r.data.synced} leads to CRM`);
+                          } catch { toastError('Sync failed'); }
+                          finally { setSyncingAll(false); }
+                        }}
+                      >
+                        Sync HOT Leads
+                      </Button>
+                    </CardHeader>
+                    <p className="text-xs text-gray-600">
+                      Leads are also auto-synced in real-time whenever a reply is classified as INTERESTED.
+                    </p>
+                  </Card>
+
+                  <Card padding="md">
+                    <CardHeader>
+                      <CardTitle>Personalized Images</CardTitle>
+                    </CardHeader>
+                    <p className="text-sm text-gray-400 mb-3">
+                      Use Bannerbear to embed the lead's name and company into email images — a proven way to boost reply rates.
+                    </p>
+                    <div className="p-3 bg-gray-900/60 rounded-lg">
+                      <p className="text-[11px] text-gray-600 font-mono">BANNERBEAR_API_KEY=bb_live_xxx...</p>
+                      <p className="text-xs text-gray-500 mt-1">Then set a Bannerbear Template ID on each campaign via the campaign settings.</p>
+                      <p className="text-xs text-gray-600 mt-0.5">The template must have layers named: <code className="text-brand-400">name</code>, <code className="text-brand-400">company</code>, <code className="text-brand-400">title</code></p>
+                    </div>
+                  </Card>
+                </div>
               )}
 
               {/* WEBHOOKS */}

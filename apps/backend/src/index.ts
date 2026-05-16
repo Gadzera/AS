@@ -16,6 +16,8 @@ import trackRouter from './routes/track';
 import smtpRouter from './routes/smtp';
 import webhooksRouter from './routes/webhooks';
 import deliverabilityRouter from './routes/deliverability';
+import crmRouter from './routes/crm';
+import bannerbearRouter from './routes/bannerbear';
 
 const app = express();
 
@@ -61,6 +63,8 @@ app.use('/api/track', trackRouter);
 app.use('/api/smtp', smtpRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/deliverability', deliverabilityRouter);
+app.use('/api/crm', crmRouter);
+app.use('/api/bannerbear', bannerbearRouter);
 
 // 404 handler
 app.use((_req, res) => {

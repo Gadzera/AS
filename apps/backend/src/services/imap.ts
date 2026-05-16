@@ -3,6 +3,8 @@ import { simpleParser, ParsedMail } from 'mailparser';
 import { Readable } from 'stream';
 import { PrismaClient } from '@prisma/client';
 import { config } from '../config';
+import { upsertHubSpotContact } from './hubspot';
+import { upsertPipedriveContact } from './pipedrive';
 
 const prisma = new PrismaClient();
 
@@ -146,6 +148,12 @@ async function handleReply(
       nextSendAt: null,
     },
   });
+
+  // Push to CRM when lead becomes HOT (interested reply)
+  if (newStatus === 'HOT') {
+    upsertHubSpotContact({ email: lead.email, firstName: lead.firstName, lastName: lead.lastName, company: lead.company, title: lead.title, status: 'HOT' }).catch(() => null);
+    upsertPipedriveContact({ email: lead.email, firstName: lead.firstName, lastName: lead.lastName, company: lead.company, title: lead.title }).catch(() => null);
+  }
 
   console.log(`[IMAP] Reply from ${lead.email}: class=${replyClass} status=${newStatus}`);
 }

@@ -4,6 +4,9 @@ import { generateOutreach } from '../services/claude';
 import { sendLinkedInMessage } from '../services/unipile';
 import { getNextSmtpAccount, sendViaAccount } from '../services/smtpRotation';
 import { fireWebhooks } from '../services/webhooks';
+import { generatePersonalizedImage } from '../services/bannerbear';
+import { upsertHubSpotContact } from '../services/hubspot';
+import { upsertPipedriveContact } from '../services/pipedrive';
 import { scrapeWebsite } from '../utils/scraper';
 import { applySpintax } from '../utils/spintax';
 import { validateEmail } from '../utils/emailValidation';
@@ -149,9 +152,15 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
       // Inbox rotation: try org accounts, fall back to global SMTP
       const smtpAccount = await getNextSmtpAccount(lead.orgId);
 
+      // Personalized image via Bannerbear (non-blocking on failure)
+      let personalizedImageUrl: string | null = null;
+      if (cl.campaign.bannerbearTemplateId) {
+        personalizedImageUrl = await generatePersonalizedImage(lead, cl.campaign.bannerbearTemplateId).catch(() => null);
+      }
+
       const unsubUrl = getUnsubscribeUrl(lead.unsubscribeToken!);
       const pixelUrl = `${config.backend.url}/api/track/open/${message.id}`;
-      const htmlBody = buildHtmlEmail(body, pixelUrl, unsubUrl);
+      const htmlBody = buildHtmlEmail(body, pixelUrl, unsubUrl, message.id, config.backend.url, personalizedImageUrl);
 
       let smtpMessageId: string;
 
@@ -192,6 +201,10 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
     await prisma.lead.update({ where: { id: lead.id }, data: { status: 'CONTACTED' } });
   }
 
+  // CRM sync (non-blocking)
+  upsertHubSpotContact({ email: lead.email, firstName: lead.firstName, lastName: lead.lastName, company: lead.company, title: lead.title, status: lead.status }).catch(() => null);
+  upsertPipedriveContact({ email: lead.email, firstName: lead.firstName, lastName: lead.lastName, company: lead.company, title: lead.title }).catch(() => null);
+
   // Fire webhooks (non-blocking)
   fireWebhooks(lead.orgId, {
     event: 'open', // initial send tracked separately via pixel
@@ -222,12 +235,47 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
   }
 }
 
-function buildHtmlEmail(text: string, pixelUrl: string, unsubUrl: string): string {
-  const html = text
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/\n/g, '<br>');
+function buildHtmlEmail(
+  text: string,
+  pixelUrl: string,
+  unsubUrl: string,
+  messageId: string,
+  backendUrl: string,
+  personalizedImageUrl?: string | null,
+): string {
+  const urlRegex = /https?:\/\/[^\s<>"']+/g;
+
+  // Split text into URL/non-URL segments, escape non-URL parts, wrap URLs in tracked links
+  const parts: string[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = urlRegex.exec(text)) !== null) {
+    // Escape and convert preceding plain text
+    const plain = text.slice(lastIndex, match.index)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+    parts.push(plain);
+
+    // Wrap URL in click-tracking redirect
+    const url     = match[0];
+    const encoded = Buffer.from(url).toString('base64url');
+    const trackUrl = `${backendUrl}/api/track/click/${messageId}/${encoded}`;
+    parts.push(`<a href="${trackUrl}" style="color:#6366f1;text-decoration:underline">${url}</a>`);
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  const tail = text.slice(lastIndex)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+  parts.push(tail);
+
+  const bodyHtml = parts.join('');
+  const imageBlock = personalizedImageUrl
+    ? `<div style="margin:16px 0"><img src="${personalizedImageUrl}" alt="" style="max-width:100%;border-radius:8px"></div>`
+    : '';
+
   return `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.7;color:#333;max-width:600px">
-${html}
+${imageBlock}${bodyHtml}
 <br><br>
 <div style="border-top:1px solid #eee;padding-top:12px;margin-top:12px">
   <a href="${unsubUrl}" style="font-size:11px;color:#999;text-decoration:none">Unsubscribe</a>

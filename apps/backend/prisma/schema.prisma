@@ -117,8 +117,9 @@ model Campaign {
   targetIndustry String?
   targetCountry  String?
   targetSize     String?
-  dailyLimit     Int            @default(50)
-  abTestEnabled  Boolean        @default(false)
+  dailyLimit           Int            @default(50)
+  abTestEnabled        Boolean        @default(false)
+  bannerbearTemplateId String?
   sequences      Sequence[]
   campaignLeads  CampaignLead[]
   createdAt      DateTime       @default(now())
@@ -172,6 +173,8 @@ model Message {
   bounced       Boolean      @default(false)
   sentAt        DateTime?
   openedAt      DateTime?
+  clickedAt     DateTime?
+  clicks        Int          @default(0)
   repliedAt     DateTime?
   createdAt     DateTime     @default(now())
 }
