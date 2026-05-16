@@ -16,6 +16,7 @@ import { validateEmail } from '../utils/emailValidation';
 import { generateUnsubscribeToken, getUnsubscribeUrl } from '../utils/unsubscribe';
 import { substituteVariables } from '../utils/variables';
 import { createNotification, updateOnboardingStep } from '../services/onboarding';
+import { getOptimalSendTime } from '../utils/sendTime';
 import { config } from '../config';
 
 function isPublicUrl(urlStr: string): boolean {
@@ -140,19 +141,29 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
 
   if (!body || body === 'AI_GENERATE') {
     if (!config.ai.apiKey) {
-      // No API key — use a sensible fallback instead of crashing
       body = `Hi ${lead.firstName},\n\nI came across ${lead.company ?? 'your company'} and wanted to reach out.\n\nWould you be open to a quick 15-minute call?\n\nBest,`;
       subject = subject || `Quick question, ${lead.firstName}`;
     } else {
       try {
         const websiteContent = lead.website && isPublicUrl(lead.website) ? await scrapeWebsite(lead.website) : null;
+
+        // Load previous messages for conversation context on follow-up steps
+        const previousMessages = cl.currentStep > 0
+          ? await prisma.message.findMany({
+              where: { leadId: lead.id, direction: 'OUTBOUND', sentAt: { not: null } },
+              orderBy: { sentAt: 'asc' },
+              select: { subject: true, body: true, createdAt: true },
+              take: cl.currentStep,
+            }).then(msgs => msgs.map((m, i) => ({ stepNumber: i + 1, subject: m.subject ?? '', body: m.body })))
+          : [];
+
         const generated = await generateOutreach(
           { firstName: lead.firstName, lastName: lead.lastName, email: lead.email,
             title: lead.title, company: lead.company, companySize: lead.companySize,
             industry: lead.industry, country: lead.country, city: lead.city,
             website: lead.website, linkedinUrl: lead.linkedinUrl },
           { name: cl.campaign.name, channel: step.channel, targetIndustry: cl.campaign.targetIndustry },
-          { websiteContent: websiteContent ?? undefined }
+          { websiteContent: websiteContent ?? undefined, previousMessages: previousMessages.length > 0 ? previousMessages : undefined }
         );
         subject = generated.subject;
         body    = generated.body;
@@ -276,7 +287,9 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
   // Advance sequence
   const nextStep = cl.currentStep + 1;
   if (nextStep < sequences.length) {
-    const nextSendAt = new Date(now.getTime() + sequences[nextStep].delayDays * 86_400_000);
+    // Respect configured delay, then pick optimal send hour in lead's local timezone
+    const minSendAt = new Date(now.getTime() + sequences[nextStep].delayDays * 86_400_000);
+    const nextSendAt = getOptimalSendTime(lead.country, minSendAt);
     await prisma.campaignLead.update({
       where: { id: campaignLeadId },
       data: { currentStep: nextStep, nextSendAt, status: 'CONTACTED' },
