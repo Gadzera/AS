@@ -22,6 +22,29 @@ router.get('/open/:messageId', async (req: Request, res: Response) => {
   res.send(PIXEL);
 });
 
+// GET /api/track/click/:messageId/:encodedUrl — link click tracking + redirect
+router.get('/click/:messageId/:encodedUrl', async (req: Request, res: Response) => {
+  const { messageId, encodedUrl } = req.params;
+
+  let destination = 'https://example.com';
+  try {
+    destination = Buffer.from(encodedUrl, 'base64url').toString('utf8');
+    // Validate it's a real URL to prevent open-redirect abuse
+    const url = new URL(destination);
+    if (!['http:', 'https:'].includes(url.protocol)) destination = 'https://example.com';
+  } catch {
+    destination = 'https://example.com';
+  }
+
+  // Record click (non-blocking, run both updates in parallel)
+  Promise.all([
+    prisma.message.updateMany({ where: { id: messageId, clickedAt: null }, data: { clickedAt: new Date() } }),
+    prisma.message.update({ where: { id: messageId }, data: { clicks: { increment: 1 } } }),
+  ]).catch(() => {});
+
+  res.redirect(302, destination);
+});
+
 // GET /api/track/unsubscribe/:token — one-click unsubscribe
 router.get('/unsubscribe/:token', async (req: Request, res: Response) => {
   const { token } = req.params;

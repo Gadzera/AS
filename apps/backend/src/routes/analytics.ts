@@ -160,4 +160,54 @@ router.get('/campaign/:id', async (req: Request, res: Response, next: NextFuncti
   }
 });
 
+// GET /api/analytics/ab/:campaignId — A/B test comparison
+router.get('/ab/:campaignId', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId   = req.user!.orgId!;
+    const campaign = await prisma.campaign.findFirst({ where: { id: req.params.campaignId, orgId } });
+    if (!campaign) { res.status(404).json({ error: 'Campaign not found' }); return; }
+
+    const variants = ['A', 'B'] as const;
+    const stats: Record<string, { totalLeads: number; sent: number; opened: number; clicked: number; replied: number }> = {};
+
+    await Promise.all(variants.map(async (v) => {
+      const [totalLeads, sent, opened, clicked, replied] = await Promise.all([
+        prisma.campaignLead.count({ where: { campaignId: campaign.id, abVariant: v } }),
+        prisma.message.count({
+          where: { direction: 'OUTBOUND', abVariant: v, sentAt: { not: null }, lead: { campaignLeads: { some: { campaignId: campaign.id } } } },
+        }),
+        prisma.message.count({
+          where: { direction: 'OUTBOUND', abVariant: v, openedAt: { not: null }, lead: { campaignLeads: { some: { campaignId: campaign.id } } } },
+        }),
+        prisma.message.count({
+          where: { direction: 'OUTBOUND', abVariant: v, clickedAt: { not: null }, lead: { campaignLeads: { some: { campaignId: campaign.id } } } },
+        }),
+        prisma.campaignLead.count({
+          where: { campaignId: campaign.id, abVariant: v, status: { in: ['REPLIED', 'HOT', 'CONVERTED'] } },
+        }),
+      ]);
+      stats[v] = { totalLeads, sent, opened, clicked, replied };
+    }));
+
+    const fmt = (v: typeof stats.A) => ({
+      totalLeads: v.totalLeads,
+      sent:       v.sent,
+      openRate:   v.sent > 0 ? Math.round((v.opened  / v.sent)        * 100) : 0,
+      clickRate:  v.sent > 0 ? Math.round((v.clicked / v.sent)        * 100) : 0,
+      replyRate:  v.totalLeads > 0 ? Math.round((v.replied / v.totalLeads) * 100) : 0,
+    });
+
+    const aScore = stats.A.sent > 0 ? stats.A.opened / stats.A.sent + (stats.A.replied / Math.max(stats.A.totalLeads, 1)) : 0;
+    const bScore = stats.B.sent > 0 ? stats.B.opened / stats.B.sent + (stats.B.replied / Math.max(stats.B.totalLeads, 1)) : 0;
+    const winner = stats.A.sent === 0 || stats.B.sent === 0 ? null : aScore >= bScore ? 'A' : 'B';
+
+    res.json({
+      campaign: { id: campaign.id, name: campaign.name, abTestEnabled: campaign.abTestEnabled },
+      A: fmt(stats.A),
+      B: fmt(stats.B),
+      winner,
+    });
+  } catch (err) { next(err); }
+});
+
 export default router;

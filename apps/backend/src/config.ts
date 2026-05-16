@@ -79,4 +79,17 @@ export const config = {
   pdl: {
     apiKey: optional('PDL_API_KEY', ''),
   },
+
+  bannerbear: {
+    apiKey: optional('BANNERBEAR_API_KEY', ''),
+  },
+
+  hubspot: {
+    accessToken: optional('HUBSPOT_ACCESS_TOKEN', ''),
+  },
+
+  pipedrive: {
+    apiKey: optional('PIPEDRIVE_API_KEY', ''),
+    domain: optional('PIPEDRIVE_DOMAIN', ''),
+  },
 };
