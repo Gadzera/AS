@@ -550,6 +550,7 @@ export default function LeadsPage() {
   return (
     <>
       <Topbar title="Leads" />
+      <PageTransition>
       <main className="flex-1 p-6 overflow-y-auto">
         {/* Filters */}
         <Card className="mb-6" padding="md">
@@ -642,6 +643,7 @@ export default function LeadsPage() {
           )}
         </Card>
       </main>
+      </PageTransition>
 
       {/* Bulk actions toolbar */}
       <AnimatePresence>
