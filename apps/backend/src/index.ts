@@ -26,6 +26,7 @@ import templatesRouter from './routes/templates';
 import notificationsRouter from './routes/notifications';
 import referralRouter from './routes/referral';
 import autopilotRouter from './routes/autopilot';
+import teamRouter from './routes/team';
 
 const app = express();
 
@@ -154,6 +155,7 @@ app.use('/api/templates', templatesRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/referral', referralRouter);
 app.use('/api/autopilot', autopilotRouter);
+app.use('/api/team', teamRouter);
 
 // 404 handler
 app.use((_req, res) => {
