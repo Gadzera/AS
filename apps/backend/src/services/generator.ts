@@ -1,8 +1,8 @@
-import Anthropic from '@anthropic-ai/sdk';
+import AIProvider from '@anthropic-ai/sdk';
 import { config } from '../config';
 
-const llm = new Anthropic({ apiKey: config.ai.apiKey });
-const MODEL = 'claude-sonnet-4-6';
+const llm = new AIProvider({ apiKey: config.ai.apiKey });
+const MODEL = process.env.AI_MODEL || 'claude-sonnet-4-6';
 
 interface LeadContext {
   firstName: string;

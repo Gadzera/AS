@@ -62,7 +62,7 @@ npm run dev
 ```
 
 ### Required environment variables
-- `ANTHROPIC_API_KEY` — message generation
+- `ANTHROPIC_API_KEY` — AI message generation
 - `APOLLO_API_KEY` — lead search
 - `STRIPE_SECRET_KEY` — payments
 - `UNIPILE_API_KEY` + `UNIPILE_DSN` — LinkedIn
