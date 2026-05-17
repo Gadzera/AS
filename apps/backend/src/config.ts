@@ -30,7 +30,7 @@ export const config = {
   },
 
   ai: {
-    apiKey: optional('ANTHROPIC_API_KEY', ''),
+    apiKey: optional('ANTHROPIC_API_KEY', '') || optional('AI_API_KEY', ''),
   },
 
   apollo: {

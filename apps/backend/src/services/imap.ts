@@ -273,10 +273,10 @@ async function classifyReply(text: string): Promise<'INTERESTED' | 'NOT_INTEREST
     return 'INTERESTED';
 
   try {
-    const { default: Anthropic } = await import('@anthropic-ai/sdk');
-    const client = new Anthropic({ apiKey: config.ai.apiKey });
+    const { default: AIProvider } = await import('@anthropic-ai/sdk');
+    const client = new AIProvider({ apiKey: config.ai.apiKey });
     const resp = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
+      model: process.env.AI_CLASSIFY_MODEL || 'claude-haiku-4-5-20251001',
       max_tokens: 10,
       messages: [{
         role: 'user',
