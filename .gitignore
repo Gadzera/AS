@@ -9,3 +9,18 @@ coverage/
 .turbo/
 prisma/migrations/
 *.tsbuildinfo
+.claude/settings.local.json
+.bridge/
+
+# Генерируемые медиа (кадры/аудио/видео) — НЕ в Git, но остаются на диске.
+# Знания (транскрипты .txt и доки .md) отслеживаются.
+docs/academy/**/frames/
+docs/academy/**/*.wav
+docs/screens/
+docs/screens_dense/
+*.mp4
+*.mp3
+*.wav
+*.jpg
+*.png
+*.webm
