@@ -1,0 +1,39 @@
+[0:00:00] Hi, this is Marissa from Atio, and in this video we're going to run through the different
+[0:00:03] report types that are available and when you might use them. Atio's reporting tool allows you to
+[0:00:08] create reports and group them into dashboards so that you can visually display your team's
+[0:00:12] performance, your pipeline health or the state of your business. This gives you an accessible
+[0:00:17] and clear overview of your business to enable informed decision making for you and your teams.
+[0:00:23] There are five report types in Atio. The ones that you have access to will depend on
+[0:00:27] which plan you're on. We'll run through them now one at a time and we'll go into more detail
+[0:00:32] and show additional examples in later videos. Insight report is the most flexible report type
+[0:00:38] and is likely the type that you will use the most in your dashboards. It shows you the current
+[0:00:42] state of your business meaning that it reflects your data as it is at the time that you're
+[0:00:46] viewing the report. It gives you the most flexibility when it comes to plotting attributes
+[0:00:51] as you can choose one to group by and one to segment by. So here I'm reporting on both
+[0:00:56] the stages that my deals are in and their owner. Insight reports that you put any attribute on the
+[0:01:01] x-axis including any day attributes. So if for example you wanted to report on how many deals
+[0:01:07] were added to your sales pipeline on a weekly basis, then you would use an insight report.
+[0:01:12] I have done that in this report here using the created date as the timestamp attribute to
+[0:01:17] group by and then selected weekly as the cadence. If I wanted to see the historical
+[0:01:23] composition of my pipeline, not just its current state, then I would use Atia's second report type.
+[0:01:30] Historical reports will show you a series of historical snapshots of your data so you can
+[0:01:34] see how the makeup of your pipeline has changed over time. So as an example, this report shows
+[0:01:39] the number of deals in each stage of my pipeline at the end of every week during my chosen time
+[0:01:45] period. This differs from insight reports which you can use to display the number of
+[0:01:50] deals that were created in any given month. Another example of historical reports is the total
+[0:01:55] number of customers showing the total number that existed in our CRM at the end of each week.
+[0:02:01] While this does have dates plotted on the x-axis, this is not using a date attribute but rather
+[0:02:06] is showing a historical snapshot of my data at the end of each period shown. The final three
+[0:02:12] report types are all pipeline reports which help you to understand the health and trends of
+[0:02:16] the processes that you track in Atio. They're only available for status attributes which is
+[0:02:21] the type of attribute that you should be using to track your different pipeline stages. Funnel
+[0:02:25] reports show the conversion and drop-off through the statuses of your pipeline through to your
+[0:02:30] target end stage. So I would use one to see the conversion rates or loss to see the loss
+[0:02:35] rates. Time and stage shows the minimum, maximum or average amount of time that records are
+[0:02:42] spending in the different stages of your pipeline and stage change will show either the number or
+[0:02:47] the value of records that have moved into the different stages. So here I have a stage change
+[0:02:53] report which only includes the one stage meaning that this is the number of deals that moved into
+[0:02:58] one in each time period. I can switch the metric here from count records to deal value
+[0:03:04] and now the report is showing me how much revenue was marked as one. That wraps up this
+[0:03:09] quick overview of Atio's report types and when to use them. You can learn more and see each type
+[0:03:13] in action in our reporting course.

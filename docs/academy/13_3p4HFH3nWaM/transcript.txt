@@ -1,0 +1,80 @@
+[0:00:00] Hi, this is Marissa from ATEO, and this is an overview of AI attributes.
+[0:00:04] There are four types of AI attributes, classify record, summarize record, research agent and
+[0:00:11] prompt completion.
+[0:00:12] You may recognize these names, they're all available as action blocks in our Workflows
+[0:00:16] tool, and we have a video in our Academy's Workflows course that runs through these.
+[0:00:21] The different AI types work the same as they do in the workflows, but the difference
+[0:00:25] is that you can set them up and have them run directly from views and record pages.
+[0:00:29] They each serve different purposes and have varying inputs and outputs, so we'll run
+[0:00:34] through them individually now.
+[0:00:36] You create AI attributes in the same way that you create regular attributes, so either
+[0:00:40] from a list or an object view or within your attribute settings.
+[0:00:44] When I click create new column and then add new attribute, you can see a shortcut
+[0:00:48] to the AI attributes.
+[0:00:50] If I click create new attribute here, then you'll have the options in the attribute
+[0:00:54] type dropdown and also as a toggle under the other attribute types.
+[0:00:59] The AI options that appear here will depend on what attribute type you have chosen.
+[0:01:04] Summarized record and research agent will always generate a text output, prompt
+[0:01:09] completion can generate a number, text or currency, and classify record will
+[0:01:14] generate a select or multi-select.
+[0:01:16] Let's create an AI attribute.
+[0:01:18] For this example, I'm in my onboarding pipeline, which is a list of workspace
+[0:01:22] records, but AI attributes can be created in any object or list.
+[0:01:27] This list is used by our onboarding team and workspaces are added from a
+[0:01:31] workflow when they convert from a trial into a paying customer.
+[0:01:35] We'll be using summarized record to help the onboarding specialist get
+[0:01:38] out to speed.
+[0:01:39] Summarized record will generate a free text summary for any given record.
+[0:01:43] For this attribute, I'm selecting text and giving it a title.
+[0:01:48] Guidance is optional.
+[0:01:50] If I left this blank, then the AI would summarize the whole record.
+[0:01:53] I want it to be a little bit more specific, so I'll add in a prompt to
+[0:01:57] provide information on the workspace and company data.
+[0:02:00] To run this and calculate the value, I can click this icon within the cell
+[0:02:04] on a table or a card row on a Kanban board.
+[0:02:07] I can also click on the attribute label up here to run it for all rows
+[0:02:11] in the current view, or I can go directly onto the record page.
+[0:02:15] I'll calculate for this example here, and once I click confirm,
+[0:02:18] I can see that the AI is thinking.
+[0:02:21] So a summary has now been generated, and this enables our onboarding
+[0:02:24] specialist to kickstart the onboarding process without the need to comb through
+[0:02:28] the record and create their own overview in advance.
+[0:02:31] This view within my deals object is filtered to show new inbound leads.
+[0:02:36] We have a workflow triggered by a type form submission, which is how we host
+[0:02:39] our talk to sales form on our website that creates a new deal record using
+[0:02:43] the information submitted on the form.
+[0:02:46] The form includes questions about the company and what they would like to talk to us about.
+[0:02:50] I've got the three remaining AI attribute types set up in this view.
+[0:02:55] First, we have research agent, which allows you to ask questions or
+[0:02:58] provide guidance for it to research and provide an answer.
+[0:03:02] Here I have an attribute called ICP, which stands for Ideal Customer Profile.
+[0:03:07] I've provided an overview of what our ICP definition is and
+[0:03:11] asked the agent to tell me if the company associated to this deal meets that criteria.
+[0:03:17] We also have an example of the ClassifyRecord AI attribute, which reviews
+[0:03:22] an entire record and categorizes it using tags.
+[0:03:25] For this attribute, we're rooting the lead to the relevant team based off of
+[0:03:28] what they want to discuss.
+[0:03:30] And finally, there is prompt completion, which is an LLM or large language model.
+[0:03:34] This AI attribute requires a prompt and gives you the ability to ask specific
+[0:03:39] questions and receive answers using only the variables that you provide.
+[0:03:43] I'm going to use this for some data cleanup.
+[0:03:45] So I've asked it to take a look at the answer provided in the location question
+[0:03:49] on the form and convert this to the correct ISO country code.
+[0:03:53] The form allows free text as an answer, but for reporting and filtering purposes,
+[0:03:57] I want to make sure that all deals follow the same standards.
+[0:04:00] I'll recalculate these and
+[0:04:02] we'll see the values populating across these deals.
+[0:04:05] AI attributes and their values can be used anywhere in Atio where you'd use an attribute,
+[0:04:10] like reporting or triggering workflows.
+[0:04:12] As you will have seen throughout this video, when we've clicked to calculate AI values,
+[0:04:16] these attributes run on credits.
+[0:04:18] Like workflows, the research agent uses 10 credits per run and
+[0:04:22] the summarized record, ClassifyRecord and
+[0:04:24] prompt completion use one credit each.
+[0:04:27] All Atio plans include a set amount of credits each month and
+[0:04:30] you can purchase additional credits if needed.
+[0:04:33] If you navigate to Workspace Settings and Billing,
+[0:04:36] you can see how many credits you've used as well as a breakdown of how and
+[0:04:39] when they were used.
+[0:04:41] And that concludes this video on AI attributes and
+[0:04:43] how you can use them to improve data quality and streamline processes.

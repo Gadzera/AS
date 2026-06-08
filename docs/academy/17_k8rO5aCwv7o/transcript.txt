@@ -1,0 +1,93 @@
+[0:00:00] Hey, it's Marissa from Atio, and welcome to the first video in our workflows course.
+[0:00:05] We're starting off with a deep dive into Atio workflow triggers.
+[0:00:09] Triggers determine when a workflow should run.
+[0:00:11] The first two categories of trigger are record and list triggers, each of which have the
+[0:00:15] same three different triggers.
+[0:00:18] Record and list entry command triggers let users manually kick off a workflow run associated
+[0:00:22] with a specific record or list entry.
+[0:00:25] A record created trigger will fire off a workflow anytime a new record or a specific
+[0:00:29] type is created, and then the corresponding list entry trigger will fire anytime a
+[0:00:34] record is added to a given list.
+[0:00:37] There's also record and list entry updated, which can monitor changes to individual
+[0:00:41] records of a given object type or entries on a given list.
+[0:00:46] We'll give two examples here, one of the record command and one of the record updated.
+[0:00:51] There's one input for a record command, which is the object that we want to make
+[0:00:54] the workflow available on.
+[0:00:56] In this example, we're making a workflow that lets users easily create a new
+[0:01:00] deal associated with a company.
+[0:01:02] I've selected companies as the object type and then using the create record block
+[0:01:06] will create a deal record.
+[0:01:08] I've used variables to add the company name as the deal name, setting it to
+[0:01:11] the qualification stage, choosing the user who triggered the workflow as the
+[0:01:15] deal owner and then associating the deal to that company.
+[0:01:19] We'll go into more detail on using action blocks as well as variables in
+[0:01:22] later videos.
+[0:01:23] In practice, this is how that workflow looks.
+[0:01:26] So you first up have the ability to choose one or more companies and then you
+[0:01:31] can run that workflow for the company, which will create a deal associated to
+[0:01:35] it.
+[0:01:36] The run workflow button is also available on an individual record page.
+[0:01:40] So I can run the workflow over here for this company.
+[0:01:43] And then if we go into our deals object, we'll see that a brand new
+[0:01:48] deal has just been created and it's been associated with the company.
+[0:01:52] This is a great way to create easy shortcuts for really common tasks
+[0:01:55] that your team takes.
+[0:01:57] The next example we'll walk through is a record updated trigger.
+[0:02:01] The record updated trigger takes two inputs, the object that we want to
+[0:02:04] monitor and optionally the specific attribute that we want to monitor
+[0:02:07] changes in to trigger the workflow.
+[0:02:10] As this workflow is currently built, it will trigger any time a deal
+[0:02:14] changes stage.
+[0:02:15] More often than not, you'll want the workflow to trigger only when an
+[0:02:18] attribute changes to a specific new value.
+[0:02:21] So in our example, we're going to congratulate the team when a deal
+[0:02:24] is moved to one.
+[0:02:25] To do that, we'll add in a filter block.
+[0:02:28] I'll talk about filters in more depth in our next video, but here
+[0:02:31] we can see that the record updated block returns variables
+[0:02:33] containing the values in the attributes we're monitoring before
+[0:02:37] and after triggering the change.
+[0:02:39] In this case, I'll filter the workflow only to continue when
+[0:02:43] the new value of the deal stage is one.
+[0:02:45] So here you can see if I move this deal card into the closed
+[0:02:49] one stage, a celebration will appear.
+[0:02:52] Attribute updated triggers behave similarly to record updated
+[0:02:55] triggers, with the exception that they fire not only when the
+[0:02:58] attribute value is changed, but also when the record is
+[0:03:01] created for the first time.
+[0:03:03] Task created triggers trigger any time a task is created.
+[0:03:07] And we have three different utility triggers.
+[0:03:10] The first utility trigger is a manual run, which will be
+[0:03:12] predominantly used for debugging and testing.
+[0:03:15] When you use a manual run trigger, a trigger manual
+[0:03:18] workflow button will appear at the top of the page in the
+[0:03:20] workflow editor so that you can test out all of the steps.
+[0:03:23] So trying this out, when I click on that button,
+[0:03:27] Attribute takes me to the workflows run page to see
+[0:03:29] the history of the run that's kicked off.
+[0:03:32] This particular workflow broadcasts a message which has
+[0:03:34] appeared at the bottom of the screen so I can tell that
+[0:03:37] the workflow has run successfully.
+[0:03:39] The recurring schedule trigger lets you define a scheduled
+[0:03:42] cadence to run a workflow on a recurring basis.
+[0:03:45] You can select the frequency of your schedule as well as
+[0:03:47] the particular time of day that it will run.
+[0:03:50] And finally, among the utility triggers is one of the most
+[0:03:52] flexible triggers in Atio, which is the
+[0:03:55] webhook receive trigger.
+[0:03:56] This will provide a URL to which an external tool can
+[0:03:59] send a webhook or an HTTP post.
+[0:04:02] This is a really valuable trigger for having external
+[0:04:04] systems, kickoff processes, or workflows within Atio.
+[0:04:08] The last category of triggers are triggers associated
+[0:04:11] with Atio's native integrations.
+[0:04:13] Today we have three of these triggers.
+[0:04:16] We have outreach triggers to trigger a workflow anytime
+[0:04:19] a contact is added to a sequence or the state of a
+[0:04:22] sequence is changed and a type form trigger to trigger
+[0:04:25] a workflow anytime a new form response is received.
+[0:04:29] This is commonly used by customers who have type
+[0:04:32] form forms on their website for inbound enquiries
+[0:04:34] and lead management.
+[0:04:36] And that's a quick overview of all of the triggers
+[0:04:38] available in Atio's workflow tool.

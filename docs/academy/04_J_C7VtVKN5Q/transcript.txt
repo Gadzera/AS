@@ -1,0 +1,57 @@
+[0:00:00] Hi, this is Marissa from Atio and this video will explore Atio's standard objects, what
+[0:00:04] they are, how they work and how you can tailor them to fit your business.
+[0:00:09] In Atio, an object is where you store one type of data, like people, companies or deals.
+[0:00:15] Each record is an individual entry within an object.
+[0:00:18] Think of an object as a spreadsheet and each record as a row.
+[0:00:21] For example, every person in the people object or every company in the companies is its
+[0:00:25] own record.
+[0:00:27] The companies and people object are enabled by default and when you connect your mailbox
+[0:00:32] Atio automatically populates them with everyone you've emailed or met, both historically and
+[0:00:37] going forward.
+[0:00:38] These two objects form your contact database, giving you a complete, automatically maintained
+[0:00:42] view of your network.
+[0:00:45] Next is deals, which is used for tracking your sales pipeline.
+[0:00:48] Each deal record represents one opportunity and is linked to the company that you
+[0:00:52] are selling to and the people that you're engaging with at that company.
+[0:00:56] These relationships make it easy to track multiple deals with the same company, whether
+[0:01:00] you're working on new sales, renewals or upsells and always know exactly who's
+[0:01:04] involved.
+[0:01:06] The final two standard objects are workspaces and users.
+[0:01:09] These integrate directly with your product or database to capture customer usage data.
+[0:01:15] Workspaces represent customer accounts in your product and users represent individual user
+[0:01:20] accounts within those workspaces.
+[0:01:22] You can sync both directly to your product with integration tools like Segment or from
+[0:01:27] your database or data warehouse through reverse ETL tools like Polytomic.
+[0:01:31] Bringing product data into Atio gives your whole go to market team access to the current
+[0:01:35] and historical state of all of your customers and lets you build automations to flag sales
+[0:01:40] opportunities and churn risks.
+[0:01:42] So let's see how these work together.
+[0:01:44] I've been talking to Lisa at Cosme about buying our software.
+[0:01:48] Once I sync my email, Atio creates a person record for Lisa and a company record for Cosme.
+[0:01:53] To track the opportunity, I create a deal record that is linked to both.
+[0:01:57] If Lisa buys, a workspace record is created when her account is set up in our product,
+[0:02:02] bringing in data like subscription status, number of users and engagement metrics.
+[0:02:08] Lisa and her teammates become user records which link back to their corresponding person records.
+[0:02:13] Each object comes with system attributes which are standard templates for the key
+[0:02:17] data points that you should be tracking like company name or email.
+[0:02:21] But you can easily add custom attributes to capture what matters most to your team.
+[0:02:26] For instance, in the deals, you might want to add a deal type attribute to distinguish
+[0:02:31] new business from renewals.
+[0:02:33] Atio supports different attribute types like text, number, date, currency and dropdowns
+[0:02:39] which are called selects.
+[0:02:40] You can also use AI attributes which automatically generate or enrich data for you.
+[0:02:46] You can create your own relationships, let's say a billing admin relationship that
+[0:02:49] ties a deal to the person that is responsible for billing.
+[0:02:52] These relationships are two-way so you can see all of the deals where someone is
+[0:02:57] listed as a billing admin right from their person record.
+[0:03:00] You can manage attributes in your object settings where you can also
+[0:03:04] reorder them or archive the ones that you don't need.
+[0:03:07] Data can be added manually or automatically through workflows and integrations.
+[0:03:11] For example, syncing user and product data directly from your product,
+[0:03:15] also creating deal records when someone fills out your website form
+[0:03:19] or enriching data via Atio's research agent or third party tools.
+[0:03:24] That's an overview of Atio's five standard objects and how they fit
+[0:03:28] together from people and companies to deals, users and workspaces.
+[0:03:32] By customizing attributes and relationships, you can shape Atio to
+[0:03:36] match exactly how your business works and keep all of your customer data
+[0:03:40] connected up to date and ready to act on.

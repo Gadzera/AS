@@ -1,0 +1,20 @@
+[0:00:00] Hi this is Marissa from Atio and in this video we'll be looking at how to use historical reports.
+[0:00:05] Let's start with a quick recap of what historical report is. Historical reports show you historical
+[0:00:10] snapshots of the composition of your pipelines over time. So unlike insight reports which give
+[0:00:16] you a real-time snapshot of your data, historical reports will let you track what the data in
+[0:00:21] your CRM looked like at prior points in time, week by week, month by month and so on. All
+[0:00:26] historical reports use time on the x-axis and you can choose the interval. Unlike insight reports,
+[0:00:33] you can't choose a custom date attribute here because historical reports are based on the state of
+[0:00:37] your data as it existed at the end of each time period. A common use case for historical reports
+[0:00:43] is to see how the makeup of your pipeline has changed over time. This report shows how many
+[0:00:48] deals existed in each of our pipeline stages at the end of every week highlighting how the
+[0:00:54] size and makeup of our pipeline has fluctuated over time. To set up a historical stage report,
+[0:01:00] I first select the object that I'm reporting on and the metric that I want to track. With no
+[0:01:05] segmentation, this graph shows the number of deals that existed in any stage at each point in time.
+[0:01:12] Segmenting by deal stage using the historical values for that attribute, I can now see how
+[0:01:17] many deals were in each stage at the end of each of these weeks. So I'll toggle off the closed
+[0:01:23] deals so I can see only the active pipeline. Some other popular use cases are active workspaces or
+[0:01:31] users and total revenue from paid invoices. And that's a quick overview of historical reports.
+[0:01:38] They're great for spotting trends, measuring progress and understanding how your business
+[0:01:42] evolves over time. In the next video, we will look at funnel reports which are designed to
+[0:01:47] track how records move through defined stages.

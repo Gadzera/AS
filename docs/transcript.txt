@@ -1,0 +1,106 @@
+[00:00:00] Hi, this is Marissa from Atio. Atio is the next generation of CRM. We believe that CRM should
+[00:00:06] be quick to set up, easily adapt to your business model, and that AI should be foundational to
+[00:00:11] the experience. In this overview, I'll show you exactly how we're redefining CRM and how you can
+[00:00:16] use it to accelerate your business. We'll start with a company object, which stores all of your
+[00:00:20] company records. Alongside people, these objects automatically populate when you connect your
+[00:00:26] mailbox by creating records for the companies and people that you have emailed or met with,
+[00:00:31] reducing setup time. Atio enriches these records with attributes like LinkedIn,
+[00:00:36] employee range, and job title. Communication and intelligence, again synced from your mailbox,
+[00:00:42] gives quick insight into your whole company's relationship with the company,
+[00:00:45] with attributes like connection strength, last interaction, and next calendar interaction.
+[00:00:51] Through these enriched attributes, Atio begins delivering value to your organization
+[00:00:55] from day one. Beyond the system created attributes, you can easily create as many of your own
+[00:01:01] custom attributes as you need for storing the information that is relevant to your business.
+[00:01:06] With a few clicks, I can choose my data type, give it a title, and my attribute has been
+[00:01:11] created and is ready to use. Perhaps I want to create a select type attribute to show if
+[00:01:16] a company is a prospect or a customer, or a currency type attribute to store their MRR.
+[00:01:22] I can even set up relationship attributes, which allow you to associate different records to one
+[00:01:27] another, so you can build out your data model and retrieve attribute data from the other side
+[00:01:31] of the relationship. With Atio, this is as simple as a few clicks. Let's see this in action.
+[00:01:37] Atio automatically connects team members to their company based off of their email address
+[00:01:42] matching the company domain. But I would like to track who our main point of contact is for
+[00:01:46] each of our prospects, so that everyone in the team knows who to reach out to.
+[00:01:51] So I'll create a relationship between companies and people, select one to one as a person can be
+[00:01:56] the main point of contact at one company, and a company can only have one main point of contact
+[00:02:02] and give the attribute names. Now I can not only see who the key contact is, but easily
+[00:02:07] pull in data from their record, such as the email address. Companies and people are two of
+[00:02:13] Atio's standard objects which also include deals for your sales pipeline and workspaces and users
+[00:02:18] for syncing your customer and product usage data, so you can track both prospective and existing
+[00:02:23] customers. The deals object allows you to track the buying journey from first contact through to
+[00:02:28] close in table or Kanban views. Atio's workflow tool and integrations with the rest of your go
+[00:02:34] to market stack can populate new leads from web forms, demo bookings, or customer usage data.
+[00:02:40] Atio gives you complete control over the data that you store on your deals
+[00:02:44] and how it's displayed for your team to streamline and automate every step of the deal management
+[00:02:49] process. Views let you build customized pages with the exact data that you need to quickly
+[00:02:54] execute on daily tasks. You can filter customized attributes or switch to a Kanban board for
+[00:03:01] clear process tracking, pointing your team towards the most urgent tasks and providing
+[00:03:06] context for smarter and faster decisions. Here is a view of all deals in inbound leads assigned to
+[00:03:12] me with an AI attribute evaluating their fit to our ideal customer profile. This is a high
+[00:03:17] urgency opportunity and I can quickly send them an email template for high value leads
+[00:03:22] which is customized with details from our data. With the email sent I can then flag them as a
+[00:03:27] high value opportunity and move them to our contacted sales stage. I'll share in a bit
+[00:03:32] how you can even automate processes like these to send emails and update the data with a single
+[00:03:37] click of a button. Now back to companies. I'm going to navigate to a record page and as you
+[00:03:42] might expect with Atio it's highly customizable. So you have full control over what data points
+[00:03:48] you're highlighting at the top here and over at the side of this record. The activity overview
+[00:03:53] tracks your history of interactions and data updates. The email tab gives everyone a shared
+[00:03:58] view of every email touch point that you've had with a customer so you never lack context or
+[00:04:03] history when you're prepping for the next call or meeting. Each user has fine grained control over
+[00:04:08] how email data is shared. Here you'll see any calls that have taken place and were recorded
+[00:04:13] through Atio's call recorder and you can also create templates to extract and summarize the
+[00:04:18] topics that are most important to your sales motion. Notes store call prep and meeting
+[00:04:24] summaries while to-dos and files keep related information organized. You can add tabs for
+[00:04:29] relationship attributes to get a full overview of associated records. Atio also facilitates
+[00:04:35] internal collaboration through comments and when you at mention a teammate they'll receive an
+[00:04:39] alert in Atio web and mobile app and you can configure additional alerts like emails.
+[00:04:44] Atio's open data model doesn't limit you to its standard objects. You can create custom
+[00:04:49] objects tailored to represent any process or entity in your customer lifecycle. For example
+[00:04:55] I've created an invoices object which is syncing due dates and amounts from my invoicing platform
+[00:05:00] and associating them to the company, workspace and billing admin. Custom objects and
+[00:05:06] relationships provide your go-to-market teams with a single source of truth for all aspects
+[00:05:10] of your customer relationships. So let's take a look at how we might start using some of this
+[00:05:15] cross-object reporting functionality to actually run a workflow in Atio. I have an upcoming event
+[00:05:21] in London that I want to invite some of our customers to. I'm going to start my workflow here
+[00:05:25] from this list of platform admins. This is a save view that I've already created where I'm
+[00:05:31] looking at just the people whose associated user login so the user object has admin level
+[00:05:37] permissions but I need to make sure that they are all based in London so I'm going to filter
+[00:05:42] that their city is London. Further than that I'm actually only interested in those people who work
+[00:05:47] for companies where they are in the ICP category. With just a couple of clicks I've narrowed
+[00:05:52] down my contacts to those who are based in London whose companies match my ICP profile
+[00:05:57] and who are power users of my product. So let's add them all to a list of invitees.
+[00:06:03] Lists are a subset of records and allow you to store data related to your specific
+[00:06:08] processes. Outside of this example they can be used to track processes like recruitment,
+[00:06:14] customer success or fundraising and can be created from scratch or from a pre-existing template.
+[00:06:19] You can manage as many processes as your business needs allowing different teams to
+[00:06:24] customize Atio for their specific use case without ending up with an excess of attributes on the
+[00:06:29] object level. So this is a list of attendees for this upcoming event and I can create list
+[00:06:33] specific attributes which exist only in the context of their list to keep tabs on their RSVPs
+[00:06:39] and dietary requirements without editing or cluttering the parent record which in this case
+[00:06:44] is the person record. Beyond being able to segment this data and store it well relevant
+[00:06:48] this specific list actually uses both workflows and sequences to automate the invite process.
+[00:06:54] Workflows that you automate your go-to-market tasks and processes in Atio as well as other
+[00:06:59] tools and your go-to-market stack. This can be anything from simple Slack notifications all
+[00:07:04] the way to researching, triaging and rooting your leads. You can build fully automated
+[00:07:09] workflows to help your team get their day-to-day tasks done more reliably. You choose a trigger
+[00:07:14] which is an event that kicks off the workflow and then various action, condition or calculation
+[00:07:19] blocks that build out the path of the workflow. Here I have a workflow which is triggered
+[00:07:24] any time a person is added to the invite list that we just looked at. From here it will then add
+[00:07:29] that person into an email sequence and update the status attribute in the list to show that the
+[00:07:34] invite has been sent. Looking now at that sequence which automates email sending for one or more
+[00:07:40] subsequent emails this sends an initial email with details of the event and requesting that
+[00:07:45] that person replies to the email to RSVP. If after our chosen amount of days we have not
+[00:07:51] received a reply from this person then Atio will automatically send the follow-up email.
+[00:07:56] So just by adding those selected people to my list I have not only compiled the selection of people
+[00:08:02] that I want to invite to the event I've also sent the invite, updated their status and don't
+[00:08:07] need to worry about chasing for responses and that was all done with just one click of add to
+[00:08:12] list. With my data organized and automated Atio's reporting gives leaders tools to
+[00:08:17] understand trends patterns and track performance against goals. There are five types of reports
+[00:08:23] which support pivot style reporting on all of your current data and complex historical analysis
+[00:08:28] to understand how customers have moved through your pipelines over time. My revenue dashboard
+[00:08:34] includes the growth of our customer base over time, funnel reports to understand the efficiency of
+[00:08:38] our sales process as well as reporting on all of the other data sources that we track about
+[00:08:44] our customers like inbound lead volume, number of product sign-ups and data that we collect from
+[00:08:49] users who decide to churn. Because Atio's model is fully customizable reporting extends beyond
+[00:08:55] just deals helping you generate insights that truly matter. I hope this overview of Atio has
+[00:09:01] been insightful we have in-depth videos of all of the features mentioned in the Atio Academy
+[00:09:06] so give those a watch if you would like to learn more about the power of Atio.

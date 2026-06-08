@@ -1,0 +1,41 @@
+[0:00:00] Hey it's Marissa from Atio. So far we've covered how you can create sequences and add
+[0:00:04] recipients to them and in this video we'll take a look at monitoring and managing your
+[0:00:08] sequences once they're live. After you've published your sequence and added recipients
+[0:00:12] you'll want to be able to track its performance and make updates where necessary.
+[0:00:16] In the sequences tab you will be able to see all of your sequences. Here you have the
+[0:00:20] option to archive or delete a sequence. Once a sequence is published it can no longer be
+[0:00:26] Archiving a published sequence will prevent new recipients from being added
+[0:00:30] but the sequence will complete its course for any existing enrolled recipients.
+[0:00:35] To restore an archive sequence toggle the show archived option under view settings
+[0:00:40] and then restore sequence. Clicking into a specific sequence allows you to edit it.
+[0:00:46] If you head back to the first video in this course you can review all of the
+[0:00:49] settings that are available in the sequence editor. When you edit and publish changes
+[0:00:54] to a sequence new recipients will receive the latest published version and those who
+[0:00:59] were already enrolled will continue to receive the version that was active when they were enrolled.
+[0:01:05] Here you have your recipients list where you'll see who enrolled them, their sender and their
+[0:01:09] progress. For example I can see that this person received all of the emails in the sequence
+[0:01:15] but this person replied to the first email and therefore was exited from the sequence.
+[0:01:20] For active recipients you can pause and consequently resume or manually exit them from
+[0:01:24] the sequence. Pausing a sequence for an active recipient will prevent future emails from being
+[0:01:29] sent until they're manually resumed. During this pause the countdown on any delay step will be
+[0:01:35] stopped and then resume where it left off when you unpause that recipient. Exiting will
+[0:01:40] permanently remove that recipient from the sequence. You can see insights at the bottom
+[0:01:45] here of how many recipients are active enrolled and exited. Ateo will automatically identify
+[0:01:50] out of office replies to your sequence. If the sender provides a return to office date in their
+[0:01:55] email Ateo would delay the remaining sequence until the day after their return. Ateo limits the
+[0:02:01] frequency of emails sent from a single mailbox to protect your deliverability. For each mailbox a
+[0:02:06] maximum of 12 emails can be sent per hour and Ateo waits five minutes between each send.
+[0:02:11] The daily limit of emails that can be sent with sequences is 200 emails per mailbox.
+[0:02:16] You can read more about email deliverability in our help centre.
+[0:02:20] During the delivery window set for a sequence queued emails will appear in the outbox under
+[0:02:24] emails in the left hand sidebar. If you click onto an email in the outbox you can preview it
+[0:02:29] see which sequence it's part of and check when it's scheduled for delivery.
+[0:02:34] Admins will have additional visibility in workspace settings. Here you'll be able
+[0:02:38] to see all of the sequences in your workspace and edit their permissions
+[0:02:41] as well as see a full list of people who have unsubscribed. You'll see the email address that
+[0:02:46] unsubscribed, the reason what they unsubscribed from and the date and time that they unsubscribed.
+[0:02:52] Once a contact has unsubscribed it's not possible to enroll them in any sequences
+[0:02:56] with the same sender. It's also not possible to remove contacts from the unsubscribed list
+[0:03:02] unless they were added due to a bounce or manually added from within Ateo.
+[0:03:06] That concludes the third and final video in our introductory sequences course
+[0:03:10] where we've covered how to create sequences, how to enroll recipients and how to manage your sequences.

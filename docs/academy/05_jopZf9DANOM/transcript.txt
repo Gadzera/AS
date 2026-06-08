@@ -1,0 +1,22 @@
+[0:00:00] Hi, this is Marissa from Atio. In this video we'll look at how to customize record pages
+[0:00:04] to surface information that's most useful for your team as they work with customers day to day.
+[0:00:10] A quick recap, in Atio your data is stored in objects like companies and people.
+[0:00:15] Each individual entry in an object is a record made up of attributes such as company name or
+[0:00:20] email. Each type of object has its own record page layout so this gives you control to spot
+[0:00:26] like the details that matter most for that record type and the workflows around it.
+[0:00:31] Let's use the company's object as an example. Click the three dots at the top right of any
+[0:00:36] record page and choose configure page. From here you can adjust four main areas. At the top
+[0:00:42] of the overview tab you've got up to six highlight widgets. These are perfect for surfacing key
+[0:00:47] attributes like segment or company type so you can see context at a glance and if you're using
+[0:00:53] certain integrations you can even add their widgets here too. In the main panel you can
+[0:00:58] reorder the default tabs like activity, emails, notes and tasks and you can add relationship
+[0:01:04] tabs to show linked records such as a company's team, deals or invoices which I've got synced
+[0:01:10] from my invoices object. On the right hand side you can display the attributes that are
+[0:01:15] most useful for your team and group them into sections by topic or based on the needs
+[0:01:19] of each team. So here we've set up sections for general company information,
+[0:01:24] thermographics, location and social media links and you can easily rearrange, add or create new
+[0:01:30] sections as needed. And finally at the top right you have action buttons which you can
+[0:01:35] reorder based on what your team uses the most. Defaults include core Atio actions and you
+[0:01:41] may see additional ones here as well depending on your integrations. So that's how you
+[0:01:45] customize record pages in Atio. With every object able to have its own configuration
+[0:01:50] you have full flexibility to surface the insights and context that your team needs to work effectively.

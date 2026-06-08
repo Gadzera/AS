@@ -1,0 +1,45 @@
+[0:00:00] Hey, it's Merge from Atio and in this video we'll look at our utility's workflow actions.
+[0:00:05] We covered loops in our last video and now we'll be looking at sending HTTP requests to downstream
+[0:00:10] systems and how you can convert JSON data that you've received into variables that can be used
+[0:00:15] in Atio. Often you'll need to update other tools in your text stack to reflect changes that have
+[0:00:20] happened in Atio or vice versa. HTTP requests, sometimes referred to as webhooks, are a widely
+[0:00:27] used and flexible tool for sending data between software products. The HTTP request block lets
+[0:00:33] you send requests to external tools, automating manual tasks and keeping your data in sync across
+[0:00:39] your go-to-market stack. In this quick example, we want to update Intercom with a workspace's
+[0:00:44] priority level which is stored in Atio anytime that data in Atio changes. So the trigger is
+[0:00:51] record updated for workspaces and it's specifically on the priority attribute. In the HTTP block,
+[0:00:58] you'll need to choose the appropriate method. Since I'm sending data to another server, I'm using
+[0:01:03] post. Other options include delete to remove data, get to request data, head to request headers only,
+[0:01:11] patch to modify specific parts of a data resource and put to replace existing data
+[0:01:17] with the data that you're sending. The URL is the destination that you're sending the request to
+[0:01:23] and you'll need to get this as well as the headers from the tool that you're sending the HTTP request
+[0:01:27] to. I'm sending this to Intercom to update the tags and I've inserted my authorization
+[0:01:33] and bearer and then I've used variables for the body. Again, you'll need to refer to
+[0:01:37] your other tool for how to format the body. In this example, I'm using the workspace ID to be
+[0:01:43] able to find the correct workspace in Intercom and then sending the priority level. Now let's work
+[0:01:48] the other way around and create a workflow to receive data from another tool. In this case,
+[0:01:53] a booking software that prospective customers use to book a product demo. This workflow is triggered
+[0:01:59] by a webhook being received from an external source to this specific webhook URL. The webhook
+[0:02:04] is sending data in JSON format which we need to pass into a set of variables to use in our
+[0:02:10] workflow. To accomplish this, we need to use a pass JSON block which will allow you to translate
+[0:02:15] JSON into a set of variables. I'll use a variable to add the webhook payload as the raw JSON string.
+[0:02:21] Next, I need to populate the fields for the data that I want to extract. On this screen, I have
+[0:02:26] an example of how this webhooks payload looks. So you have the paths on the left and then
+[0:02:31] their values on the right. So now in Atio, for field one which is the name field, I will
+[0:02:37] add name as the path and select string as the output type because it's a string of text.
+[0:02:42] Your other options for output types are numbers and boolean which is true or false
+[0:02:47] and then you also have the option of array which would be a list of either text or numbers.
+[0:02:53] Finally, I'll give it an alias and the alias is to make it easier for you to identify what the
+[0:02:58] data is at a later stage. If you don't add this, then you'll just see field one, field two
+[0:03:03] and so on. I'll do the same now for field two which is email address, again choosing string
+[0:03:10] and then adding the alias. And I'll do this for all of the relevant fields.
+[0:03:16] Once the data has been passed, we can use it in later blocks. For this workflow, I want to
+[0:03:21] create or update the person record and then associate them to a new deal record. So let's
+[0:03:26] use the email address as the matching attribute and then use the name that they provided for
+[0:03:31] the name on the record. Next, we will create a record for a deal. So we'll use the associated
+[0:03:38] company's name for the name of the deal and we will add them to the contactor stage because
+[0:03:42] a meeting has already been booked. Now I'm going to associate the person record that we created
+[0:03:48] or updated one step prior and finally add in the notes from the booking software into the deal
+[0:03:54] notes. Now that data that we saw on the payload body earlier can be stored in Atio.
+[0:04:00] So that's an overview of how you can use Atio's utility blocks to send,
+[0:04:04] receive and use data from other tools and platforms.

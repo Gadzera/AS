@@ -1,0 +1,43 @@
+[0:00:00] Hi, this is Marissa from Atio. In this video we'll look at how you can create custom objects and
+[0:00:05] relationship attributes to map your unique data model. Atio comes with five standard objects,
+[0:00:10] people, companies, deals, workspaces and users. These standard objects cover many of the common
+[0:00:17] elements B2B businesses need to track and in addition to these standard objects,
+[0:00:21] custom objects let you extend Atio's data model to track your business exactly as it works.
+[0:00:27] For example, in my workspace I've built a custom object called Invoices. Each record is one invoice
+[0:00:34] that we've sent to a customer and its attributes include the payment status, due date, amount and
+[0:00:39] most importantly which company that invoice is for. Admins can create and manage objects from the
+[0:00:46] object menu in workspace settings. You just name your object, pick an icon and then add
+[0:00:51] attributes to store the data points that you want to track about this object. So here are some
+[0:00:56] examples of attributes for an invoice's object. We've got status to track the payment status,
+[0:01:02] date for the invoice's due date, currency for the amount and then either text or number for the
+[0:01:08] invoice name. One of the most powerful attribute types is relationship. Relationships link
+[0:01:14] records across objects letting you navigate your data in context. So you've already seen this
+[0:01:19] with standard objects where companies link to people via the team relationship and also deals
+[0:01:24] will link to their company and their associated people. In my Invoices object I've created a
+[0:01:31] relationship to the company object. So on the invoice record it shows up as company and on the
+[0:01:37] company record the inverse relationship shows up as invoices. Relationships are two-way so you
+[0:01:43] can jump between records seamlessly. When setting up a relationship you'll need to specify whether
+[0:01:49] the relationship is one-to-one, one-to-many, many-to-one or many-to-many. In this case one company can have
+[0:01:56] many invoices but each invoice belongs to just one company. I've also created a relationship
+[0:02:03] attribute for the billing contact to indicate who is responsible for paying that invoice
+[0:02:08] and the associated workspace that their invoice is for. If an attribute stores an ID or another
+[0:02:14] unique identifier you should mark it as unique. That way Atio can prevent duplicates and automatically
+[0:02:20] update or create records when syncing from other systems. In this case our invoices are
+[0:02:25] generated from our billing system. The unique invoice ID in Atio will correspond to the
+[0:02:30] invoice ID from our billing system. Making an attribute required will prevent records from
+[0:02:36] being created or updated without a value for that attribute. The record text setting controls
+[0:02:41] which attribute is displayed as the record name in Atio. Instead of the default record ID I've set
+[0:02:46] mine to show the invoice name so I can identify them quickly and you can select from any text
+[0:02:51] attributes on that object. Once your attributes are in place you can start adding data either
+[0:02:57] manually by creating the records yourself or automatically through integrations using Atio's
+[0:03:03] native integrations, the workflow tool, low code automation platforms like Zapia or NAN
+[0:03:09] or directly through Atio's API. When you head into your new object your first set up a view.
+[0:03:15] Views control how your data is displayed. You've got table views which are good for structured lists
+[0:03:20] similar to a spreadsheet or Kanban views if you want to track by stages. In view settings
+[0:03:26] you can control which attributes show up. Since this one is empty I'll click to add a column
+[0:03:32] and this is pulling up all existing attributes and also lets me create new ones. You can
+[0:03:37] even pull in data from relationships like showing a billing admin's email address.
+[0:03:41] Custom objects and relationships let you model your business exactly as it works
+[0:03:45] not just how your standard CRM template is expected to. By adding the right attributes,
+[0:03:50] linking records together and connecting data automatically you can make Atio your simple
+[0:03:55] source of truth for all customer and operational data.

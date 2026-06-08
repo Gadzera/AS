@@ -1,0 +1,50 @@
+[0:00:00] Hey, this is Marissa from Atio. In this video, I'm going to show you how you can import your CSV
+[0:00:04] data into lists in Atio. We've covered importing into objects in another video. If you haven't
+[0:00:11] already seen that, I recommend watching it first as it covers all of the key information about
+[0:00:15] Atio's importing tool. Importing into lists is largely the same as importing into an object,
+[0:00:21] but there are a few differences that we'll run through now. We recently hosted an event for
+[0:00:25] Tech Week where attendees could sign up to learn more about our product. I now have the CSV of leads
+[0:00:31] that I want to import into a list in Atio. Our six columns are the name of the person who signed up,
+[0:00:38] their email address, phone number, lead source, which will be Tech Week event, the stage that
+[0:00:43] that lead is in, and then any key information that's been noted. The email address is a unique
+[0:00:49] attribute here. For each row in your file, Atio will look for an existing record with the
+[0:00:53] value that you've provided. If a matching record exists, it will update that one, and if there's no
+[0:00:58] matching record based off of this attribute, then the importer will create a new record.
+[0:01:04] If you don't include a unique attribute in your file at all, Atio will create new records for
+[0:01:08] every single row. There are no required attributes on the people object or on the list
+[0:01:13] that I'm importing into, so I haven't needed to include those. There are specific formatting
+[0:01:17] requirements for certain data types. For example, dates and time stamps need to be ISO standard,
+[0:01:23] European or American format, and phone numbers must include the country code. For a full breakdown of
+[0:01:28] formatting, take a look at our formatting guide in the Help Center. Importing into a list will
+[0:01:33] create or update both list entries and the parent record. In this example, for my list of leads,
+[0:01:39] the parent object is people, so the import will create or update the list entries for the lead
+[0:01:44] list and a person record for each entry. On the left, we have the columns from your csv,
+[0:01:49] and on the right, you have Atio attributes. You need to map the columns from your csv to the
+[0:01:54] correct attribute in Atio. Because I'm importing into a list, I have access to both the parent
+[0:02:01] object attributes, which is the people, and then the list attributes as well. Atio will
+[0:02:07] auto-map wherever possible. It's not been able to map the stage here, so I'll do this myself
+[0:02:12] by clicking here and then searching for the correct attribute. I haven't actually got
+[0:02:18] a summary column set up in this list yet, so I'll create that now by clicking create new attribute,
+[0:02:24] choose text as the data type, and then adding summary as its title. That's all mapped now,
+[0:02:29] but before moving on to the next step, I need to choose which action Atio should
+[0:02:33] take if a list entry already exists for a person in this file. I can choose to update
+[0:02:38] the existing list entry or add it again as a separate entry. I'm choosing to add it again
+[0:02:44] as these are all new leads from our latest event, and I don't want to overwrite any existing lead
+[0:02:48] data. Here we can review the values in our file, and you'll notice the orange circle here,
+[0:02:53] which means that values are being flagged. There's an issue with our lead source column.
+[0:02:58] The source for all of these leads is Tech Week event, but as you can see here,
+[0:03:02] this isn't currently an allowed value for the attribute, so if I click up here,
+[0:03:06] I can now add it as an option. Now Atio can assign all of those records to that Tech Week
+[0:03:11] event value. With all of this correct, I can continue with the import.
+[0:03:16] Up here, you can see how many records or list entries will be created or updated.
+[0:03:21] You should take a look at these numbers, as well as the preview of the data that will be imported
+[0:03:25] to make sure that everything looks as you expected to. When I start the import,
+[0:03:29] Atio will track progress for me, so at this point you can navigate away from the page if
+[0:03:33] you don't want to wait for the import to continue, and you can track the progress in
+[0:03:37] workspace settings under import history. If your import or specific rows in your
+[0:03:41] import failed, then you would receive a warning sign here, so if you hover over it,
+[0:03:46] you'll see the error message, and we have an ask call on our help center,
+[0:03:49] which runs through all of the different error messages and how to troubleshoot them.
+[0:03:54] And here we have our updated list of Tech Week event leads.
+[0:03:57] So that's an overview of how to import CSV data into a list in Atio.
+[0:04:02] You can also view our full guides, including formatting and troubleshooting in the help center.

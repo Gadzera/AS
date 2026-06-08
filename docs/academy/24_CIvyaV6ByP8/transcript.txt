@@ -1,0 +1,68 @@
+[0:00:00] Hey, it's Marisa from Atio. Today we're going to walk through the various records and list
+[0:00:04] workflow blocks. These are some of the most common blocks that are used to modify and
+[0:00:08] create data in your records or lists within Atio. We've run through the different record
+[0:00:13] and list trigger blocks in a previous video so for this one we'll jump straight into the action
+[0:00:17] blocks. For both records and lists there are workflow blocks for creating data, creating
+[0:00:23] records including first checking to see if a record already exists and updating the existing
+[0:00:28] one if it does, creating list entries, finding records or list entries, updating records or list
+[0:00:35] entries and then also to delete list entries. We're going to start with a commonly used workflow as
+[0:00:40] an example here that lets team members easily create a deal record related to a company.
+[0:00:45] Let's say a sales rep has just finished a qualification call with a new potential customer
+[0:00:50] and they want to go ahead and create a deal to begin tracking the sales process for that
+[0:00:54] company. This workflow is going to be triggered on a company record so it's very easy when you're
+[0:00:59] finishing up a call to go onto that company record and create a new deal as a follow-up from that
+[0:01:04] call. The first thing that we'll do in this workflow is create a deal record so we'll choose
+[0:01:09] a create record block. When creating a new record the first thing you'll want to choose
+[0:01:15] is a type of object that you want to create in this case we're creating a deal. The variables
+[0:01:20] for any create or update blocks will be all of the attributes associated with the object type
+[0:01:25] or the list that you're creating or editing in. For this example we'll populate the relevant
+[0:01:29] attributes for setting up a new deal. We'll give it a name for this I'll use a variable from the
+[0:01:35] company that we triggered the workflow of and insert its name. I'll also add new business here
+[0:01:40] so that we know what type of deal it is and this is a new deal so we'll add it to the
+[0:01:45] qualification stage. Because this workflow is triggered by a record command block
+[0:01:50] it must be manually triggered by a user. This means that one of the variables provided in these
+[0:01:55] manually triggered workflows is triggered by and that will be the user who actually kicked off the
+[0:02:00] workflow so we want to assign the owner of the steel to be that user and finally the associated
+[0:02:06] company will be the company that we triggered the workflow on so I'm selecting record. For the
+[0:02:11] next step in this workflow we'll show how to use the update record block in this case to update
+[0:02:17] the company to reflect the fact that they are now in our pipeline. The object that we want to update
+[0:02:22] is companies. Now that we are updating an existing record as opposed to creating a new one like we
+[0:02:29] did earlier for the deal we need to select the record that we want to update. For this it is the
+[0:02:34] company that the workflow was triggered on so record and then record again. In the update
+[0:02:40] record block you can choose the specific attributes that you want to provide new values for. In this
+[0:02:46] case the only thing that we're going to update is the company status attribute and now that we've
+[0:02:50] created a deal for this company the value for this attribute is in pipeline. Let's publish this
+[0:02:56] workflow and see it run. So I'm going to select a company to trigger the workflow on and clicking
+[0:03:02] run the create deal from company workflow. Now if we head over to that company record page
+[0:03:09] we can see a new business deal has been created and associated to the company
+[0:03:13] and the company's new status is in pipeline. Another example we'll run through in this video
+[0:03:19] is how to manage inbound leads from a form submission. This workflow is triggered when a
+[0:03:24] type form is submitted. Type form is one of Atio's native integrations and to use the
+[0:03:28] trigger block you'll need to set up your connection in the integrations tab of your workspace settings.
+[0:03:34] The first step that we'll want to create for managing these inbound leads in Atio is to
+[0:03:38] ensure that we have a record for the person who filled out the form. Since we don't know
+[0:03:42] whether or not any person who fills out our form already exists in Atio we'll need to either create
+[0:03:47] a new record or update an existing record. We'll select this block and use people as the object type.
+[0:03:54] The create or update block requires a matching attribute which is a unique value that you'll
+[0:03:58] use to look up whether a record already exists. In this case the form requires that the person
+[0:04:04] provides an email address and so we will attempt to match it to the email address of an existing
+[0:04:08] person in Atio. Now the email address that we're using will be the one that was provided in the form.
+[0:04:14] Once we've either identified an existing person to update our record for or identified that there
+[0:04:19] isn't a record and chosen to then create a new person record we can supply other attributes to
+[0:04:25] populate with data. In addition to email address this form also asks for a person's name and phone
+[0:04:32] number so we'll use variables to add these values to the relevant attributes. Now that
+[0:04:37] we have a record for the person who filled out the form whether that's a new one we just created
+[0:04:41] or an existing one that we updated we can go ahead and add that person to a list where we
+[0:04:46] store all of our inbound leads. So we'll select the add record to list block and choose the list
+[0:04:52] which is our inbound leads list. You'll first choose which record you want to add which in
+[0:04:59] this case is the one from one step prior and now I'm going to populate the two attributes from
+[0:05:05] my list which is the stage and the lead source. I'm using a fixed value for my stage and then for
+[0:05:11] lead source I'm pulling in the answer from the how did you hear about us question on the form.
+[0:05:17] Now let's test this workflow out. I'll grab a person that I know already exists in Atio
+[0:05:23] and I'll show you what this update looks like. You'll notice that there is no phone number
+[0:05:27] for this person currently. I'm taking this user's email address and we'll submit it to my form.
+[0:05:35] Now I'll submit and head back to Atio. We can see that their phone number has now been populated
+[0:05:41] and if we go over to our list we can see that they've been added to our inbound leads list with
+[0:05:46] the lead source that was submitted on the type form. So that concludes our two examples in this
+[0:05:51] video showing you how you can create new records or list entries and update existing ones in your
+[0:05:56] work clothes.

@@ -1,0 +1,42 @@
+[0:00:00] Hey, it's Mares from Atio and in this video we're going to look at condition and delay blocks.
+[0:00:05] Condition blocks determine the path or flow of your workflow and delays control the timing
+[0:00:09] of each of the steps. There are three types of condition blocks and we'll go through them one
+[0:00:14] by one. We'll use an example of a form that was submitted to our site to request a call.
+[0:00:19] Since we book calls via email we can only proceed if an email was provided in the form.
+[0:00:24] So we use a filter block to achieve this outcome. A workflow only continues after a filter
+[0:00:30] if the filter criteria are met. In this example we will be checking that the email address has
+[0:00:36] been filled out by selecting the email address question from the form and then not empty.
+[0:00:42] So if an email address was provided in the form then the workflow will continue.
+[0:00:47] One of the questions in the form is whether the person filling it out is an existing customer.
+[0:00:51] If they say yes then the call request is routed to the customer success team
+[0:00:55] but if they say no meaning that they're a new lead the call request gets routed to the sales
+[0:01:00] team. I'll achieve that routing using the next hub of condition block if else.
+[0:01:05] An if else block takes one filter and forks the path of your workflow.
+[0:01:10] For the condition I will select our unexisting customer and select the output as true.
+[0:01:16] This statement is true and the person is an existing customer then the workflow will take
+[0:01:20] this first path. In this case we will first look up that person in Atio and then once we found
+[0:01:26] that record we'll add it to our customer success call request list. On the other hand if the statement
+[0:01:31] is false and they're not an existing customer we will create a new deal record and add it to the
+[0:01:36] lead stage. Before I create the record I'm going to add in a round robin block. This allows you
+[0:01:42] to select the relevant team members in this case our sales reps and we'll rotate through them
+[0:01:47] on each workflow run so that the leads are evenly distributed. Now I can create the deal record
+[0:01:53] and select the pitch user as the variable for the deal owner attribute. So just to recap an if
+[0:01:59] else block will fork the workflow into two branches one where the filter criteria is true and another
+[0:02:05] where the filter criteria is false. The third type of workflow block is a switch which allows you
+[0:02:10] to create multiple logic branches. In this case we have three branches to our workflow. The first
+[0:02:17] is for leads from the United States which get routed to Alexis. The second is for leads
+[0:02:22] from the United Kingdom which get routed to Joan and then the third condition is not supplied so we
+[0:02:27] get routed to a default option which in this case assigns a deal to our third sales rep Zev.
+[0:02:34] With switch blocks you can add as many filter conditions as you like to create as many
+[0:02:38] faults as you need in your workflow. Now let's talk about delay blocks. Delay blocks let you
+[0:02:42] add time delays to the processing of a workflow which are helpful when you want to set an action
+[0:02:47] then wait a set amount of time to see if it has been completed. In this case any time a deal
+[0:02:52] is created we want Accio to wait one week before it continues on with the next steps of the workflow.
+[0:02:58] A delay block has one input which is the amount of time that we delay in this case we chose one
+[0:03:03] and the time frame week. This specific workflow will send a slack message to the team if one
+[0:03:09] week after being created the deal is still in the qualification stage so we delay one week
+[0:03:14] use a filter to check the stage and if it is still in qualification then we post a message
+[0:03:19] to the slack channel to ask why nobody has qualified the lead. The delay that we've supplied here is for
+[0:03:24] a fixed amount of time for one week but you can also use a delay and till block where you would
+[0:03:29] provide a date that you would like the workflow to pause until and that's everything in our overview
+[0:03:34] of condition and delay blocks.

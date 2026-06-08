@@ -1,0 +1,53 @@
+[0:00:00] Hi, this is Mress from Atio and in this video I'm going to show you how you can use our
+[0:00:04] new Research Agent AI block in your workflows.
+[0:00:07] The Research Agent block is our latest AI block.
+[0:00:10] It allows you to select any record in your workspace and input a set of questions that
+[0:00:14] the AI agent will then research for you.
+[0:00:17] You can then go on to use that data in a variety of ways, whether that is to
+[0:00:20] triage your inbound leads, add additional information to record attributes, set up
+[0:00:25] follow-up tasks and actions, or send information to a downstream system.
+[0:00:29] For this example, I've created a workflow that uses the Research Agent to gather
+[0:00:33] more data about a newly created workspace and then to determine whether or
+[0:00:37] not they fit into our ICP.
+[0:00:39] I'm going to manually create a workspace here, although in a real-life scenario,
+[0:00:42] this would be automatically done by a segment integration.
+[0:00:54] Now that's been added in, the workflow has been triggered, and
+[0:00:57] the Research Agent is working behind the scenes to fill out the two attributes
+[0:01:01] about recent funding and the business model, and then off the back of this,
+[0:01:04] it will determine whether or not that business is an ICP.
+[0:01:08] Because this workspace has been classed as ICP, we've also created a deal for
+[0:01:12] this new workspace and sent a message in Slack to alert our sales team.
+[0:01:16] Let's navigate to the Automations tool to run through how you can create this
+[0:01:20] workflow.
+[0:01:22] To trigger this workflow, we're using record created on the workspace object.
+[0:01:27] Next up is the Research Agent block.
+[0:01:29] We've taken the associated company from the created workspace as the record,
+[0:01:34] and then we've input two questions that relate to our ICP criteria.
+[0:01:38] This is how much money, if any, have they raised from venture capitalists in the
+[0:01:42] past five years, and what is their business model?
+[0:01:45] The Research Agent will scrape the record, as well as the wider internet to
+[0:01:48] answer these questions and return an answer.
+[0:01:51] Now we're using classified text, another RAI blocks, to assess whether this
+[0:01:55] company is ICP, agency or consultancy, investor, or other.
+[0:02:02] I've added in the questions that were given in the previous block,
+[0:02:05] and I've used variables to provide the agent's answers.
+[0:02:08] I've also listed how our ICP is defined.
+[0:02:11] Now off the back of this, this block will tag the workspace accordingly.
+[0:02:17] The Update Record block will update the company type attribute that is on the
+[0:02:21] workspace record to say whether it is ICP, agency and consultancy, investor, or
+[0:02:26] other.
+[0:02:28] We're now going to filter by ICP workspaces only.
+[0:02:31] The reason for this is that we don't want any of the new ICP workspaces to
+[0:02:35] be missed by our sales team.
+[0:02:37] This filter means that for any non-ICP workspaces, the workflow will stop here.
+[0:02:41] For ICP workspaces, on the other hand, they will continue through the
+[0:02:44] workflow to the next blocks.
+[0:02:46] We're using a round robin to go through our sales team, and then using
+[0:02:49] Create Record to create a new deal record, pulling in data through variables
+[0:02:54] and assigning the deal owner as the sales member that was selected in
+[0:02:57] the round robin.
+[0:02:58] And finally, we're using an integration block to send a message on Slack
+[0:03:02] highlighting the new deal to the sales team member.
+[0:03:05] That's an overview of the Research Agent block, which takes the power of AI
+[0:03:09] and the context of the entire internet to help you make faster and
+[0:03:12] better informed decisions at every stage of your sales process.

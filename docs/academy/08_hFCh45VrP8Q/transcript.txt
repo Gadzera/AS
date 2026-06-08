@@ -1,0 +1,38 @@
+[0:00:00] Hi, this is Marissa from ATO, and this video will demonstrate how to use Insight Report.
+[0:00:04] Let's start with a quick recap of what an Insight Report is.
+[0:00:08] Insight Reports give you a real-time snapshot of your business.
+[0:00:11] This means that they show your data exactly as it is at the moment that you open the report.
+[0:00:16] Insight Reports give you a flexible canvas to plot attributes on their chart.
+[0:00:21] First, you choose your metric that you'd like to plot.
+[0:00:23] So here I'd like to report on the total open revenue across our deal object.
+[0:00:28] So here is the total dollar value of all deals ever created.
+[0:00:32] If I stopped here, I could save this single value as a report on my dashboard.
+[0:00:37] But I want to choose an attribute to group my data by.
+[0:00:40] So this will be on the x-axis of my chart.
+[0:00:43] So I'm selecting sales stage, and I can see the current value of each of our pipeline stages.
+[0:00:49] The metric, which is the total dollar value, is my y-axis.
+[0:00:53] And my goal here is to report on open pipeline,
+[0:00:56] so I will hide the closed one and closed last stages.
+[0:00:59] Next, I'll add a segment by attribute to show the composition of each of these bars.
+[0:01:04] In this case, I'll add the owner to see how much each of our AEs are contributing to our open pipeline.
+[0:01:11] And finally, you can use filters on any report type in Atio to narrow down the records included in the report.
+[0:01:18] So here we will just filter by deals owned by our AEs on our US team to just show our US pipeline.
+[0:01:27] Some other examples of popular insight reports are how many new customers
+[0:01:31] are in each stage of your onboarding pipeline, how many customers churned and for what reasons,
+[0:01:36] and how many new workspace signups you've had each week.
+[0:01:40] All of these examples use different data types on the x-axis,
+[0:01:44] which is possible in insight reports because you can choose which attribute to group your data by.
+[0:01:48] So for example, the sales and onboarding reports are both grouped by a status attribute.
+[0:01:54] In this case, it is the deal stage and in this case, it's the onboarding stage.
+[0:02:00] For the workspace signups example, we're using the created at attribute,
+[0:02:05] which is a system generated date attribute.
+[0:02:07] And this works well because a workspace record is automatically created
+[0:02:11] via our segment integration when a new account is created in our platform.
+[0:02:17] If you were logging a signup date, for example, or any other custom date attribute,
+[0:02:21] then you could also use that in an insight report to create a time series report.
+[0:02:26] And that's everything you need to get started with insight reports.
+[0:02:29] They're a powerful way to get real-time answers to key business questions,
+[0:02:32] whether you're tracking deal progress, onboarding flow,
+[0:02:35] user signups, or churn reasons.
+[0:02:38] In the next video, we will explore historical and funnel reports in more detail
+[0:02:42] so you can choose the right format for your goals.

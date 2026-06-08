@@ -1,0 +1,51 @@
+[0:00:00] Hey, it's Mares from Atio. In this video, we're going to look at how you can collaborate with your colleagues and communicate with customers right from within Atio.
+[0:00:07] We'll be looking at how you can leave comments, create tasks, write notes and send emails.
+[0:00:13] The first tool we'll review for collaborating across your team is Comments.
+[0:00:17] You can add comments in Atio to any record or list entry.
+[0:00:20] In a comment, you can leave a quick note and optionally tag a colleague to notify them of your comment.
+[0:00:25] They'll receive this notification in Atio and depending on their notification settings, they may also get an email.
+[0:00:31] You will also receive notifications for any replies that you get to the comments you've left.
+[0:00:36] Next, we'll talk about tasks.
+[0:00:39] Tasks to let you assign to do's to yourself or to any of your colleagues.
+[0:00:43] Instead of leaving a comment, I could instead create a task for my teammate to reach out to this company.
+[0:00:48] I will add the task, put in a brief description, assign it to my colleague and then set the due date.
+[0:00:55] You can associate tasks to any object type in Atio and you'll be able to see tasks for specific records in their task tab.
+[0:01:02] You can view all tasks in the task page where you can filter for tasks assigned to you or to any of your colleagues.
+[0:01:08] Here's a task for me to offer an onboarding call to a new customer, which is due in the next few days.
+[0:01:13] So I will mark it as complete and head over to their record page to send them an email.
+[0:01:18] This brings us to Atio's email tool.
+[0:01:21] If you've connected your email inbox, you'll be able to quickly send emails from Atio
+[0:01:25] and use the relationship stored in Atio to quickly get correspondence out to the key contacts on any record.
+[0:01:31] Here, if I send an email on the company record, Atio lets me select the people that I would like to send the email to.
+[0:01:37] I could send this email specifically to the person that's listed as the main point of contact.
+[0:01:42] Or I can send an email to all of the people associated, which Atio calls the team.
+[0:01:47] You can write emails from scratch or search your workspace's library of email templates.
+[0:01:52] Here we've created an onboarding call template, which is complete with my booking link.
+[0:01:56] I'll turn off mass send to put the whole team into one email thread
+[0:02:00] and I'll hit send without ever having to switch browser tabs, copy email addresses,
+[0:02:04] or remember which customer I need to email.
+[0:02:07] In addition to sending single emails, you can also mass send emails from Atio
+[0:02:11] to send customised emails to groups of people in one go.
+[0:02:15] We're using this hiring list to manage the recruitment pipeline for an open role.
+[0:02:19] Let's say I want to email all of the candidates that are currently in the screening stage
+[0:02:23] to offer them an interview.
+[0:02:25] I will select each of those candidate records and then send email.
+[0:02:30] For emails or templates that are designed for individual emails,
+[0:02:34] you can use attributes to customise the text that is sent to each recipient.
+[0:02:38] So here Atio will find the first name of each person that we're emailing.
+[0:02:42] You can create email templates by heading over to the email tab and selecting templates.
+[0:02:48] You can insert into a template a variable for any attribute associated with a person
+[0:02:53] or its associated objects, for example, their company name.
+[0:02:58] The last productivity tool we'll cover today on notes.
+[0:03:01] Atio notes are a central place for you to share and store prep, context,
+[0:03:05] and notes across your team.
+[0:03:07] You can create notes on any Atio record, although they're most commonly stored on the company level.
+[0:03:12] You can optionally link notes to a meeting on your calendar,
+[0:03:15] start a blank note from scratch, or use a workspace-wide template.
+[0:03:19] Here we have a template that serves as a guide for running an effective onboarding meeting.
+[0:03:23] Like emails, you can create new templates from the template section in the notes tab.
+[0:03:28] And that's a high-level overview on some of Atio's productivity features,
+[0:03:31] which allow you to quickly take action on the next steps in your processes.
+[0:03:35] Whether that's reaching out to a colleague in a comment or a task,
+[0:03:38] emailing a prospect to set up a next meeting,
+[0:03:41] or just simply taking notes to follow up on later.

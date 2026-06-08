@@ -1,0 +1,35 @@
+[0:00:00] Hey, it's Marissa from Atio and this video will show you how you can use loop and find blocks
+[0:00:04] in Atio workflows. Loops allow you to take action on multiple records in bulk. In this first example,
+[0:00:12] we have an upcoming marketing campaign where we'll be reaching out to specific customers selected
+[0:00:16] by our go-to-market team about a new product launch. We want to make it as easy as possible
+[0:00:21] for our team to add all of these associated members for a given company to a campaign.
+[0:00:27] This workflow is triggered manually at the company level. A member of our go-to-market team can select
+[0:00:32] a company record, run this workflow and it will add all of the associated team members to the list
+[0:00:37] that we've created for the marketing campaign. So we start with record command for the company
+[0:00:43] object as the trigger. Our next step is a loop. The first input is the iterable which represents
+[0:00:50] the set of records that you want to loop through and take action on. In this case,
+[0:00:55] the iterable is going to be the people associated with the company that the workflow has been triggered on
+[0:01:00] or the team. So we'll select the record and then navigate to the team associated with that record.
+[0:01:08] You can optionally set a limit if you want Atio to stop after a certain number of iterations.
+[0:01:14] Now any blocks that occur within the loop or within this square will happen once for
+[0:01:19] each record that the loop iterates over. In this case, the loop will take action on every
+[0:01:24] person that is associated with that company. We want to add each team member to our marketing list.
+[0:01:30] So within the loop, I'm going to click add first step and select the add record to list block.
+[0:01:36] I'll select the list and for the record that we want to add, the variable is the current person
+[0:01:41] Atio is iterating over in the loop. So the current team member. Now that I've
+[0:01:46] published this workflow, it will become available to manually trigger on the company object.
+[0:01:52] So I'm going to select a company, run the workflow, and now if I head to my list,
+[0:02:02] I can see Atio is adding all of the people that are associated with that company.
+[0:02:06] Another way to use a loop is in conjunction with a find block in order to iterate through
+[0:02:11] records that meet certain criteria. In this example, we want to find all deals with tasks
+[0:02:17] due in the next week and remind the team in Slack to get those tasks done. The first step in
+[0:02:22] the workflow is a recurring schedule, which will kick off the workflow on a recurring basis,
+[0:02:28] in this case, every Monday at midday. We've then got a find records block with the condition
+[0:02:34] that the next due date for a task on that deal record is after today and before one week from
+[0:02:39] now. So this will return all deal records that have a task due in the next week. There is a
+[0:02:45] limit of 100 on the find block, meaning you will not be able to return more than 100 matching
+[0:02:50] records. Once we found all of those deals that match the criteria, we'll iterate through that
+[0:02:55] set of records, which is the matching deals and send a Slack message for each of them.
+[0:03:00] If you don't use a loop block after a find block, then the action will only be performed on the
+[0:03:05] first record that is returned. So those are the two most common ways to use loops and
+[0:03:10] intervals to take bulk action on records in Attya.

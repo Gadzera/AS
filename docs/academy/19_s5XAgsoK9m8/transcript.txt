@@ -1,0 +1,62 @@
+[0:00:00] Hey, it's Mara's from Atio and this is an overview of calculation blocks in workflows.
+[0:00:05] Calculation blocks can be used to transform existing attributes to be used in later workflow steps.
+[0:00:11] I'm going to build a workflow to help our customer success team keep track of
+[0:00:15] and prioritize newly created customer accounts. Anytime a customer signs up for a new workspace,
+[0:00:21] it will schedule a one-week check-in as well as update revenue information about the account.
+[0:00:25] So, it's triggered anytime a new workspace record is created.
+[0:00:29] The first thing I want to do in this workflow is create a task for a customer success team
+[0:00:33] to schedule the check-in with this customer one week after they created their workspace.
+[0:00:38] To allow us to set this due date for one week's time, we need to use our first calculation block,
+[0:00:43] which is the adjust time block. The block will take a time stamp to use as its starting point
+[0:00:48] and in this case, this will be the date that the workspace was created.
+[0:00:52] An offset is the time that you want to add or subtract from the starting time frame.
+[0:00:56] You need to add in the number and select the unit. So for this example, I am adding one
+[0:01:02] and selecting week. So this will now add one week to the date that the workspace was created.
+[0:01:07] Now that we have calculated the date, we can use this adjusted time stamp in subsequent steps.
+[0:01:13] Let's create a task to schedule that checking call. For the due date, we'll use the adjusted
+[0:01:17] time that we calculated in the previous step. So the due date will be in one week's time from
+[0:01:22] when the workflow is triggered and the task is created. The linked record will be the created
+[0:01:27] workspace and we'll assign the task to the customer success team member who focuses on onboarding
+[0:01:33] new workspaces. The next calculation block is a formula block, which allows you to take numbers
+[0:01:40] and apply mathematical transformations to them. In this example, our backend application
+[0:01:46] automatically pushes out the annual contract value or the ARR for a workspace any time a
+[0:01:51] new workspace record is created. But we also want to track the monthly contract value or the
+[0:01:56] MRR, as this is a commonly used data point within our team. So we're going to calculate the MRR
+[0:02:01] and store it as an additional attribute within our workspaces object. The formula block can
+[0:02:07] use mathematical expressions, numbers and variables in its input. The variables need to be from
+[0:02:12] number or currency type attributes. I'm going to insert the ARR, which was automatically
+[0:02:17] populated when the workspace was created and divide it by 12 to calculate the MRR.
+[0:02:24] We want to add this value to the workspace record, so we'll use the update record block next.
+[0:02:30] The workspace we want to update is the workspace that was created and we're updating the MRR
+[0:02:35] attribute and the value that we'll provide will be the output of the formula block.
+[0:02:40] So to recap this workflow, we use two calculation blocks, adjust time and formula
+[0:02:45] to calculate a due date for a task and also to calculate the MRR based on the ARR.
+[0:02:50] Let's see how this workflow works once I press publish.
+[0:02:54] Workflow is triggered when a new workspace record is created. So let's create a new workspace.
+[0:02:59] Let's give it a random workspace ID associated to a company and then set the ARR, let's say 12,000.
+[0:03:14] That workspace has been created. So the workflow is now running in the background
+[0:03:18] and shortly you will see Atio populate the MRR and create a task due in one week's time.
+[0:03:25] Next we'll review a workflow that includes the aggregate values block.
+[0:03:28] This workflow sends a go to market team a weekly update on the number of new workspaces
+[0:03:33] and the total new ARR from that week. So for the trigger we're using a recurrence schedule
+[0:03:39] set towards the end of the working day on Fridays. We then use the find records block,
+[0:03:44] which we will go into more detail in a later video, to find all of the workspaces
+[0:03:48] with a subscription start date that is before tomorrow and after one week ago,
+[0:03:52] which means that the subscription has started in the last week.
+[0:03:57] Now it's time for the next calculation block, which is the aggregate block,
+[0:04:00] which will take a numeric attribute from a group of records and calculate either the sum,
+[0:04:05] average, minimum or maximum value. For this I am taking the ARR of the matching workspaces
+[0:04:13] that were found in the previous block and selecting some as the type. In this example
+[0:04:18] we've aggregated across records that were returned from the find block,
+[0:04:22] but you can also aggregate across relationship attributes,
+[0:04:25] such as averaging the ages of all people associated with a specific company.
+[0:04:30] Finally I'm sending a slack to the go to market numbers slack channel.
+[0:04:34] For the message we have the weekly numbers, which includes the number of new workspaces
+[0:04:38] taken from the find records block and the total new ARR taken from the aggregate block.
+[0:04:43] And the last calculation block, which we won't actually use today,
+[0:04:46] is a random number which simply generates a random number between a minimum and a maximum
+[0:04:51] value that you provide. You can then use this random number in subsequent steps.
+[0:04:55] So those are Ato's calculation blocks. You've got adjust time to create new dates and timestamps,
+[0:05:01] formula blocks to perform mathematical equations, aggregate values to calculate the sum,
+[0:05:06] average, minimum and maximum of specified numerical values,
+[0:05:09] and random number which will provide a random number within a range of your choosing.

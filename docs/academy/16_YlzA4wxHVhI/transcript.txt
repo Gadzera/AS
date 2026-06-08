@@ -1,0 +1,71 @@
+[0:00:00] Hey, it's Marissa from Atio and welcome to the first video in our Sequences introduction course.
+[0:00:05] Our new email sequencing tool allows you to create adaptive, dynamically triggered email
+[0:00:10] sequences based on real-time data right inside of Atio. In this first video, we'll look at
+[0:00:15] creating sequences. You'll find sequences under Automations in the left-hand menu of Atio.
+[0:00:21] Before you create your first sequence, you need to ensure that you're aware of and
+[0:00:25] are following best practices for email deliverability to ensure that your email
+[0:00:30] successfully reach your recipients. We have an article on our Help Center that runs
+[0:00:34] through this in detail, so be sure to give that a read. Now we're ready to create our
+[0:00:38] first sequence, so I'm going to click New Sequence here and give it a title,
+[0:00:44] ICP Impound Leads. ICP stands for Ideal Customer Profile, which will be the target
+[0:00:49] group for my sequence. So I'm building a sequence to follow up with these
+[0:00:54] ICP prospects who have filled out our talk-to-sales form. For these high value
+[0:00:58] inbound leads, we'd like to arrange a call with our sales team as soon as
+[0:01:02] possible, as well as offer training resources to ensure that they're
+[0:01:05] successful with our product. In settings, I can fine-tune exactly when my emails
+[0:01:10] will be sent to give the emails the best chance of being opened and
+[0:01:14] responded to. The sending window are the hours in which Atio will send
+[0:01:18] emails as they're scheduled in the sequence and queued to send.
+[0:01:21] If I set the window to 9am to 6pm, for example, but I enrolled someone into the
+[0:01:27] sequence at 10pm, their email would get sent to the
+[0:01:31] outbox queue at 9am the next day. And depending on the size of your queue, it
+[0:01:35] might get sent straight away at 9am or later on in the day.
+[0:01:38] For each mailbox, a maximum of 12 emails can be sent per hour
+[0:01:42] and Atio waits five minutes between each send. The daily limit of emails that
+[0:01:46] can be sent with sequences is 200 emails per mailbox.
+[0:01:49] Atio enforces these limits to help with email deliverability, which again you
+[0:01:53] can read more about in our help centre. Here you can choose to send emails on
+[0:01:57] business days or you can toggle this off to include the weekends.
+[0:02:01] You can also choose your preferred wording for the unsubscribe link that will
+[0:02:05] be added to the bottom of every email and you'll also get a preview of how
+[0:02:08] that will look. This lets you select whether you
+[0:02:11] would like subsequent emails in your sequence to reply to the same thread
+[0:02:15] or instead be sent in a new one. And here you can choose if you would
+[0:02:18] like to include your Atio signature at the end of your emails.
+[0:02:21] If you haven't already you can set up your email signature in mailbox settings.
+[0:02:25] The exit criteria determines what action should remove a recipient from a
+[0:02:29] sequence, preventing them from receiving any remaining emails in that sequence.
+[0:02:33] You can choose from reply received and meeting booked.
+[0:02:37] By default, all members of your workspace can see and edit your sequence
+[0:02:41] but you can restrict access to specific colleagues or only yourself
+[0:02:44] from the share menu. Delegated sending is a powerful feature which
+[0:02:49] lets your team members enroll recipients into your sequence and have the
+[0:02:52] email sent from your inbox. When you toggle the delegated switch to
+[0:02:56] on anyone with access to the sequence can enroll recipients on your behalf.
+[0:03:01] To enroll recipients using a colleague as a sender, invite them as a sender
+[0:03:05] and then have them enable delegated sending. So now I finished
+[0:03:08] configuring my settings I can set up the email steps in my
+[0:03:11] sequence. By default the first email will be added
+[0:03:15] to the email queue as soon as the recipient is enrolled
+[0:03:18] or if that recipient is added outside of a delivery window
+[0:03:21] at the start of the next window. You can also set a number of days to wait
+[0:03:25] before sending the initial email. Let's add in copy for the first email.
+[0:03:29] Variables let you personalize your emails with attributes from the
+[0:03:32] recipients at your person record. I'm going to use an existing
+[0:03:36] template but you can also start from scratch.
+[0:03:39] So I'm selecting my ICP leads template. This email is already customized to
+[0:03:44] include a variable for the recipient's name but I'll add in another attribute to
+[0:03:48] reference their company as well. Clicking add step to sequence
+[0:03:53] allows me to add additional emails to the sequence
+[0:03:56] and select how many days to wait before sending.
+[0:03:59] This second email will be sent to all of the recipients who did not reply
+[0:04:03] or book a meeting with me after the initial email so I'll use my follow
+[0:04:07] up template. We recommend following our guidelines on
+[0:04:10] email content hygiene to ensure that your content supports your email
+[0:04:13] deliverability. You can find this in our help center.
+[0:04:17] You can add in as many or as few emails as you would like into your sequence
+[0:04:21] but for this example I'm going to stop at the two emails
+[0:04:25] and now my setup is complete. I'm going to click publish sequence
+[0:04:29] which sets this draft live and ready to add recipients.
+[0:04:32] So that's covered how to create and configure your sequences.
+[0:04:36] Watch our next video to find out how you can enroll recipients.

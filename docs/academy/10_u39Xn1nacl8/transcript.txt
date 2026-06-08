@@ -1,0 +1,83 @@
+[0:00:00] Hey, this is Marissa from Atio. In this video, I'm going to show you how you can
+[0:00:03] import your CSV data into objects in Atio. In this example, we'll walk through migrating
+[0:00:09] from an existing CRM from which we've exported two CSVs, one for the companies with which we've
+[0:00:15] interacted and another for our deal pipeline. Some of the companies in my CSV already exist in
+[0:00:21] Atio since they were automatically created when I synced my mailbox. I want to update
+[0:00:25] these records with more details and then also add some new companies that aren't in Atio yet.
+[0:00:31] Here is our CSV for companies. We have company name, their company website,
+[0:00:36] their status as a prospect or a customer, the date that they first became a customer
+[0:00:41] and their location. There are specific formatting requirements for certain data types.
+[0:00:46] For example, dates and timestamps need to be ISO standard, European or American format.
+[0:00:52] Phone numbers must include the country code and then city, state and country can all be
+[0:00:57] imported into Atio, but the values need to be held within one column in your spreadsheet.
+[0:01:02] For a full breakdown of formatting, take a look at our formatting guide in the help centre.
+[0:01:07] For each object typed reference in your file, it's crucial that you map one of the columns
+[0:01:11] in your file to a unique attribute for that object. For each row in your file, Atio will
+[0:01:16] take a look for an existing record with the value that you've provided. If a matching record
+[0:01:21] exists, it will update that record but if there is no matching record based on this attribute,
+[0:01:26] the importer will create a new record. If you don't include a unique attribute in your file at
+[0:01:31] all, then Atio will create new records for every single row in that file. To update company records
+[0:01:37] in Atio and to prevent duplicates, you must map one of your file columns to Atio's domain
+[0:01:42] attribute. Otherwise, the import will create a new company record for every single row in your
+[0:01:46] file, even if the company names match companies that exist in Atio.
+[0:01:51] Now let's walk through the import process into Atio. I'll go to the company's object, click
+[0:01:58] import and export, select import CSV and then choose my CSV file. With the file in Atio,
+[0:02:04] the next step is to map the data. On the left hand side here, we have the columns from the
+[0:02:10] CSV file and on the right hand side, I have the Atio attributes, which in this case are
+[0:02:15] from the company's object. Atio will match your columns and attributes where possible.
+[0:02:19] As I mentioned before, it's critical that I've mapped my website column to the company domain's
+[0:02:24] attribute. For each column in my file, I'll map it to the appropriate Atio attribute.
+[0:02:29] In this case, I don't have an attribute yet for the date that they became a customer,
+[0:02:34] so I'll create that as a new attribute on my company object here.
+[0:02:39] Next here, we can review the values in our file. Any issues will be flagged with orange
+[0:02:44] dots, but Atio hasn't hit any issues with this particular file. Now that's all been reviewed,
+[0:02:49] let's click continue to generate a preview of the data before we finalize the import.
+[0:02:54] Up here, you can see how many records will be created or updated. You should take a look at
+[0:02:58] these numbers as well as the preview of the data that will be imported to make sure that
+[0:03:02] everything looks as it's expected to. When I start the import, Atio will track the progress
+[0:03:07] forming. At this point, you can navigate away from the page if you don't want to wait for
+[0:03:11] the import to continue, and you can track the progress in workspace settings under import history.
+[0:03:18] Now, if your import or specific rows in the import have failed, you would receive a warning sign here,
+[0:03:24] and if you hover over it, you'll be able to see the error message. We have an article on our
+[0:03:29] help center running through the different error messages and how to troubleshoot them.
+[0:03:34] Now that I've loaded my companies into Atio, I can move on to my deals.
+[0:03:39] Unlike my company's import, where I was updating some records that already existed in Atio and
+[0:03:44] creating others, I'll only be creating new deals in this import. It is possible to update deals
+[0:03:50] in Atio using its unique identifier, which is the Atio record ID, but since I'm creating these
+[0:03:55] for the first time, no record ID exists yet. This is a rare occasion where I don't need
+[0:04:01] to map a column in my CSV to a unique attribute on my Atio object. Importing deals introduces
+[0:04:07] us to two new concepts. We have required attributes and relationships. You can find out on our help center
+[0:04:14] which attributes are required on the standard objects, and then for any custom objects that you've
+[0:04:18] created yourself or any lists that you're using, you can navigate to your settings to see this
+[0:04:23] information. Deal name, stage, and owner are all required attributes in the Atio deal object,
+[0:04:30] meaning they must have a value in order to create a record. So I've included it on my file
+[0:04:35] here and every row has a value. In Atio, the information about associations between objects,
+[0:04:41] such as a deal being associated with a company, is stored in a special attribute type called a
+[0:04:47] relationship attribute. In order to upload the relationship between deals and companies in my
+[0:04:52] CSV, we need to supply the unique identifier for the company which is its domain. For any object
+[0:04:59] referenced in your file, it's crucial that you map one of the columns to the unique attribute
+[0:05:04] for that object. So for example, if I also wanted to upload a relationship to a deal's primary contact
+[0:05:11] and associate that with a person's record in Atio, then I would need to provide an email address
+[0:05:16] and map that to the associated person's email address attribute. To bring all of these concepts
+[0:05:21] together in one example, let's walk through importing our deals. So this time on the deals object,
+[0:05:27] I will navigate to the importer. And as before, the first step is to map my CSV columns to attributes
+[0:05:35] in Atio. For the company column, you can see that we're selecting the associated company
+[0:05:40] relationship attribute and mapping to the company domain. Again, I'll just double check that Atio
+[0:05:46] correctly guessed the rest of my mappings and that I've included the required names, stage,
+[0:05:51] and owner attributes. In the review step, you'll notice these little orange circles.
+[0:05:55] These are warning signs that are letting me know that values are being flagged.
+[0:05:59] So let's take a look and see what errors that are with our stages.
+[0:06:04] One of the stages I'm trying to import doesn't exist in Atio. From here, I can either select
+[0:06:10] an existing stage to reassign it to, or I can click up here and add it in as a stage.
+[0:06:15] This one is just a typo, so I'm going to select the correct stage instead.
+[0:06:21] Now that's all been reviewed, let's click continue to generate a preview of the data
+[0:06:25] before we finalize the import. In the review step, I can see that all of my deals are net new
+[0:06:32] and being created. I can also check that the companies I've included were successfully
+[0:06:36] mapped to existing companies in Atio. All of the companies already exist, so none will be created.
+[0:06:43] Reviewing the final result of this import, let's look at a sample deal record.
+[0:06:47] I can see the attribute values were uploaded and if I right click on any of these values,
+[0:06:52] I can see exactly when they were created or updated. And now if I look at the associated
+[0:06:58] company attribute, I can click through to review the company record as well.
+[0:07:03] So that's an overview of how to import CSV data into objects in Atio. We have a separate tutorial
+[0:07:09] on how to import into lists and you can view our full guides including formatting and troubleshooting
+[0:07:15] in the help center.

@@ -1,0 +1,23 @@
+[0:00:00] Hi, this is Marissa from Atio. Today I'll show you how to discover, install and configure apps
+[0:00:05] from Atio's ecosystem, a growing catalog of integrations that help you connect Atio to your
+[0:00:10] team's tools. Head to the apps page in your workspace settings for the full list of supported
+[0:00:16] apps and integrations. You can browse by category and also search for a specific app by name.
+[0:00:22] This list is regularly updated as the ecosystem grows. Let's look at Granola. Clicking into
+[0:00:28] the app I can see an overview of its capabilities, links to resources and the developer, which in
+[0:00:34] this case is Granola themselves. In Atio's ecosystem you will find apps that have been built by integration
+[0:00:41] partners like Granola, first-party apps built by Atio and also the developer community.
+[0:00:47] The install process varies slightly depending on who built the app. Since this one was built
+[0:00:52] by Granola, clicking install prompts me to complete installation and configuration in Granola.
+[0:00:57] Now let's take a look at Panda Docs which was built in-house by Atio.
+[0:01:02] The app page shows the same overview and resources but this time installation happens
+[0:01:07] directly inside Atio so I just click install, connect my Panda Docs account and finish the setup.
+[0:01:14] This app also gives me the option to add a widget into my record pages so I can configure it
+[0:01:19] right from the app page or later on from a record page and heading to a deal record you
+[0:01:24] can see the widget displayed alongside action buttons for quick access.
+[0:01:30] By connecting your favorite tools from email and calendar to documents and analytics,
+[0:01:34] Atio becomes a central hub where you can streamline communication, automate scheduling,
+[0:01:39] keep knowledge organized and unlock richer insights across your workflows.
+[0:01:43] That's an overview of how to install and configure apps in Atio's ecosystem.
+[0:01:48] Each app has its own setup and use cases so be sure to check out the resources and help
+[0:01:52] docs for more details. And if you're interested in building your own apps take a look at our SDK
+[0:01:58] at docs.atio.com slash sdk.

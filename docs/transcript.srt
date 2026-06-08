@@ -1,0 +1,423 @@
+1
+00:00:00,000 --> 00:00:06,160
+Hi, this is Marissa from Atio. Atio is the next generation of CRM. We believe that CRM should
+
+2
+00:00:06,160 --> 00:00:11,040
+be quick to set up, easily adapt to your business model, and that AI should be foundational to
+
+3
+00:00:11,040 --> 00:00:16,560
+the experience. In this overview, I'll show you exactly how we're redefining CRM and how you can
+
+4
+00:00:16,560 --> 00:00:20,960
+use it to accelerate your business. We'll start with a company object, which stores all of your
+
+5
+00:00:20,960 --> 00:00:26,160
+company records. Alongside people, these objects automatically populate when you connect your
+
+6
+00:00:26,160 --> 00:00:31,120
+mailbox by creating records for the companies and people that you have emailed or met with,
+
+7
+00:00:31,120 --> 00:00:36,560
+reducing setup time. Atio enriches these records with attributes like LinkedIn,
+
+8
+00:00:36,560 --> 00:00:42,320
+employee range, and job title. Communication and intelligence, again synced from your mailbox,
+
+9
+00:00:42,320 --> 00:00:45,760
+gives quick insight into your whole company's relationship with the company,
+
+10
+00:00:45,760 --> 00:00:50,480
+with attributes like connection strength, last interaction, and next calendar interaction.
+
+11
+00:00:51,620 --> 00:00:55,860
+Through these enriched attributes, Atio begins delivering value to your organization
+
+12
+00:00:55,940 --> 00:01:01,380
+from day one. Beyond the system created attributes, you can easily create as many of your own
+
+13
+00:01:01,380 --> 00:01:06,180
+custom attributes as you need for storing the information that is relevant to your business.
+
+14
+00:01:06,180 --> 00:01:11,380
+With a few clicks, I can choose my data type, give it a title, and my attribute has been
+
+15
+00:01:11,380 --> 00:01:16,420
+created and is ready to use. Perhaps I want to create a select type attribute to show if
+
+16
+00:01:16,420 --> 00:01:21,940
+a company is a prospect or a customer, or a currency type attribute to store their MRR.
+
+17
+00:01:22,020 --> 00:01:27,060
+I can even set up relationship attributes, which allow you to associate different records to one
+
+18
+00:01:27,060 --> 00:01:31,780
+another, so you can build out your data model and retrieve attribute data from the other side
+
+19
+00:01:31,780 --> 00:01:37,140
+of the relationship. With Atio, this is as simple as a few clicks. Let's see this in action.
+
+20
+00:01:37,700 --> 00:01:42,260
+Atio automatically connects team members to their company based off of their email address
+
+21
+00:01:42,260 --> 00:01:46,900
+matching the company domain. But I would like to track who our main point of contact is for
+
+22
+00:01:46,900 --> 00:01:50,740
+each of our prospects, so that everyone in the team knows who to reach out to.
+
+23
+00:01:51,300 --> 00:01:56,980
+So I'll create a relationship between companies and people, select one to one as a person can be
+
+24
+00:01:56,980 --> 00:02:01,860
+the main point of contact at one company, and a company can only have one main point of contact
+
+25
+00:02:02,500 --> 00:02:07,860
+and give the attribute names. Now I can not only see who the key contact is, but easily
+
+26
+00:02:07,860 --> 00:02:13,060
+pull in data from their record, such as the email address. Companies and people are two of
+
+27
+00:02:13,060 --> 00:02:18,420
+Atio's standard objects which also include deals for your sales pipeline and workspaces and users
+
+28
+00:02:18,420 --> 00:02:23,540
+for syncing your customer and product usage data, so you can track both prospective and existing
+
+29
+00:02:23,540 --> 00:02:28,820
+customers. The deals object allows you to track the buying journey from first contact through to
+
+30
+00:02:28,820 --> 00:02:34,340
+close in table or Kanban views. Atio's workflow tool and integrations with the rest of your go
+
+31
+00:02:34,340 --> 00:02:39,860
+to market stack can populate new leads from web forms, demo bookings, or customer usage data.
+
+32
+00:02:40,500 --> 00:02:44,420
+Atio gives you complete control over the data that you store on your deals
+
+33
+00:02:44,420 --> 00:02:49,140
+and how it's displayed for your team to streamline and automate every step of the deal management
+
+34
+00:02:49,140 --> 00:02:54,660
+process. Views let you build customized pages with the exact data that you need to quickly
+
+35
+00:02:54,660 --> 00:03:01,140
+execute on daily tasks. You can filter customized attributes or switch to a Kanban board for
+
+36
+00:03:01,140 --> 00:03:06,100
+clear process tracking, pointing your team towards the most urgent tasks and providing
+
+37
+00:03:06,100 --> 00:03:12,180
+context for smarter and faster decisions. Here is a view of all deals in inbound leads assigned to
+
+38
+00:03:12,180 --> 00:03:17,780
+me with an AI attribute evaluating their fit to our ideal customer profile. This is a high
+
+39
+00:03:17,780 --> 00:03:22,420
+urgency opportunity and I can quickly send them an email template for high value leads
+
+40
+00:03:22,420 --> 00:03:27,780
+which is customized with details from our data. With the email sent I can then flag them as a
+
+41
+00:03:27,780 --> 00:03:32,820
+high value opportunity and move them to our contacted sales stage. I'll share in a bit
+
+42
+00:03:32,820 --> 00:03:37,700
+how you can even automate processes like these to send emails and update the data with a single
+
+43
+00:03:37,700 --> 00:03:42,980
+click of a button. Now back to companies. I'm going to navigate to a record page and as you
+
+44
+00:03:42,980 --> 00:03:48,100
+might expect with Atio it's highly customizable. So you have full control over what data points
+
+45
+00:03:48,100 --> 00:03:53,860
+you're highlighting at the top here and over at the side of this record. The activity overview
+
+46
+00:03:53,860 --> 00:03:58,980
+tracks your history of interactions and data updates. The email tab gives everyone a shared
+
+47
+00:03:58,980 --> 00:04:03,700
+view of every email touch point that you've had with a customer so you never lack context or
+
+48
+00:04:03,700 --> 00:04:08,820
+history when you're prepping for the next call or meeting. Each user has fine grained control over
+
+49
+00:04:08,820 --> 00:04:13,700
+how email data is shared. Here you'll see any calls that have taken place and were recorded
+
+50
+00:04:13,700 --> 00:04:18,580
+through Atio's call recorder and you can also create templates to extract and summarize the
+
+51
+00:04:18,580 --> 00:04:24,270
+topics that are most important to your sales motion. Notes store call prep and meeting
+
+52
+00:04:24,270 --> 00:04:29,390
+summaries while to-dos and files keep related information organized. You can add tabs for
+
+53
+00:04:29,390 --> 00:04:35,310
+relationship attributes to get a full overview of associated records. Atio also facilitates
+
+54
+00:04:35,310 --> 00:04:39,630
+internal collaboration through comments and when you at mention a teammate they'll receive an
+
+55
+00:04:39,630 --> 00:04:44,910
+alert in Atio web and mobile app and you can configure additional alerts like emails.
+
+56
+00:04:44,910 --> 00:04:49,710
+Atio's open data model doesn't limit you to its standard objects. You can create custom
+
+57
+00:04:49,710 --> 00:04:55,230
+objects tailored to represent any process or entity in your customer lifecycle. For example
+
+58
+00:04:55,230 --> 00:05:00,830
+I've created an invoices object which is syncing due dates and amounts from my invoicing platform
+
+59
+00:05:00,830 --> 00:05:06,030
+and associating them to the company, workspace and billing admin. Custom objects and
+
+60
+00:05:06,030 --> 00:05:10,430
+relationships provide your go-to-market teams with a single source of truth for all aspects
+
+61
+00:05:10,430 --> 00:05:15,230
+of your customer relationships. So let's take a look at how we might start using some of this
+
+62
+00:05:15,230 --> 00:05:21,550
+cross-object reporting functionality to actually run a workflow in Atio. I have an upcoming event
+
+63
+00:05:21,550 --> 00:05:25,950
+in London that I want to invite some of our customers to. I'm going to start my workflow here
+
+64
+00:05:25,950 --> 00:05:31,390
+from this list of platform admins. This is a save view that I've already created where I'm
+
+65
+00:05:31,390 --> 00:05:37,150
+looking at just the people whose associated user login so the user object has admin level
+
+66
+00:05:37,150 --> 00:05:42,030
+permissions but I need to make sure that they are all based in London so I'm going to filter
+
+67
+00:05:42,110 --> 00:05:47,870
+that their city is London. Further than that I'm actually only interested in those people who work
+
+68
+00:05:47,870 --> 00:05:52,990
+for companies where they are in the ICP category. With just a couple of clicks I've narrowed
+
+69
+00:05:52,990 --> 00:05:57,870
+down my contacts to those who are based in London whose companies match my ICP profile
+
+70
+00:05:57,870 --> 00:06:02,590
+and who are power users of my product. So let's add them all to a list of invitees.
+
+71
+00:06:03,940 --> 00:06:08,660
+Lists are a subset of records and allow you to store data related to your specific
+
+72
+00:06:08,660 --> 00:06:14,020
+processes. Outside of this example they can be used to track processes like recruitment,
+
+73
+00:06:14,020 --> 00:06:19,300
+customer success or fundraising and can be created from scratch or from a pre-existing template.
+
+74
+00:06:19,860 --> 00:06:24,100
+You can manage as many processes as your business needs allowing different teams to
+
+75
+00:06:24,100 --> 00:06:29,060
+customize Atio for their specific use case without ending up with an excess of attributes on the
+
+76
+00:06:29,060 --> 00:06:33,780
+object level. So this is a list of attendees for this upcoming event and I can create list
+
+77
+00:06:33,780 --> 00:06:39,620
+specific attributes which exist only in the context of their list to keep tabs on their RSVPs
+
+78
+00:06:39,620 --> 00:06:44,100
+and dietary requirements without editing or cluttering the parent record which in this case
+
+79
+00:06:44,100 --> 00:06:48,740
+is the person record. Beyond being able to segment this data and store it well relevant
+
+80
+00:06:48,740 --> 00:06:54,020
+this specific list actually uses both workflows and sequences to automate the invite process.
+
+81
+00:06:54,580 --> 00:06:59,460
+Workflows that you automate your go-to-market tasks and processes in Atio as well as other
+
+82
+00:06:59,460 --> 00:07:04,420
+tools and your go-to-market stack. This can be anything from simple Slack notifications all
+
+83
+00:07:04,420 --> 00:07:09,060
+the way to researching, triaging and rooting your leads. You can build fully automated
+
+84
+00:07:09,060 --> 00:07:14,420
+workflows to help your team get their day-to-day tasks done more reliably. You choose a trigger
+
+85
+00:07:14,420 --> 00:07:19,780
+which is an event that kicks off the workflow and then various action, condition or calculation
+
+86
+00:07:19,780 --> 00:07:24,500
+blocks that build out the path of the workflow. Here I have a workflow which is triggered
+
+87
+00:07:24,500 --> 00:07:29,860
+any time a person is added to the invite list that we just looked at. From here it will then add
+
+88
+00:07:29,860 --> 00:07:34,740
+that person into an email sequence and update the status attribute in the list to show that the
+
+89
+00:07:34,740 --> 00:07:40,180
+invite has been sent. Looking now at that sequence which automates email sending for one or more
+
+90
+00:07:40,180 --> 00:07:45,860
+subsequent emails this sends an initial email with details of the event and requesting that
+
+91
+00:07:45,860 --> 00:07:51,540
+that person replies to the email to RSVP. If after our chosen amount of days we have not
+
+92
+00:07:51,540 --> 00:07:55,940
+received a reply from this person then Atio will automatically send the follow-up email.
+
+93
+00:07:56,900 --> 00:08:02,180
+So just by adding those selected people to my list I have not only compiled the selection of people
+
+94
+00:08:02,180 --> 00:08:07,140
+that I want to invite to the event I've also sent the invite, updated their status and don't
+
+95
+00:08:07,140 --> 00:08:12,100
+need to worry about chasing for responses and that was all done with just one click of add to
+
+96
+00:08:12,100 --> 00:08:17,620
+list. With my data organized and automated Atio's reporting gives leaders tools to
+
+97
+00:08:17,620 --> 00:08:23,540
+understand trends patterns and track performance against goals. There are five types of reports
+
+98
+00:08:23,540 --> 00:08:28,900
+which support pivot style reporting on all of your current data and complex historical analysis
+
+99
+00:08:28,900 --> 00:08:34,100
+to understand how customers have moved through your pipelines over time. My revenue dashboard
+
+100
+00:08:34,100 --> 00:08:38,980
+includes the growth of our customer base over time, funnel reports to understand the efficiency of
+
+101
+00:08:38,980 --> 00:08:44,100
+our sales process as well as reporting on all of the other data sources that we track about
+
+102
+00:08:44,100 --> 00:08:49,300
+our customers like inbound lead volume, number of product sign-ups and data that we collect from
+
+103
+00:08:49,300 --> 00:08:55,440
+users who decide to churn. Because Atio's model is fully customizable reporting extends beyond
+
+104
+00:08:55,440 --> 00:09:01,100
+just deals helping you generate insights that truly matter. I hope this overview of Atio has
+
+105
+00:09:01,100 --> 00:09:06,220
+been insightful we have in-depth videos of all of the features mentioned in the Atio Academy
+
+106
+00:09:06,220 --> 00:09:14,220
+so give those a watch if you would like to learn more about the power of Atio.

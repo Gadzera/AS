@@ -1,0 +1,49 @@
+[0:00:01] Hi this is Marissa from Atio and this is an introduction to Atio's Call Recorder. Atio's
+[0:00:07] Call Recorder joins and documents your calls in Zoom, Google Meets and Microsoft Teams
+[0:00:12] and stores them right inside of Atio. Transcripts, AI generated summaries and custom AI insight
+[0:00:18] templates ensure that your next steps and account context are always easily accessible
+[0:00:23] and actionable across your whole team. Before you start using the Call Recorder
+[0:00:27] you'll want to configure your settings by navigating to account settings and call recording.
+[0:00:32] From here you can choose which types of calls the recorder should automatically join.
+[0:00:37] You can also manually add the Call Recorder to any meeting from the meeting details view.
+[0:00:42] Additionally you can upload an image or logo to customize the appearance of the recorder
+[0:00:47] to participants in your meeting. Once you've synced your email inbox with Atio,
+[0:00:51] which you can learn more about in the email sync video in the academy introductions course,
+[0:00:56] the Call Recorder will automatically join meetings based on the settings that you've chosen.
+[0:01:01] Depending on your video conferencing tools security settings you may need to complete
+[0:01:05] additional setup steps in that tool ahead of your first call. With insight templates,
+[0:01:10] AI can summarize and highlight the key details from meetings that matter most to you.
+[0:01:15] You can create as many templates as you like to easily access consistent summaries,
+[0:01:19] analysis and next steps for common call types. Individuals and teams can also create
+[0:01:24] personalized templates based on their own needs and follow up responsibilities.
+[0:01:28] Here is a template that our sales team uses which summarizes key sales qualification criteria
+[0:01:34] like a customer's current tool, what features they need, budgets and timelines.
+[0:01:39] With this consistent summary each sales rep has immediate access to the most critical
+[0:01:43] data points that they need to plan out next steps in their deal. Let's create a template
+[0:01:48] together. On the left set up sections and provide a prompt for each specifying what info you'd
+[0:01:54] like the AI to extract, analyze or summarize. Choose whether you'd like the AI response to
+[0:01:59] be formatted as texts or bullet points and you can add as many sections as you'd like with this
+[0:02:04] button here. You can apply any insight template to any call recording and switch between templates
+[0:02:10] to gain multiple perspectives of one call. Depending on how you configure your settings
+[0:02:16] the Call Recorder will either automatically join or you can invite it by clicking
+[0:02:20] Start Recording on the meeting in Atio. You'll then need to allow it in from the waiting room
+[0:02:25] and you can remove it at any time to stop the recording. In the calls tab in Atio you will see
+[0:02:31] a live transcript that will be updated in real time while the call is running and being recorded.
+[0:02:37] As your CRM Atio is a central repository for your communication history with your customers
+[0:02:42] and prospects. Just like emails you can view the entire call history with a given company
+[0:02:48] on a company record page or an individual on a person record page. On top of this call recordings
+[0:02:53] can be found inside of meeting details on the activity timeline and the calls page that we've
+[0:02:58] already seen. The calls page will show all calls from your workspace. You can customize your view
+[0:03:04] to show only the calls that are relevant to you by sorting, filtering based on participants
+[0:03:09] and associated records which is who else was in the call with you and adding calls to your
+[0:03:13] favorites. So as an individual contributor or an AE I'd likely just filter to calls where I was a
+[0:03:20] participant but as a team manager I'd have a filtered view to show the calls of everyone in my
+[0:03:25] team. If you're on the call page during the recording then you will have seen the transcript
+[0:03:29] and insights being added live. Once a call has completed you'll get finalized and updated
+[0:03:34] insights. You'll be able to toggle between all of your templates and you'll also receive a
+[0:03:39] call summary, meeting chapters on the video, meeting information and speaker stats. Ateo has
+[0:03:45] additional payback modes to make it easier to watch a video while also accessing other tabs in
+[0:03:50] your browser. Pinned mode which displays video, transcripts and insights as you navigate within
+[0:03:55] Ateo and picture-in-picture mode which displays video over all of your windows. Thanks for watching
+[0:04:01] this overview of Ateo's call recorder which puts actionable insights from every meeting right
+[0:04:06] inside your CRN.

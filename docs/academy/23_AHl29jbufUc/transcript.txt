@@ -1,0 +1,110 @@
+[0:00:00] Hey, it's Maris from Atio.
+[0:00:01] I'm going to show you the different integration action
+[0:00:04] blocks that are available to use in our workflows.
+[0:00:07] Atio has native integrations with Typeform, Slack, Outreach,
+[0:00:11] Mixmax, and Mailchimp, and we've already
+[0:00:13] covered how to send and receive data from other tools
+[0:00:16] in our last video using a generic HTTP request.
+[0:00:19] This first example uses two integration blocks
+[0:00:22] as part of the onboarding process for new customers.
+[0:00:25] Our customer success team works off
+[0:00:26] of a list which is populated by a separate workflow
+[0:00:30] with new workspaces that qualify for an onboarding session.
+[0:00:33] The customer success team members will check this list
+[0:00:36] and decide which new workspaces they
+[0:00:37] will be responsible for training and helping
+[0:00:40] implement their workspace setup.
+[0:00:42] Once they've assigned themselves as the owner,
+[0:00:44] they will then need to reach out to the team members
+[0:00:46] or the users to book in an onboarding call.
+[0:00:49] So the trigger is list entry command,
+[0:00:51] meaning the customer success team member
+[0:00:53] will manually trigger the workflow
+[0:00:55] on specified list entries.
+[0:00:57] For that list entry, we will loop through the associated users
+[0:01:00] of the parent record, which is the workspace,
+[0:01:03] and subsequently add them all one at a time
+[0:01:05] to a Mixmax emailing sequence.
+[0:01:08] We covered loops in detail in a previous video,
+[0:01:10] so check that out for more information on how to use it.
+[0:01:13] Before you can use the Mixmax block,
+[0:01:15] an admin will need to set up the connection
+[0:01:17] through your workspace settings.
+[0:01:19] You then need to select the relevant connection and sequence
+[0:01:22] and use variables to provide the user's email address and name.
+[0:01:26] Mixmax is one of three emailing tools that we integrate with,
+[0:01:29] and you can replicate similar workflows
+[0:01:31] with the other two, Outreach and Mailchimp.
+[0:01:35] The next block is the update list entry,
+[0:01:38] and this is outside of the loop
+[0:01:39] as we no longer need to loop through all of the users.
+[0:01:43] We'll update the stage to show
+[0:01:45] that we have reached out to offer a call
+[0:01:47] and we'll also add the date
+[0:01:48] that we added them to the Mixmax sequence.
+[0:01:51] To ensure we're successfully connecting
+[0:01:53] with every customer,
+[0:01:54] the workflow then waits 10 days
+[0:01:56] before confirming that the team booked a meeting
+[0:01:58] with the customer.
+[0:01:59] So if the status is still booking offered,
+[0:02:02] we'll use another integration block,
+[0:02:04] this time sending a message to a Slack channel
+[0:02:06] to alert the relevant team member to follow up.
+[0:02:09] Again, an admin will need to set up
+[0:02:10] your Slack integration beforehand,
+[0:02:12] and then you just need to choose
+[0:02:14] the relevant workspace and channel
+[0:02:16] before adding in your message and any variables.
+[0:02:19] You can also format the message
+[0:02:20] using Slack formatting guides.
+[0:02:22] So for example, you can add asterisks for bold text
+[0:02:25] and underscores for italic text.
+[0:02:27] The next workflow uses a different Slack integration block
+[0:02:30] which allows you to send actions to a Slack channel.
+[0:02:33] Slack actions are essentially buttons
+[0:02:35] that when clicked will kick off
+[0:02:36] further actions within your workflow.
+[0:02:39] Here is a workflow that is triggered
+[0:02:40] when a new deal is created in the lead stage.
+[0:02:44] In order to firstly bring this lead
+[0:02:46] to the sales team's attention
+[0:02:48] and secondly to ensure it's triage correctly,
+[0:02:50] we're using variables to send key information
+[0:02:53] about the deal and the company it's associated to.
+[0:02:56] We're then inputting the action options.
+[0:02:58] Here I have four, I have one to triage leads to Zev,
+[0:03:03] one to triage leads to myself,
+[0:03:05] one to mark leads as disqualified,
+[0:03:07] and a final one to mark leads
+[0:03:09] as already being in the pipeline.
+[0:03:11] So this message will be sent to Slack
+[0:03:13] and it will look something like this.
+[0:03:19] And here you can see it has the body of the message
+[0:03:21] and then a button for each of the action.
+[0:03:24] Your Atio workflow will remain paused
+[0:03:26] after the message has sent
+[0:03:27] until someone selects one of the action options in Slack.
+[0:03:31] If Zev or I click on our respective buttons,
+[0:03:34] then the deal owner will be updated
+[0:03:35] and the deal stage will be changed to contacted
+[0:03:38] as the next action is adding that person
+[0:03:40] into an email sequence to find out more information
+[0:03:42] about their requirements and to book in a call.
+[0:03:45] Leads that are marked as unqualified
+[0:03:47] or in pipeline in Slack will have their deal stage updated
+[0:03:50] to unqualified or duplicate in Atio
+[0:03:53] and no further action will be taken from the sales team.
+[0:03:56] Additionally, we have three integration triggers.
+[0:03:59] Outreach triggers to trigger a workflow
+[0:04:01] anytime a contact is added to a sequence
+[0:04:04] or the state of a sequence is changed.
+[0:04:07] And then a type form trigger to trigger a workflow
+[0:04:09] anytime a new form response is received.
+[0:04:12] We've run through examples of the type form trigger
+[0:04:14] in our triggers video
+[0:04:16] as well as the record and list and AI videos.
+[0:04:19] And that's an overview of Atio's integration blocks
+[0:04:22] which allow you to send messages or actions to Slack
+[0:04:25] and add people to email sequences
+[0:04:27] in outreach, Mixmax and Mailchimp.

@@ -1,0 +1,50 @@
+[0:00:00] Hey, it's Merse from Atio. In this video, I'm going to show you how you can connect your
+[0:00:03] inbox to get a complete overview of your interactions with your customers.
+[0:00:07] When you first sign up to Atio, you'll be asked to sync your mailbox, which I highly
+[0:00:11] recommend doing. If you haven't already done this, you can navigate to your account
+[0:00:14] settings and set this up at any time. Once your email is connected and synced,
+[0:00:19] you'll notice that Atio has pulled the status to populate the people and the
+[0:00:22] company objects. The people object represents every person that you've ever emailed
+[0:00:27] or had a meeting with in the past, and then you have the same for companies as well.
+[0:00:30] When you click on to a record, you'll see your company's entire relationship history
+[0:00:34] with that person, including events in the activity tab and emails in the email tab.
+[0:00:38] Depending on the inbox sharing settings that you or your colleagues have set up,
+[0:00:42] you'll either be able to see the full contents of the email, the subject line,
+[0:00:46] and the recipients, or just the recipients. You can also grant full access to specific
+[0:00:51] people or on a record level, and you can read more about our email sharing settings
+[0:00:55] in the Help Center. On the right-hand side of the record page, you can view all of the attributes,
+[0:01:01] so information like the name and email address has been pulled from the email sync,
+[0:01:05] and there's also attributes like job title, social media handles, and location,
+[0:01:10] which we have auto-enriched for you. These are the default attributes,
+[0:01:14] but you can create and add your own custom attributes to track specific data points
+[0:01:19] that are relevant to your business. We'll cover more of that in another video.
+[0:01:23] Company records have also been created from the email domains,
+[0:01:26] and through this, every person has been associated to the relevant company.
+[0:01:30] This is called a relationship attribute, and we'll go into more detail about this in another
+[0:01:34] video. If I click through to this associated company, you'll see it has a similar record
+[0:01:39] overview experience. The activity and emails tab displays meetings and emails with anyone
+[0:01:44] associated with this company, and you can also create notes, assign tasks,
+[0:01:49] or upload files that are associated with that company.
+[0:01:52] Ato enriches company records for thermographic data about company size,
+[0:01:57] financials, industry, and location. Ato will summarize your communication history
+[0:02:03] and communication intelligence attributes, so this will show you the strength and
+[0:02:06] the recency of your communication with any company or person in your workspace.
+[0:02:11] This is the default view for the company object, which shows you all of the companies
+[0:02:15] within your workspace. You can create custom views to narrow this down to specific groups
+[0:02:19] of companies. So let's say I'm launching a marketing campaign that is targeted at
+[0:02:24] technology firms in the US. I'll create a new view for this using filters.
+[0:02:29] So first up I will do category, contains, technology, and then a second filter for
+[0:02:37] country is United States of America. I can also choose which attributes or which
+[0:02:44] columns I want to display. So I'm going to remove some of the existing ones,
+[0:02:49] and now I'm going to add in the primary location state.
+[0:02:54] Because we have that relationship attribute set up between the companies and the associated people,
+[0:02:59] we can actually drill into and display attributes from the people that are associated with this
+[0:03:03] company. So I'm going to add in the team's email addresses. You can also choose how to sort
+[0:03:11] your table by clicking here, choosing the attribute that you'd like to sort by,
+[0:03:15] and whether you want it to be ascending or descending. Now I can save the changes to this
+[0:03:21] view, or I can create a brand new view that my colleagues and I can access and collaborate on.
+[0:03:26] So having only connected your inbox into Atio, you now have a central system of record
+[0:03:31] for all of your historical communications. This information is shared across your team,
+[0:03:36] along with simple tools for managing notes and tasks amongst the team.
+[0:03:40] So that's an overview of the people and company objects and how you can create a
+[0:03:43] central system of record for all of your historical communications just by syncing your mailbox.

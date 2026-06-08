@@ -1,0 +1,56 @@
+[0:00:00] Hi, this is Marisa from Atio. In this video, we'll walk through Atio's permissions framework
+[0:00:05] and how you can control who can see, edit and manage different parts of your CRM,
+[0:00:10] from records and workflows to lists and reports. Before we start, here's a quick overview of
+[0:00:17] the different user roles in an Atio workspace, admins and members. Admins can access and manage
+[0:00:24] workspace settings, including creating and editing objects, inviting members, managing
+[0:00:30] access and billing, and viewing or editing all dashboards, workflows and sequences.
+[0:00:36] Members don't have access to workspace settings, can't manage member access or
+[0:00:41] send invitations, and can only view or manage the lists, dashboards, workflows and sequences
+[0:00:47] that they have been granted access to. By default members can't create or edit objects.
+[0:00:54] Atio permissions are based on four access levels, no access, read only, read and write,
+[0:01:01] and full access. No access prevents members from seeing the entity, for example a list or a workflow.
+[0:01:09] Read only lets members view the entity without making any changes. This is useful for
+[0:01:14] stakeholders who need visibility but shouldn't be able to edit the data. Read and write lets
+[0:01:20] members view the entity and make edits to the data, but not change the structure or manage
+[0:01:25] permissions. This is the most common level for sales and go-to-market teams who use Atio to
+[0:01:31] manage and track their work. Finally, full access lets members fully manage an entity,
+[0:01:38] for example creating or editing attributes, configuring settings and managing permissions
+[0:01:44] for that entity. This gives admin level control over a specific entity without granting access
+[0:01:50] to billing or security settings. Access levels can be applied in three ways, workspace, team and
+[0:01:57] individual members. Workspace permissions set the default for everyone. Team permissions adjust
+[0:02:04] access for groups like sales or revolts, and individual permissions handle exceptions for
+[0:02:09] specific users. Permissions granted to more specific hierarchy levels override the broader
+[0:02:15] ones. So even if the workspace level access was set to read only, individuals can be granted
+[0:02:21] edit access if they need it. This layered approach lets you set sensible defaults with the
+[0:02:27] flexibility to grant exceptions for individuals and teams who need it. Now let's take a look
+[0:02:33] at how to configure permissions in different parts of Atio. For each object in Atio,
+[0:02:39] like people, companies and deals, admins can set permissions for the entire workspace,
+[0:02:44] specific teams or individual members. The three access levels here are read only,
+[0:02:50] read and write and full access. Here's a common setup for deals. I want deals to be read only
+[0:02:57] for most of the workspace but editable by the sales team. To do that I'll go to object settings
+[0:03:04] and I will set the workspace access to read only then under teams I'll add the sales team
+[0:03:10] with read and write access. I also have a sales contractor who needs to be able to edit deals but
+[0:03:15] shouldn't be added to the sales team, so instead I will grant them read and write access under
+[0:03:21] individual members which overrides both the workspace and team settings. You'll also see
+[0:03:27] automation's permissions here. If you want workflows to take action on records like
+[0:03:32] updating attributes or creating tasks then you'll need to explicitly grant permission to
+[0:03:37] those workflows. This gives you control over which workflows are allowed to modify your data.
+[0:03:43] If you're creating a workflow and it doesn't have the permissions that are needed to perform
+[0:03:47] the actions that you've configured you'll see a prompt. If you have the correct access level
+[0:03:52] the prompt will present the option of granting the required permission. The same permissions apply
+[0:03:58] to lists, dashboards, workflows and sequences. So here I've got a recruitment list which I
+[0:04:04] want to be hidden from all workspace members except for our head of talent. I'll open the list
+[0:04:10] settings, set the workspace access to no access and override that for this specific member by
+[0:04:16] granting full access. Next up I have a dashboard that contains several reports. Permissions are
+[0:04:23] set at a dashboard level and apply to all of the reports inside it. I'll set this dashboard to
+[0:04:29] read only for the workspace and give the revops team read and write access so that they can
+[0:04:34] manage and adjust it. By default any newly created dashboard will only be visible to the user who
+[0:04:40] created it and the rest of the workspace will have no access. Permissions can also be set per
+[0:04:46] workflow. Earlier we looked at giving workflows permissions to take action on objects like updating
+[0:04:53] records whereas here we're controlling who can see the workflow and configure the steps and
+[0:04:58] blocks within it. I'll open the workflow settings, set the workspace access to read only and give
+[0:05:04] Cassandra read and write access. That way everyone can see how the workflow works but only one person
+[0:05:11] can change it. At your permissions framework is designed to scale with your team. You can set
+[0:05:17] broad defaults, fine tune access where needed and handle edge cases without creating complexity.
+[0:05:24] That way everyone has the access that they need to do their work
+[0:05:28] while your data stays accurate, secure and easy to manage.

@@ -1,0 +1,70 @@
+[0:00:00] Hi, this is Mressa from Ateo.
+[0:00:02] In this video, we'll look at how you can use Ask Ateo to search, update and create with AI,
+[0:00:08] all through a familiar, easy-to-use chat.
+[0:00:11] Ask Ateo is a conversational way to work with your CRM.
+[0:00:15] It helps you understand what's happening across your calls, notes, mailbox, integrated data and more,
+[0:00:22] bring in additional context through web research and take intelligent action,
+[0:00:27] while staying in control of what gets updated or shared.
+[0:00:30] Access Ask Ateo from the homepage, sidebar and the top right of most pages in Ateo.
+[0:00:36] Let's start with the homepage.
+[0:00:38] I'll open Ask Ateo and ask, help me prep for my day.
+[0:00:42] This gives me a quick overview of what I need to know, including upcoming meetings,
+[0:00:47] deals that need attention and overdue tasks.
+[0:00:50] It's a useful way to get orientated without manually checking multiple views or pipelines.
+[0:00:56] Ask Ateo can also help with deep analysis across your entire customer relationship.
+[0:01:02] This is useful when you want to understand themes or consolidate feedback
+[0:01:06] without manually reviewing transcripts, notes or emails.
+[0:01:10] For example, I can ask, what objections have come up most often recently?
+[0:01:15] Ask Ateo searches across recent calls, notes and emails and returns a summary of what came up,
+[0:01:22] along with relevant quotes or call snippets so that I can quickly dig deeper.
+[0:01:28] This helps you to quickly and easily spot patterns,
+[0:01:31] prepare responses and stay informed without rewatching calls or searching through transcripts.
+[0:01:37] For the common actions that you take or questions that you ask,
+[0:01:41] you can create and save prompts to reuse later.
+[0:01:44] To do this, I'll navigate to the prompt section in my account settings
+[0:01:48] and enter a prompt I know that I'll use often.
+[0:01:51] For example, here's a more detailed call prep prompt that I might save.
+[0:01:55] I'll give it a name and now it's available wherever I use ask Ateo.
+[0:02:00] I might also want to save a lighter version of this prompt for quicker prep.
+[0:02:04] So what do I need to know to run this call?
+[0:02:07] Save prompts help you to work faster and stay consistent
+[0:02:12] while still letting you choose how much structure you want each time.
+[0:02:16] Now that I have this prompt saved, I can reuse it whenever I'm preparing for a call.
+[0:02:21] Instead of digging through emails, transcripts or notes,
+[0:02:24] I'll open Ask Ateo and select my prompt.
+[0:02:27] Ask Ateo looks at recent calls, notes, emails and deal context
+[0:02:32] and summarizes what's important for the call,
+[0:02:34] including suggested topics to focus on and any open questions or follow-ups.
+[0:02:39] In addition to the data that's inside my CRM,
+[0:02:42] Ask Ateo can perform deep internet research to add background on the company,
+[0:02:46] their market and recent activity,
+[0:02:48] so I can prepare for the call without switching to external tools.
+[0:02:52] Once on a call, Ask Ateo can help with questions that come up in real time.
+[0:02:57] So for example, if a customer asks about pricing
+[0:03:00] and you need to catch up on the information that you've previously shared.
+[0:03:03] Instead of searching through records or notes,
+[0:03:06] I can ask Ateo, have we spoken to anyone at this company about pricing?
+[0:03:11] Ask Ateo will then check the past interactions and return a clear answer,
+[0:03:17] including who we spoke with, when the conversation happened and what was discussed.
+[0:03:22] This makes it easy to answer questions on the spot
+[0:03:25] without leaving the call or breaking the flow of the conversation.
+[0:03:29] After the call, Ask Ateo helps make sure nothing gets missed
+[0:03:33] without needing to manually update records or remember follow-ups later.
+[0:03:37] I can ask Ateo to suggest updates based on what was discussed in the call.
+[0:03:42] Once I've reviewed them, Ask Ateo will update the record immediately.
+[0:03:46] I can also create follow-ups from the same place.
+[0:03:49] So create a task for me to follow up next week.
+[0:03:52] This will create a task, link it to the relevant record, and schedule it automatically
+[0:03:58] so action items don't get lost after the call.
+[0:04:02] And finally, I can ask Ateo to help with follow-up communication.
+[0:04:07] draft a follow-up email based on this call.
+[0:04:10] Follow-up emails are where the decisions and next steps get confirmed.
+[0:04:15] Ask Ateo uses the call context to draft an email that captures what was discussed
+[0:04:20] so nothing gets missed.
+[0:04:22] And I can review this and send it without writing from scratch.
+[0:04:26] Ask Ateo helps you spend less time searching, updating and logging
+[0:04:30] and more time taking well-informed next steps.
+[0:04:33] By surfacing what matters, capturing updates as they happen
+[0:04:37] and turning conversations into clear next steps,
+[0:04:40] it helps make sure nothing gets missed, reduces manual work
+[0:04:44] and ensures consistency across your team.

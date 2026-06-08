@@ -1,0 +1,46 @@
+[0:00:00] Hey, it's Mress from Atio and in this video we'll take a look at how you can enroll recipients into your sequences.
+[0:00:07] You can add recipients to your sequences manually or through a workflow. Let's start with the manual option.
+[0:00:13] The first way that you can manually enroll people to your sequences is within the sequence editor by clicking enroll recipients up here.
+[0:00:21] You'll also find an enroll to sequence button on the object views and record pages for people as well as in people lists.
+[0:00:28] So if I wanted to hand select who I'm adding to a sequence, let's say for an event that we're hosting in our office,
+[0:00:34] I could apply filters to narrow down my view to a specific subset of people,
+[0:00:38] click the tick box next to their names and select enroll to sequence.
+[0:00:42] On my London locals view here,
+[0:00:46] I have a filter for city is London and then another one for associated user status is active,
+[0:00:53] which finds all of our active customers that are in the same area as our office.
+[0:00:57] So I can either select a few or I could click here to select all from this filtered view.
+[0:01:03] Now I can add them to the sequence and choose the sender.
+[0:01:07] So in our last video, we explained that you can both invite other team members as senders on your sequence and that each sender can decide whether to delegate sending,
+[0:01:15] which allows others to enroll recipients on their behalf. Here you can see that Heather has enabled delegated sending,
+[0:01:21] so I'm going to add these emails to the sequence with her as the sender.
+[0:01:25] In addition to manually enrolling recipients,
+[0:01:27] you can automate enrollment based on key triggers in your go-to-market process using Atio's workflows.
+[0:01:33] Let's use the inbound lead sequence that I created in the previous video and run through an example workflow.
+[0:01:40] Workflows are Atio's powerful process automation tool that lets you trigger actions from activity within Atio or external inputs.
+[0:01:48] To learn more about workflows, head over to the Workflows Academy course.
+[0:01:52] This workflow is triggered when someone fills out the talk-to-sales form on our website requesting a demo.
+[0:01:57] We use type form, so form submitted is the trigger.
+[0:02:01] We then use the data that's been inputted into the form to create or update a person record and delay for five minutes.
+[0:02:08] The reason for the delay is that we want to use Atio's enriched attributes on the company record in the next step.
+[0:02:14] So we want to give enough time for the company to be created off the back of the person's record and also for those smart attributes to be populated with data.
+[0:02:22] Next, we use if-else to determine whether the inbound lead is our ideal customer profile,
+[0:02:28] which is essentially a VC-backed tech startup founded in the last five years.
+[0:02:33] I'm taking data like category, foundation day, funding raised, and adding it into the condition.
+[0:02:40] So if the lead meets this criteria, meaning that this is our ICP, the workflow will continue on the true path.
+[0:02:47] If it's not our ICP, then it will continue down the false path.
+[0:02:50] For that false path, we are first using a round robin block.
+[0:02:55] Then we create a deal record and assign it in the lead stage.
+[0:02:58] Our sales team will review these lower priority deals on a daily basis to determine the appropriate follow-up steps.
+[0:03:04] For the true path, which is the inbound leads that match our ICP,
+[0:03:08] we've set up our workflow to automatically reach out and offer a demo call.
+[0:03:12] This gives these high priority customers immediate access to our sales team as soon as they fill out our lead form.
+[0:03:18] So again, we'll use a round robin block and create a deal.
+[0:03:21] But on this deal, we'll mark it as ICP so that the sales team can easily identify this.
+[0:03:27] And instead of adding it to the lead stage, we'll add it to the contactor stage.
+[0:03:31] Because the final step that we're using here is enrolling it into our sequence with the enrolled sequence block.
+[0:03:37] So here I have selected the sequence, the recipient, and the sender.
+[0:03:41] And I'm using the picked user from the round robin or the deal owner to be the sender.
+[0:03:47] This is just one example of how you might automatically enroll leads into an email sequence.
+[0:03:52] The trigger, logic and action blocks in Atio workflows give you infinite flexibility to decide how and when you enroll recipients in sequences.
+[0:04:00] And that wraps up our video on enrolling recipients.
+[0:04:03] In the next video, we'll be looking at how you can manage your sequences.
