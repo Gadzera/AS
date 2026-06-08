@@ -1,104 +1,136 @@
 'use client';
 
-import { getStoredUser } from '@/lib/auth';
-import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { type ReactNode } from 'react';
+import { Mail, MoreHorizontal, Plus } from 'lucide-react';
 import clsx from 'clsx';
-import type { User } from '@/types';
+import Avatar from '@/components/ui/Avatar';
+import Button from '@/components/ui/Button';
+import { composeStore } from '@/lib/composeStore';
 
-interface TopbarProps {
+export interface TopbarProps {
+  /** Optional page-level icon (lucide). Rendered at 16px. Pass a node, e.g. `<Users size={16} />` */
+  icon?: ReactNode;
+  /** Main page title (h2 16/24/600). Optional when only breadcrumbs are used. */
   title?: string;
+  /** Optional breadcrumb chain — full path including current. e.g. `['Companies', 'Cosme']` */
+  breadcrumb?: string[];
+  /** Legacy subtitle slot — renders as the second breadcrumb segment if `breadcrumb` is not set. */
   subtitle?: string;
+  /** Custom actions area on the right; if omitted, default Attio-style cluster is shown. */
+  actions?: ReactNode;
+  /** Optional color hint for the page icon, e.g. `var(--brand)` */
+  iconColor?: string;
+  className?: string;
 }
 
-function getInitials(name: string) {
-  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+const DEFAULT_TEAM: Array<{ name: string }> = [
+  { name: 'Marisa McGill' },
+  { name: 'Alex Lee' },
+  { name: 'Priya Nayar' },
+];
+
+function DefaultActions() {
+  return (
+    <div className="flex items-center gap-1.5">
+      <div className="flex items-center -space-x-1.5 mr-1">
+        {DEFAULT_TEAM.map((m) => (
+          <Avatar
+            key={m.name}
+            name={m.name}
+            size={20}
+            className="ring-2 ring-white"
+            title={m.name}
+          />
+        ))}
+      </div>
+      <button
+        type="button"
+        aria-label="Add"
+        className="w-7 h-7 rounded-md inline-flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)] transition-colors duration-100"
+      >
+        <Plus size={16} strokeWidth={1.75} />
+      </button>
+      <button
+        type="button"
+        aria-label="More"
+        className="w-7 h-7 rounded-md inline-flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)] transition-colors duration-100"
+      >
+        <MoreHorizontal size={16} strokeWidth={1.75} />
+      </button>
+      <Button
+        variant="primary"
+        size="sm"
+        onClick={() => composeStore.open()}
+      >
+        <Mail size={14} strokeWidth={1.75} />
+        <span>Compose email</span>
+      </Button>
+    </div>
+  );
 }
 
-const PLAN_COLORS: Record<string, string> = {
-  FREE:       'bg-gray-500/10 text-gray-500 border-gray-500/20',
-  STARTER:    'bg-blue-500/10 text-blue-400 border-blue-500/20',
-  PRO:        'bg-brand-500/10 text-brand-400 border-brand-500/20',
-  ENTERPRISE: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
-};
-
-export default function Topbar({ title, subtitle }: TopbarProps) {
-  const [user, setUser] = useState<User | null>(null);
-  const [notifOpen, setNotifOpen] = useState(false);
-
-  useEffect(() => {
-    setUser(getStoredUser());
-  }, []);
-
-  const plan = user?.org?.plan ?? 'FREE';
-  const planColor = PLAN_COLORS[plan] ?? PLAN_COLORS.FREE;
+export default function Topbar({
+  icon,
+  title,
+  breadcrumb,
+  subtitle,
+  actions,
+  iconColor,
+  className,
+}: TopbarProps) {
+  const crumbs =
+    breadcrumb && breadcrumb.length > 0
+      ? breadcrumb
+      : subtitle && title
+        ? [title, subtitle]
+        : title
+          ? [title]
+          : [];
 
   return (
-    <header className="h-14 bg-[#080b10]/80 backdrop-blur-md border-b border-gray-800/60 flex items-center justify-between px-6 sticky top-0 z-30">
-      {/* Title */}
-      <div>
-        {title && (
-          <motion.div
-            key={title}
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2 }}
+    <header
+      className={clsx(
+        'sticky top-0 z-20 h-11 bg-white border-b border-[var(--border)] flex items-center justify-between px-4',
+        className,
+      )}
+    >
+      <div className="flex items-center gap-2 min-w-0">
+        {icon && (
+          <span
+            className="inline-flex items-center shrink-0"
+            style={iconColor ? { color: iconColor } : { color: 'var(--text-subtle)' }}
           >
-            <h1 className="text-[15px] font-semibold text-white leading-tight">{title}</h1>
-            {subtitle && <p className="text-[11px] text-gray-500 mt-0.5">{subtitle}</p>}
-          </motion.div>
+            {icon}
+          </span>
+        )}
+        {crumbs.length > 0 && (
+          <h2 className="flex items-center gap-1.5 min-w-0">
+            {crumbs.map((c, i) => {
+              const isLast = i === crumbs.length - 1;
+              return (
+                <span key={`${c}-${i}`} className="flex items-center gap-1.5 min-w-0">
+                  {i > 0 && (
+                    <span className="text-[14px] text-[var(--text-subtle)] leading-none">/</span>
+                  )}
+                  <span
+                    className={clsx(
+                      'text-[16px] leading-6 truncate',
+                      isLast
+                        ? 'font-semibold text-[var(--text)]'
+                        : 'font-medium text-[var(--text-muted)]',
+                    )}
+                  >
+                    {c}
+                  </span>
+                </span>
+              );
+            })}
+          </h2>
         )}
       </div>
 
-      {/* Right side */}
-      <div className="flex items-center gap-2">
-        {/* Notification bell */}
-        <div className="relative">
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-            onClick={() => setNotifOpen(v => !v)}
-            className="relative p-2 text-gray-600 hover:text-gray-300 rounded-lg hover:bg-gray-800/60 transition-colors"
-          >
-            <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-              <path strokeLinecap="round" strokeLinejoin="round"
-                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-            </svg>
-            {/* Dot indicator */}
-            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-brand-500 rounded-full ring-1 ring-[#080b10]" />
-          </motion.button>
-        </div>
-
-        {/* Divider */}
-        <div className="w-px h-5 bg-gray-800 mx-1" />
-
-        {/* User info */}
-        {user && (
-          <div className="flex items-center gap-2.5">
-            <div className="hidden sm:flex flex-col items-end">
-              <p className="text-[13px] font-medium text-gray-200 leading-tight">{user.name}</p>
-              <span className={clsx(
-                'text-[10px] font-semibold px-1.5 py-0 rounded-full border leading-5',
-                planColor
-              )}>
-                {plan}
-              </span>
-            </div>
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-              className="relative w-8 h-8 rounded-full cursor-pointer"
-            >
-              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-brand-500 to-purple-600 opacity-20 blur-sm" />
-              <div className="relative w-8 h-8 bg-gradient-to-br from-brand-500 to-purple-600 rounded-full flex items-center justify-center shadow-glow-sm">
-                <span className="text-white text-[11px] font-bold tracking-wide">
-                  {getInitials(user.name)}
-                </span>
-              </div>
-            </motion.div>
-          </div>
-        )}
+      <div className="flex items-center gap-1.5 shrink-0">
+        {actions ?? <DefaultActions />}
       </div>
     </header>
   );

@@ -125,16 +125,8 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
 
   const now = new Date();
 
-  // Send via the right channel
-  if (step.channel === 'EMAIL') {
-    const trackingPixel = `<img src="${config.backend.url}/api/track/open/${message.id}" width="1" height="1" style="display:none" alt="" />`;
-    const htmlBody = `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6">${body.replace(/\n/g, '<br>')}</div>${trackingPixel}`;
-    await sendEmail({ to: lead.email!, subject, body: htmlBody, html: true });
-  } else if (step.channel === 'LINKEDIN') {
-    await sendLinkedInMessage({ recipientProfileUrl: lead.linkedinUrl!, message: body });
-  }
-
-  // Record message in DB first to get the ID for tracking pixel
+  // Create the message record FIRST so we have an ID for the tracking pixel
+  // and a durable record before we hit external APIs that can't be undone.
   const message = await prisma.message.create({
     data: {
       leadId: lead.id,
@@ -146,6 +138,15 @@ export async function processCampaignLead(campaignLeadId: string): Promise<void>
       sentAt: now,
     },
   });
+
+  // Send via the right channel
+  if (step.channel === 'EMAIL') {
+    const trackingPixel = `<img src="${config.backend.url}/api/track/open/${message.id}" width="1" height="1" style="display:none" alt="" />`;
+    const htmlBody = `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6">${body.replace(/\n/g, '<br>')}</div>${trackingPixel}`;
+    await sendEmail({ to: lead.email!, subject, body: htmlBody, html: true });
+  } else if (step.channel === 'LINKEDIN') {
+    await sendLinkedInMessage({ recipientProfileUrl: lead.linkedinUrl!, message: body });
+  }
 
   // Update lead status
   if (lead.status === 'NEW' || lead.status === 'CONTACTED') {

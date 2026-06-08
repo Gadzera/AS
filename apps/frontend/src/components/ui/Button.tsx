@@ -1,58 +1,67 @@
 'use client';
 
-import { ButtonHTMLAttributes, ReactNode } from 'react';
-import { motion, HTMLMotionProps } from 'framer-motion';
+import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import clsx from 'clsx';
 
-interface ButtonProps extends Omit<HTMLMotionProps<'button'>, 'children'> {
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
-  size?: 'sm' | 'md' | 'lg';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+export type ButtonSize = 'sm' | 'md' | 'lg';
+
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
   loading?: boolean;
   children: ReactNode;
 }
 
-export default function Button({
-  variant = 'primary',
-  size = 'md',
-  loading = false,
-  className,
-  disabled,
-  children,
-  ...props
-}: ButtonProps) {
+const base =
+  'inline-flex items-center justify-center gap-1.5 font-medium rounded-md whitespace-nowrap select-none ' +
+  'transition-colors duration-100 ' +
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:ring-offset-1 ' +
+  'disabled:opacity-50 disabled:cursor-not-allowed';
+
+const variants: Record<ButtonVariant, string> = {
+  primary:
+    'bg-[var(--text)] text-white hover:bg-[#28282a]',
+  secondary:
+    'bg-white text-[var(--text)] border border-[var(--border-strong)] hover:bg-[var(--surface-2)]',
+  ghost:
+    'bg-transparent text-[var(--text-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]',
+  danger:
+    'bg-[var(--danger)] text-white hover:bg-[#9c3838]',
+};
+
+const sizes: Record<ButtonSize, string> = {
+  sm: 'h-7 px-2.5 text-[12.5px]',
+  md: 'h-8 px-3 text-[13px]',
+  lg: 'h-9 px-3.5 text-[13.5px]',
+};
+
+const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  { variant = 'primary', size = 'md', loading = false, disabled, className, children, ...props },
+  ref,
+) {
   const isDisabled = disabled || loading;
-
-  const base = 'inline-flex items-center justify-center font-medium rounded-lg transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#080b10] disabled:opacity-40 disabled:cursor-not-allowed select-none whitespace-nowrap';
-
-  const variants = {
-    primary:   'bg-gradient-to-r from-brand-500 to-purple-600 hover:from-brand-600 hover:to-purple-700 text-white shadow-glow-sm focus:ring-brand-500',
-    secondary: 'bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 hover:border-gray-600 focus:ring-gray-600',
-    danger:    'bg-red-600 hover:bg-red-700 text-white focus:ring-red-500 shadow-lg shadow-red-900/30',
-    ghost:     'bg-transparent hover:bg-gray-800/80 text-gray-400 hover:text-gray-200 focus:ring-gray-700',
-  };
-
-  const sizes = {
-    sm: 'px-3 py-1.5 text-xs gap-1.5',
-    md: 'px-4 py-2 text-sm gap-2',
-    lg: 'px-5 py-2.5 text-sm gap-2',
-  };
-
   return (
-    <motion.button
-      whileTap={isDisabled ? {} : { scale: 0.97 }}
-      whileHover={isDisabled ? {} : { scale: 1.01 }}
-      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-      className={clsx(base, variants[variant], sizes[size], className)}
+    <button
+      ref={ref}
       disabled={isDisabled}
+      className={clsx(base, variants[variant], sizes[size], className)}
       {...props}
     >
       {loading && (
-        <svg className="animate-spin h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        <svg
+          className="animate-spin h-3 w-3 shrink-0"
+          fill="none"
+          viewBox="0 0 24 24"
+          aria-hidden
+        >
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
         </svg>
       )}
       {children}
-    </motion.button>
+    </button>
   );
-}
+});
+
+export default Button;

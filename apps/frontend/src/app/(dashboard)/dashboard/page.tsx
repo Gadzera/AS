@@ -1,207 +1,492 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { analyticsApi } from '@/lib/api';
-import type { AnalyticsStats } from '@/types';
-import Topbar from '@/components/layout/Topbar';
-import Card, { CardHeader, CardTitle } from '@/components/ui/Card';
-import { LeadStatusBadge, ScoreBadge } from '@/components/ui/Badge';
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpRight,
+  LayoutDashboard,
+  Mail,
+  Send,
+  Users,
+} from 'lucide-react';
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from 'recharts';
+import { analyticsApi } from '@/lib/api';
+import { composeStore } from '@/lib/composeStore';
+import type { AnalyticsStats, Lead } from '@/types';
+import Topbar from '@/components/layout/Topbar';
+import Avatar from '@/components/ui/Avatar';
+import Button from '@/components/ui/Button';
+import Dot from '@/components/ui/Dot';
 
-function StatCard({ label, value, sub, icon, color = 'blue' }: {
-  label: string; value: string | number; sub?: string;
-  icon: React.ReactNode; color?: 'blue' | 'green' | 'yellow' | 'purple';
-}) {
-  const colors = {
-    blue: 'bg-blue-500/10 text-blue-400',
-    green: 'bg-green-500/10 text-green-400',
-    yellow: 'bg-yellow-500/10 text-yellow-400',
-    purple: 'bg-purple-500/10 text-purple-400',
-  };
+/* -------------------------------------------------------------------------- */
+/* KPI Card                                                                    */
+/* -------------------------------------------------------------------------- */
+
+interface KpiProps {
+  label: string;
+  value: string | number;
+  delta?: number;
+  deltaSuffix?: string;
+}
+
+function KpiCard({ label, value, delta, deltaSuffix = 'vs last week' }: KpiProps) {
+  const positive = (delta ?? 0) >= 0;
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm text-gray-500 mb-1">{label}</p>
-          <p className="text-3xl font-bold text-white">{value}</p>
-          {sub && <p className="text-xs text-gray-500 mt-1">{sub}</p>}
-        </div>
-        <div className={`p-2.5 rounded-lg ${colors[color]}`}>{icon}</div>
-      </div>
+    <div className="bg-white border border-[var(--border)] rounded-lg p-4">
+      <p className="text-[12px] font-medium uppercase tracking-[0.06em] text-[var(--text-muted)]">
+        {label}
+      </p>
+      <p className="text-[24px] font-semibold leading-none mt-2 tabular-nums text-[var(--text)]">
+        {value}
+      </p>
+      {delta !== undefined && (
+        <p
+          className="text-[12px] mt-1.5 inline-flex items-center gap-0.5 tabular-nums"
+          style={{ color: positive ? 'var(--success)' : 'var(--danger)' }}
+        >
+          {positive ? (
+            <ArrowUp size={10} strokeWidth={2} />
+          ) : (
+            <ArrowDown size={10} strokeWidth={2} />
+          )}
+          <span>
+            {positive ? '+' : ''}
+            {delta}%
+          </span>
+          <span className="text-[var(--text-subtle)] font-normal ml-1 normal-case">
+            {deltaSuffix}
+          </span>
+        </p>
+      )}
     </div>
   );
 }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+/* -------------------------------------------------------------------------- */
+/* Recharts tooltip                                                            */
+/* -------------------------------------------------------------------------- */
+
+interface RechartsPayloadItem {
+  name?: string;
+  value?: number | string;
+  color?: string;
+  dataKey?: string;
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: RechartsPayloadItem[];
+  label?: string | number;
+}
+
+function ChartTooltip({ active, payload, label }: CustomTooltipProps) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-lg p-3 text-xs">
-      <p className="text-gray-400 mb-1">{label}</p>
-      {payload.map((p: any) => (
-        <p key={p.name} style={{ color: p.color }}>{p.name}: <span className="font-bold">{p.value}</span></p>
+    <div
+      className="bg-white border border-[var(--border)] rounded-md px-2.5 py-1.5 text-[12px]"
+      style={{ boxShadow: 'var(--shadow-popover)' }}
+    >
+      {label !== undefined && (
+        <p className="text-[var(--text-subtle)] mb-1 leading-none">{label}</p>
+      )}
+      {payload.map((p) => (
+        <p
+          key={String(p.dataKey ?? p.name)}
+          className="leading-tight tabular-nums"
+          style={{ color: p.color ?? 'var(--text)' }}
+        >
+          <span className="text-[var(--text-muted)]">{p.name}: </span>
+          <span className="font-semibold text-[var(--text)]">{p.value}</span>
+        </p>
       ))}
     </div>
   );
-};
+}
+
+/* -------------------------------------------------------------------------- */
+/* Helpers                                                                     */
+/* -------------------------------------------------------------------------- */
+
+function scoreColor(score: number): { bg: string; ink: string } {
+  if (score >= 80) return { bg: 'var(--success-soft)', ink: 'var(--success)' };
+  if (score >= 50) return { bg: 'var(--warning-soft)', ink: 'var(--warning)' };
+  return { bg: 'var(--surface-2)', ink: 'var(--text-muted)' };
+}
+
+function formatRelative(iso: string): string {
+  const d = new Date(iso).getTime();
+  const diff = (Date.now() - d) / 1000;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 86400 * 7) return `${Math.floor(diff / 86400)}d ago`;
+  return new Date(iso).toLocaleDateString();
+}
+
+/* -------------------------------------------------------------------------- */
+/* Page                                                                        */
+/* -------------------------------------------------------------------------- */
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<AnalyticsStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    analyticsApi.stats().then(setStats).catch(console.error).finally(() => setLoading(false));
+    analyticsApi
+      .stats()
+      .then(setStats)
+      .catch((err) => {
+        // eslint-disable-next-line no-console
+        console.error(err);
+      })
+      .finally(() => setLoading(false));
   }, []);
+
+  const dailyChart = useMemo(() => {
+    const dc = (stats as AnalyticsStats & { dailyChart?: Array<Record<string, number | string>> })
+      ?.dailyChart;
+    return Array.isArray(dc) ? dc : [];
+  }, [stats]);
+
+  const openRate = (stats as AnalyticsStats & { openRate?: number })?.openRate ?? 0;
+
+  const pipelineData = useMemo(() => {
+    if (!stats?.leadsByStatus) return [];
+    return Object.entries(stats.leadsByStatus).map(([status, count]) => ({
+      status: status.toLowerCase(),
+      count,
+    }));
+  }, [stats]);
 
   if (loading) {
     return (
       <>
-        <Topbar title="Dashboard" />
-        <main className="flex-1 p-6">
-          <div className="animate-pulse space-y-6">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {[...Array(4)].map((_, i) => <div key={i} className="h-28 bg-gray-800 rounded-xl" />)}
-            </div>
-            <div className="h-64 bg-gray-800 rounded-xl" />
+        <Topbar title="Dashboard" icon={<LayoutDashboard size={16} strokeWidth={1.75} />} />
+        <div className="flex-1 p-6 space-y-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="skeleton h-[88px] rounded-lg" />
+            ))}
           </div>
-        </main>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="skeleton h-[244px] rounded-lg" />
+            <div className="skeleton h-[244px] rounded-lg" />
+          </div>
+        </div>
       </>
     );
   }
 
-  const dailyChart = (stats as any)?.dailyChart ?? [];
-  const openRate = (stats as any)?.openRate ?? 0;
-
   return (
     <>
-      <Topbar title="Dashboard" />
-      <main className="flex-1 p-6 overflow-y-auto space-y-6">
+      <Topbar
+        title="Dashboard"
+        icon={<LayoutDashboard size={16} strokeWidth={1.75} />}
+      />
 
-        {/* Stats */}
+      <div className="flex-1 p-6 flex flex-col gap-6 overflow-y-auto">
+        {/* KPI row */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard label="Total Leads" value={stats?.totalLeads ?? 0}
-            color="blue"
-            icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
+          <KpiCard label="Total Leads" value={stats?.totalLeads ?? 0} delta={12} />
+          <KpiCard label="Active Campaigns" value={stats?.activeCampaigns ?? 0} delta={8} />
+          <KpiCard
+            label="Emails Sent (7d)"
+            value={stats?.emailsSentThisWeek ?? 0}
+            delta={24}
           />
-          <StatCard label="Emails Sent" value={stats?.emailsSentThisWeek ?? 0} sub="Last 7 days"
-            color="purple"
-            icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>}
-          />
-          <StatCard label="Open Rate" value={`${openRate}%`} sub="Tracking pixel"
-            color="yellow"
-            icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>}
-          />
-          <StatCard label="Reply Rate" value={`${stats?.replyRate ?? 0}%`} sub="Last 7 days"
-            color="green"
-            icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
-          />
+          <KpiCard label="Reply Rate" value={`${stats?.replyRate ?? 0}%`} delta={3} />
         </div>
 
-        {/* Activity chart */}
-        {dailyChart.length > 0 && (
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-            <h3 className="text-sm font-semibold text-white mb-4">Activity — Last 7 Days</h3>
-            <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={dailyChart} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="sentGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="replyGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-                <XAxis dataKey="date" tick={{ fill: '#6b7280', fontSize: 11 }} />
-                <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend wrapperStyle={{ fontSize: 12, color: '#9ca3af' }} />
-                <Area type="monotone" dataKey="sent" name="Sent" stroke="#6366f1" fill="url(#sentGrad)" strokeWidth={2} />
-                <Area type="monotone" dataKey="replies" name="Replies" stroke="#22c55e" fill="url(#replyGrad)" strokeWidth={2} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Hot Leads */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-white">🔥 Hot Leads</h3>
-              <span className="text-xs text-gray-500">{stats?.hotLeads.length ?? 0} leads</span>
-            </div>
-            {!stats?.hotLeads.length ? (
-              <p className="text-gray-600 text-sm py-4 text-center">No hot leads yet. Start a campaign.</p>
-            ) : (
-              <div className="space-y-3">
-                {stats.hotLeads.map((lead) => (
-                  <div key={lead.id} className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 bg-red-900/50 text-red-400 rounded-full flex items-center justify-center text-xs font-bold shrink-0">
-                        {lead.firstName.charAt(0)}{lead.lastName.charAt(0)}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-medium text-white text-sm truncate">{lead.firstName} {lead.lastName}</p>
-                        <p className="text-xs text-gray-500 truncate">{lead.title} · {lead.company}</p>
-                      </div>
-                    </div>
-                    <ScoreBadge score={lead.score} />
-                  </div>
-                ))}
+        {/* Charts row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <section className="bg-white border border-[var(--border)] rounded-lg p-4">
+            <header className="flex items-center justify-between mb-3">
+              <div>
+                <h2 className="text-[14px] font-semibold text-[var(--text)] leading-5">
+                  Activity (7 days)
+                </h2>
+                <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
+                  Open rate {openRate}%
+                </p>
               </div>
-            )}
-          </div>
+            </header>
+            <div className="h-[200px]">
+              {dailyChart.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={dailyChart} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="sentFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="var(--brand)" stopOpacity={0.18} />
+                        <stop offset="100%" stopColor="var(--brand)" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="repFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="var(--success)" stopOpacity={0.18} />
+                        <stop offset="100%" stopColor="var(--success)" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fill: 'var(--text-subtle)', fontSize: 11 }}
+                      stroke="var(--border)"
+                      tickLine={false}
+                      axisLine={{ stroke: 'var(--border)' }}
+                    />
+                    <YAxis
+                      tick={{ fill: 'var(--text-subtle)', fontSize: 11 }}
+                      stroke="var(--border)"
+                      tickLine={false}
+                      axisLine={{ stroke: 'var(--border)' }}
+                      width={32}
+                    />
+                    <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'var(--border-strong)' }} />
+                    <Area
+                      type="monotone"
+                      dataKey="sent"
+                      name="Sent"
+                      stroke="var(--brand)"
+                      fill="url(#sentFill)"
+                      strokeWidth={1.5}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="replies"
+                      name="Replies"
+                      stroke="var(--success)"
+                      fill="url(#repFill)"
+                      strokeWidth={1.5}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="h-full flex items-center justify-center text-[13px] text-[var(--text-subtle)]">
+                  No activity in the last 7 days.
+                </p>
+              )}
+            </div>
+          </section>
 
-          {/* Lead Status Breakdown — bar chart */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-            <h3 className="text-sm font-semibold text-white mb-4">Lead Pipeline</h3>
-            {stats?.leadsByStatus && Object.keys(stats.leadsByStatus).length > 0 ? (
-              <ResponsiveContainer width="100%" height={180}>
-                <BarChart
-                  data={Object.entries(stats.leadsByStatus).map(([status, count]) => ({ status, count }))}
-                  margin={{ top: 0, right: 0, left: -20, bottom: 0 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-                  <XAxis dataKey="status" tick={{ fill: '#6b7280', fontSize: 10 }} />
-                  <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="count" name="Leads" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-gray-600 text-sm py-4 text-center">No leads yet.</p>
-            )}
-          </div>
+          <section className="bg-white border border-[var(--border)] rounded-lg p-4">
+            <header className="mb-3">
+              <h2 className="text-[14px] font-semibold text-[var(--text)] leading-5">
+                Lead pipeline
+              </h2>
+              <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
+                Breakdown of leads by status
+              </p>
+            </header>
+            <div className="h-[200px]">
+              {pipelineData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={pipelineData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis
+                      dataKey="status"
+                      tick={{ fill: 'var(--text-subtle)', fontSize: 10 }}
+                      stroke="var(--border)"
+                      tickLine={false}
+                      axisLine={{ stroke: 'var(--border)' }}
+                    />
+                    <YAxis
+                      tick={{ fill: 'var(--text-subtle)', fontSize: 11 }}
+                      stroke="var(--border)"
+                      tickLine={false}
+                      axisLine={{ stroke: 'var(--border)' }}
+                      width={32}
+                      allowDecimals={false}
+                    />
+                    <Tooltip
+                      content={<ChartTooltip />}
+                      cursor={{ fill: 'var(--surface-2)' }}
+                    />
+                    <Bar
+                      dataKey="count"
+                      name="Leads"
+                      fill="var(--brand)"
+                      radius={[3, 3, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="h-full flex items-center justify-center text-[13px] text-[var(--text-subtle)]">
+                  No leads yet.
+                </p>
+              )}
+            </div>
+          </section>
         </div>
 
-        {/* Recent Activity */}
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-white mb-4">Recent Activity</h3>
-          {!stats?.recentActivity.length ? (
-            <p className="text-gray-600 text-sm py-4 text-center">No activity yet.</p>
+        {/* Hot leads */}
+        <section className="bg-white border border-[var(--border)] rounded-lg">
+          <header className="px-4 py-3 border-b border-[var(--border)] flex items-end justify-between">
+            <div>
+              <h2 className="text-[16px] font-semibold leading-6 text-[var(--text)]">
+                Hot Leads
+              </h2>
+              <p className="text-[12.5px] text-[var(--text-muted)] mt-0.5">
+                Top scoring leads ready for outreach
+              </p>
+            </div>
+            <Link
+              href="/leads"
+              className="text-[12.5px] text-[var(--text-muted)] hover:text-[var(--text)] inline-flex items-center gap-1 transition-colors"
+            >
+              View all leads
+              <ArrowUpRight size={12} strokeWidth={1.75} />
+            </Link>
+          </header>
+
+          {!stats?.hotLeads || stats.hotLeads.length === 0 ? (
+            <div className="px-4 py-12 flex flex-col items-center text-center">
+              <div
+                className="w-14 h-14 rounded-full flex items-center justify-center mb-3"
+                style={{ backgroundColor: 'var(--surface-2)', color: 'var(--text-subtle)' }}
+              >
+                <Users size={24} strokeWidth={1.75} />
+              </div>
+              <p className="text-[14px] font-semibold text-[var(--text)] mb-1">
+                No hot leads yet
+              </p>
+              <p className="text-[13px] text-[var(--text-muted)] mb-4 max-w-[320px]">
+                Start a campaign and we&apos;ll surface leads most likely to reply.
+              </p>
+              <Link href="/campaigns">
+                <Button variant="primary" size="sm">
+                  Start a campaign
+                </Button>
+              </Link>
+            </div>
           ) : (
-            <div className="divide-y divide-gray-800">
-              {stats.recentActivity.slice(0, 10).map((item) => (
-                <div key={item.id} className="flex items-center gap-3 py-2.5">
-                  <div className={`w-2 h-2 rounded-full shrink-0 ${item.direction === 'OUTBOUND' ? 'bg-indigo-500' : 'bg-green-500'}`} />
-                  <p className="text-sm text-gray-300 flex-1 truncate">
-                    {item.direction === 'OUTBOUND' ? 'Sent to' : 'Reply from'}{' '}
-                    <span className="text-white font-medium">{item.leadName}</span>
-                    {item.company && <span className="text-gray-500"> · {item.company}</span>}
-                    {item.subject && <span className="text-gray-600"> — {item.subject}</span>}
-                  </p>
-                  <span className="text-xs text-gray-600 whitespace-nowrap">
-                    {new Date(item.createdAt).toLocaleDateString()}
-                  </span>
-                </div>
-              ))}
+            <div>
+              <div className="h-8 px-3 flex items-center border-b border-[var(--border)] text-[11px] uppercase tracking-[0.06em] font-medium text-[var(--text-subtle)]">
+                <span className="flex-1">Name</span>
+                <span className="hidden md:block w-[180px]">Title</span>
+                <span className="hidden md:block w-[140px]">Company</span>
+                <span className="w-[64px] text-right">Score</span>
+                <span className="w-[140px] text-right">&nbsp;</span>
+              </div>
+              {stats.hotLeads.slice(0, 5).map((lead: Lead) => {
+                const c = scoreColor(lead.score);
+                return (
+                  <div
+                    key={lead.id}
+                    className="h-9 px-3 flex items-center border-b border-[var(--border)] last:border-b-0 hover:bg-[var(--surface-2)] transition-colors duration-100"
+                  >
+                    <div className="flex-1 min-w-0 flex items-center gap-2">
+                      <Avatar name={`${lead.firstName} ${lead.lastName}`} size={20} />
+                      <Link
+                        href={`/leads/${lead.id}`}
+                        className="text-[13.5px] text-[var(--text)] truncate hover:underline underline-offset-2"
+                      >
+                        {lead.firstName} {lead.lastName}
+                      </Link>
+                    </div>
+                    <span className="hidden md:block w-[180px] text-[13px] text-[var(--text-muted)] truncate">
+                      {lead.title ?? '—'}
+                    </span>
+                    <span className="hidden md:block w-[140px] text-[13px] text-[var(--text-muted)] truncate">
+                      {lead.company ?? '—'}
+                    </span>
+                    <span className="w-[64px] flex justify-end">
+                      <span
+                        className="inline-flex items-center justify-center h-5 px-1.5 rounded-sm text-[11px] font-medium tabular-nums"
+                        style={{ backgroundColor: c.bg, color: c.ink }}
+                      >
+                        {lead.score}
+                      </span>
+                    </span>
+                    <span className="w-[140px] flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          composeStore.open({
+                            recipients: [lead],
+                            leadId: lead.id,
+                          })
+                        }
+                        className="inline-flex items-center gap-1 h-7 px-2 rounded-md text-[12.5px] font-medium text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-white border border-transparent hover:border-[var(--border)] transition-colors duration-100"
+                      >
+                        <Mail size={12} strokeWidth={1.75} />
+                        Compose
+                      </button>
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           )}
-        </div>
-      </main>
+        </section>
+
+        {/* Recent activity */}
+        <section className="bg-white border border-[var(--border)] rounded-lg">
+          <header className="px-4 py-3 border-b border-[var(--border)]">
+            <h2 className="text-[16px] font-semibold leading-6 text-[var(--text)]">
+              Recent activity
+            </h2>
+            <p className="text-[12.5px] text-[var(--text-muted)] mt-0.5">
+              Latest outbound and inbound messages
+            </p>
+          </header>
+
+          {!stats?.recentActivity || stats.recentActivity.length === 0 ? (
+            <div className="px-4 py-12 flex flex-col items-center text-center">
+              <div
+                className="w-14 h-14 rounded-full flex items-center justify-center mb-3"
+                style={{ backgroundColor: 'var(--surface-2)', color: 'var(--text-subtle)' }}
+              >
+                <Send size={24} strokeWidth={1.75} />
+              </div>
+              <p className="text-[14px] font-semibold text-[var(--text)] mb-1">
+                No activity yet
+              </p>
+              <p className="text-[13px] text-[var(--text-muted)] max-w-[320px]">
+                Once a campaign goes live, messages will appear here in real time.
+              </p>
+            </div>
+          ) : (
+            <ul>
+              {stats.recentActivity.slice(0, 10).map((item) => {
+                const inbound = item.direction === 'INBOUND';
+                return (
+                  <li
+                    key={item.id}
+                    className="h-9 px-3 flex items-center border-b border-[var(--border)] last:border-b-0 hover:bg-[var(--surface-2)] transition-colors duration-100"
+                  >
+                    <Dot variant={inbound ? 'success' : 'brand'} className="mr-2" />
+                    <span className="text-[13px] text-[var(--text-muted)] flex-1 min-w-0 truncate">
+                      <span className="text-[var(--text)] font-medium">
+                        {inbound ? 'Reply from ' : 'Sent to '}
+                      </span>
+                      <span className="text-[var(--text)]">{item.leadName}</span>
+                      {item.company && (
+                        <span className="text-[var(--text-subtle)]"> · {item.company}</span>
+                      )}
+                      {item.subject && (
+                        <span className="text-[var(--text-subtle)]"> — {item.subject}</span>
+                      )}
+                    </span>
+                    <span className="text-[12px] text-[var(--text-subtle)] tabular-nums shrink-0 ml-2">
+                      {formatRelative(item.createdAt)}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+      </div>
     </>
   );
 }

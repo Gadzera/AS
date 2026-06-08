@@ -79,13 +79,13 @@ export default function OutreachPage() {
           {/* Left: Config */}
           <div className="space-y-4">
             <Card padding="md">
-              <h2 className="font-semibold text-white mb-4">Message Settings</h2>
+              <h2 className="font-semibold text-ink mb-4">Message Settings</h2>
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-xs font-medium text-gray-400 uppercase tracking-wide">Select Lead *</label>
+                  <label className="text-xs font-medium text-ink-muted uppercase tracking-wide">Select Lead *</label>
                   <select
-                    className="mt-1 block w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/70"
+                    className="mt-1 block w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/70"
                     value={selectedLeadId}
                     onChange={(e) => setSelectedLeadId(e.target.value)}
                   >
@@ -100,9 +100,9 @@ export default function OutreachPage() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-gray-400 uppercase tracking-wide">Campaign (optional)</label>
+                  <label className="text-xs font-medium text-ink-muted uppercase tracking-wide">Campaign (optional)</label>
                   <select
-                    className="mt-1 block w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/70"
+                    className="mt-1 block w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/70"
                     value={selectedCampaignId}
                     onChange={(e) => setSelectedCampaignId(e.target.value)}
                   >
@@ -115,9 +115,9 @@ export default function OutreachPage() {
 
                 <div className="flex gap-3">
                   <div className="flex-1">
-                    <label className="text-xs font-medium text-gray-400 uppercase tracking-wide">Language</label>
+                    <label className="text-xs font-medium text-ink-muted uppercase tracking-wide">Language</label>
                     <select
-                      className="mt-1 block w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/70"
+                      className="mt-1 block w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/70"
                       value={language}
                       onChange={(e) => setLanguage(e.target.value as 'en' | 'ru' | 'de')}
                     >
@@ -127,9 +127,9 @@ export default function OutreachPage() {
                     </select>
                   </div>
                   <div className="flex-1">
-                    <label className="text-xs font-medium text-gray-400 uppercase tracking-wide">Tone</label>
+                    <label className="text-xs font-medium text-ink-muted uppercase tracking-wide">Tone</label>
                     <select
-                      className="mt-1 block w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/70"
+                      className="mt-1 block w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/70"
                       value={tone}
                       onChange={(e) => setTone(e.target.value as typeof tone)}
                     >
@@ -143,39 +143,39 @@ export default function OutreachPage() {
             </Card>
 
             <Card padding="md">
-              <h2 className="font-semibold text-white mb-4">Your Info (optional)</h2>
+              <h2 className="font-semibold text-ink mb-4">Your Info (optional)</h2>
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs font-medium text-gray-400 uppercase tracking-wide">Your name</label>
+                  <label className="text-xs font-medium text-ink-muted uppercase tracking-wide">Your name</label>
                   <input
-                    className="mt-1 block w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/70"
+                    className="mt-1 block w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/70"
                     placeholder="Jane Smith"
                     value={senderName}
                     onChange={(e) => setSenderName(e.target.value)}
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-400 uppercase tracking-wide">Your title</label>
+                  <label className="text-xs font-medium text-ink-muted uppercase tracking-wide">Your title</label>
                   <input
-                    className="mt-1 block w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/70"
+                    className="mt-1 block w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/70"
                     placeholder="VP Sales, Acme Inc."
                     value={senderTitle}
                     onChange={(e) => setSenderTitle(e.target.value)}
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-400 uppercase tracking-wide">Your company</label>
+                  <label className="text-xs font-medium text-ink-muted uppercase tracking-wide">Your company</label>
                   <input
-                    className="mt-1 block w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/70"
+                    className="mt-1 block w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/70"
                     placeholder="Acme Inc."
                     value={senderCompany}
                     onChange={(e) => setSenderCompany(e.target.value)}
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-400 uppercase tracking-wide">Value proposition</label>
+                  <label className="text-xs font-medium text-ink-muted uppercase tracking-wide">Value proposition</label>
                   <textarea
-                    className="mt-1 block w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/70"
+                    className="mt-1 block w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/70"
                     rows={3}
                     placeholder="We help SaaS companies increase reply rates by 3x..."
                     value={valueProposition}
@@ -205,16 +205,16 @@ export default function OutreachPage() {
             {/* Lead preview */}
             {selectedLead && (
               <Card padding="md" className="mb-4">
-                <h3 className="text-sm font-medium text-gray-500 mb-2">Writing for:</h3>
+                <h3 className="text-sm font-medium text-ink-muted mb-2">Writing for:</h3>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-brand-500/10 text-brand-400 rounded-full flex items-center justify-center font-bold">
+                  <div className="w-10 h-10 bg-brand-50 text-brand-700 rounded-full flex items-center justify-center font-bold">
                     {selectedLead.firstName.charAt(0)}{selectedLead.lastName.charAt(0)}
                   </div>
                   <div>
-                    <p className="font-semibold text-white">
+                    <p className="font-semibold text-ink">
                       {selectedLead.firstName} {selectedLead.lastName}
                     </p>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-ink-muted">
                       {selectedLead.title}{selectedLead.company ? ` · ${selectedLead.company}` : ''}
                     </p>
                   </div>
@@ -224,7 +224,7 @@ export default function OutreachPage() {
 
             <Card padding="md">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="font-semibold text-white">Generated Message</h2>
+                <h2 className="font-semibold text-ink">Generated Message</h2>
                 {result && (
                   <Button size="sm" variant="secondary" onClick={handleCopy}>
                     {copied ? 'Copied!' : 'Copy'}
@@ -235,7 +235,7 @@ export default function OutreachPage() {
               {generating && (
                 <div className="py-16 text-center">
                   <div className="animate-spin w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full mx-auto mb-4" />
-                  <p className="text-gray-500 text-sm">Claude is writing your personalized message...</p>
+                  <p className="text-ink-muted text-sm">Claude is writing your personalized message...</p>
                 </div>
               )}
 
@@ -249,16 +249,16 @@ export default function OutreachPage() {
                 <div className="space-y-4">
                   {result.subject && (
                     <div>
-                      <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</label>
-                      <div className="mt-1.5 p-3 bg-gray-800/60 border border-gray-700/60 rounded-lg text-sm font-medium text-gray-200">
+                      <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">Subject</label>
+                      <div className="mt-1.5 p-3 bg-surface-2/60 border border-line rounded-lg text-sm font-medium text-ink">
                         {result.subject}
                       </div>
                     </div>
                   )}
                   <div>
-                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Body</label>
+                    <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">Body</label>
                     <textarea
-                      className="mt-1 w-full border border-gray-700 bg-gray-900 rounded-lg p-3 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/70 resize-none"
+                      className="mt-1 w-full border border-line-strong bg-surface rounded-lg p-3 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/70 resize-none"
                       rows={16}
                       value={result.body}
                       onChange={(e) => setResult({ ...result, body: e.target.value })}
@@ -271,8 +271,8 @@ export default function OutreachPage() {
               )}
 
               {!result && !generating && !error && (
-                <div className="py-16 text-center text-gray-400">
-                  <svg className="w-12 h-12 mx-auto mb-3 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="py-16 text-center text-ink-muted">
+                  <svg className="w-12 h-12 mx-auto mb-3 text-ink" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1}
                       d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                   </svg>

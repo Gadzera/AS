@@ -1,268 +1,212 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { api } from '@/lib/api';
-import { Lead, Message } from '@/types';
-import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
-import { Card, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Modal } from '@/components/ui/Modal';
-import { Input } from '@/components/ui/Input';
+import { ChevronLeft, Sidebar as SidebarIcon, X } from 'lucide-react';
+import { leadsApi } from '@/lib/api';
+import Topbar from '@/components/layout/Topbar';
+import { useToast } from '@/components/ui/Toast';
+import Skeleton, { SkeletonText } from '@/components/ui/Skeleton';
+import LeadHeader from '@/components/leads/LeadHeader';
+import LeadTabs, { type LeadTabId } from '@/components/leads/LeadTabs';
+import ActivityFeed from '@/components/leads/ActivityFeed';
+import EmailsTab from '@/components/leads/EmailsTab';
+import NotesTab from '@/components/leads/NotesTab';
+import CallsTab from '@/components/leads/CallsTab';
+import TasksTab from '@/components/leads/TasksTab';
+import FilesTab from '@/components/leads/FilesTab';
+import RightPanel from '@/components/leads/RightPanel';
+import type { Lead, Message } from '@/types';
+
+interface CampaignLead {
+  campaign: { id: string; name: string; status: string };
+  currentStep: number;
+  status: string;
+  nextSendAt: string | null;
+  createdAt?: string;
+}
 
 interface LeadDetail extends Lead {
   messages: Message[];
-  campaignLeads: Array<{
-    campaign: { id: string; name: string; status: string };
-    currentStep: number;
-    status: string;
-    nextSendAt: string | null;
-  }>;
+  campaignLeads: CampaignLead[];
 }
 
 export default function LeadDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const toast = useToast();
+
   const [lead, setLead] = useState<LeadDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [replyModal, setReplyModal] = useState<{ messageId: string; body: string } | null>(null);
-  const [replyText, setReplyText] = useState('');
-  const [autoReply, setAutoReply] = useState('');
-  const [generatingReply, setGeneratingReply] = useState(false);
+  const [tab, setTab] = useState<LeadTabId>('activity');
+  const [panelOpen, setPanelOpen] = useState(false); // mobile drawer
 
-  useEffect(() => {
-    api.leads.get(id).then((data) => {
-      setLead(data as LeadDetail);
-      setLoading(false);
-    });
-  }, [id]);
-
-  const handleGenerateReply = async () => {
-    if (!replyModal) return;
-    setGeneratingReply(true);
+  const fetchLead = useCallback(async () => {
     try {
-      const result = await api.outreach.autoReply({
-        messageId: replyModal.messageId,
-        replyText,
-        language: 'en',
-        send: false,
-      });
-      setAutoReply(result.body);
+      const data = await leadsApi.get(id);
+      setLead(data as unknown as LeadDetail);
+    } catch (err: unknown) {
+      const err_ = err as { response?: { status?: number } };
+      if (err_?.response?.status === 404) {
+        toast.error('Lead not found');
+      } else {
+        toast.error('Failed to load lead');
+      }
     } finally {
-      setGeneratingReply(false);
+      setLoading(false);
     }
+  }, [id, toast]);
+
+  useEffect(() => { void fetchLead(); }, [fetchLead]);
+
+  const fullName = lead ? `${lead.firstName ?? ''} ${lead.lastName ?? ''}`.trim() || 'Lead' : 'Lead';
+
+  const counts: Partial<Record<LeadTabId, number>> = {
+    emails: (lead?.messages ?? []).filter((m) => m.channel === 'EMAIL').length,
+    notes: lead?.notes ? lead.notes.split(/\n{2,}/).filter((s) => s.trim()).length : 0,
+    calls: 0,
+    tasks: 0,
+    files: 0,
   };
 
-  const handleSendReply = async () => {
-    if (!replyModal) return;
-    await api.outreach.autoReply({
-      messageId: replyModal.messageId,
-      replyText,
-      language: 'en',
-      send: true,
-    });
-    setReplyModal(null);
-    setReplyText('');
-    setAutoReply('');
-    const data = await api.leads.get(id);
-    setLead(data as LeadDetail);
-  };
+  if (loading) {
+    return (
+      <>
+        <Topbar
+          icon={<SidebarIcon size={14} strokeWidth={1.75} />}
+          title="Leads"
+          subtitle="Loading…"
+        />
+        <div className="flex h-[calc(100vh-44px)]">
+          <div className="flex-1 min-w-0 flex flex-col">
+            <div className="h-16 px-6 flex items-center gap-4 border-b border-[var(--border)] bg-white">
+              <Skeleton className="w-10 h-10" rounded="full" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-3 w-32" />
+              </div>
+            </div>
+            <div className="h-10 border-b border-[var(--border)] bg-white" />
+            <div className="p-6 space-y-3 max-w-2xl">
+              <SkeletonText lines={6} />
+            </div>
+          </div>
+          <aside className="w-80 shrink-0 border-l border-[var(--border)] bg-white p-4 space-y-3">
+            <SkeletonText lines={8} />
+          </aside>
+        </div>
+      </>
+    );
+  }
 
-  if (loading) return <div className="p-8 text-gray-400">Loading...</div>;
-  if (!lead) return <div className="p-8 text-gray-400">Lead not found</div>;
-
-  const outbound = lead.messages.filter((m) => m.direction === 'OUTBOUND');
-  const inbound = lead.messages.filter((m) => m.direction === 'INBOUND');
+  if (!lead) {
+    return (
+      <>
+        <Topbar title="Leads" subtitle="Not found" />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <h2 className="text-[16px] font-semibold text-[var(--text)]">Lead not found</h2>
+            <p className="text-[13.5px] text-[var(--text-muted)] mt-1">
+              It may have been deleted or you don&apos;t have access.
+            </p>
+            <button
+              onClick={() => router.push('/leads')}
+              className="mt-4 text-[13px] text-[var(--brand)] hover:underline"
+            >
+              ← Back to leads
+            </button>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-6">
-      <button onClick={() => router.back()} className="text-sm text-gray-400 hover:text-white mb-2 flex items-center gap-1">
-        ← Back to leads
-      </button>
+    <>
+      <Topbar
+        icon={
+          <button
+            type="button"
+            onClick={() => router.push('/leads')}
+            aria-label="Back to leads"
+            className="w-6 h-6 inline-flex items-center justify-center rounded text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-2)] transition-colors duration-100"
+          >
+            <ChevronLeft size={14} strokeWidth={1.75} />
+          </button>
+        }
+        title="Leads"
+        subtitle={fullName}
+        actions={
+          <button
+            type="button"
+            onClick={() => setPanelOpen((v) => !v)}
+            className="md:hidden inline-flex items-center gap-1 h-7 px-2 rounded-md text-[12.5px] font-medium text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-2)] transition-colors duration-100"
+          >
+            Details
+          </button>
+        }
+      />
 
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">
-            {lead.firstName} {lead.lastName}
-          </h1>
-          <p className="text-gray-400 mt-1">
-            {lead.title}{lead.company ? ` · ${lead.company}` : ''}
-          </p>
-          {lead.country && <p className="text-gray-500 text-sm">{lead.city ? `${lead.city}, ` : ''}{lead.country}</p>}
-        </div>
-        <div className="flex items-center gap-3">
-          <Badge variant={lead.status as never}>{lead.status}</Badge>
-          <div className="bg-gray-800 rounded-lg px-3 py-1 text-sm font-semibold text-white">
-            Score: {lead.score}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-6">
-        {/* Lead info */}
-        <div className="col-span-1 space-y-4">
-          <Card>
-            <CardHeader><CardTitle>Contact</CardTitle></CardHeader>
-            <div className="p-4 space-y-3 text-sm">
-              {lead.email && (
-                <div>
-                  <p className="text-gray-500 text-xs">Email</p>
-                  <a href={`mailto:${lead.email}`} className="text-indigo-400 hover:underline">{lead.email}</a>
-                </div>
-              )}
-              {lead.linkedinUrl && (
-                <div>
-                  <p className="text-gray-500 text-xs">LinkedIn</p>
-                  <a href={lead.linkedinUrl} target="_blank" rel="noreferrer" className="text-indigo-400 hover:underline truncate block">View Profile</a>
-                </div>
-              )}
-              {lead.website && (
-                <div>
-                  <p className="text-gray-500 text-xs">Website</p>
-                  <a href={lead.website} target="_blank" rel="noreferrer" className="text-indigo-400 hover:underline truncate block">{lead.website}</a>
-                </div>
-              )}
-              {lead.industry && (
-                <div>
-                  <p className="text-gray-500 text-xs">Industry</p>
-                  <p className="text-white">{lead.industry}</p>
-                </div>
-              )}
-              {lead.companySize && (
-                <div>
-                  <p className="text-gray-500 text-xs">Company size</p>
-                  <p className="text-white">{lead.companySize} employees</p>
-                </div>
-              )}
-            </div>
-          </Card>
-
-          {/* Campaigns */}
-          {lead.campaignLeads?.length > 0 && (
-            <Card>
-              <CardHeader><CardTitle>Campaigns</CardTitle></CardHeader>
-              <div className="p-4 space-y-2">
-                {lead.campaignLeads.map((cl, i) => (
-                  <div key={i} className="text-sm">
-                    <p className="text-white font-medium">{cl.campaign.name}</p>
-                    <p className="text-gray-500 text-xs">
-                      Step {cl.currentStep + 1} · {cl.status}
-                      {cl.nextSendAt && ` · Next: ${new Date(cl.nextSendAt).toLocaleDateString()}`}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
-        </div>
-
-        {/* Message history */}
-        <div className="col-span-2 space-y-4">
-          {/* Hot lead prompt */}
-          {inbound.some((m) => m.replyClass === 'INTERESTED') && (
-            <div className="bg-green-900/30 border border-green-700 rounded-xl p-4 flex items-center justify-between">
-              <div>
-                <p className="text-green-400 font-semibold">🔥 This lead is interested!</p>
-                <p className="text-green-300 text-sm">They replied positively. Send a follow-up and book a call.</p>
-              </div>
-            </div>
-          )}
-
-          <Card>
-            <CardHeader><CardTitle>Message History ({lead.messages.length})</CardTitle></CardHeader>
-            <div className="divide-y divide-gray-800">
-              {lead.messages.length === 0 && (
-                <p className="p-4 text-gray-500 text-sm">No messages yet</p>
-              )}
-              {lead.messages.map((msg) => (
-                <div key={msg.id} className="p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                        msg.direction === 'OUTBOUND'
-                          ? 'bg-indigo-900 text-indigo-300'
-                          : 'bg-gray-700 text-gray-300'
-                      }`}>
-                        {msg.direction === 'OUTBOUND' ? '↑ Sent' : '↓ Received'}
-                      </span>
-                      {msg.aiGenerated && (
-                        <span className="text-xs text-purple-400">AI</span>
-                      )}
-                      {msg.replyClass && (
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                          msg.replyClass === 'INTERESTED' ? 'bg-green-900 text-green-300' :
-                          msg.replyClass === 'NOT_INTERESTED' ? 'bg-red-900 text-red-300' :
-                          msg.replyClass === 'UNSUBSCRIBE' ? 'bg-red-900 text-red-300' :
-                          'bg-yellow-900 text-yellow-300'
-                        }`}>
-                          {msg.replyClass}
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-xs text-gray-500">
-                      {msg.sentAt ? new Date(msg.sentAt).toLocaleString() : new Date(msg.createdAt).toLocaleString()}
-                      {msg.openedAt && <span className="ml-2 text-green-400">· Opened</span>}
-                    </span>
-                  </div>
-                  {msg.subject && (
-                    <p className="text-sm font-medium text-white mb-1">{msg.subject}</p>
-                  )}
-                  <p className="text-sm text-gray-400 whitespace-pre-wrap line-clamp-4">{msg.body}</p>
-
-                  {msg.direction === 'INBOUND' && msg.replyClass === 'INTERESTED' && (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="mt-2"
-                      onClick={() => setReplyModal({ messageId: msg.id, body: msg.body })}
-                    >
-                      Generate auto-reply
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
-      </div>
-
-      {/* Auto-reply modal */}
-      <Modal
-        isOpen={!!replyModal}
-        onClose={() => { setReplyModal(null); setReplyText(''); setAutoReply(''); }}
-        title="Generate reply for interested lead"
-        size="lg"
-      >
-        <div className="space-y-4">
-          <div>
-            <p className="text-sm text-gray-400 mb-2">Their reply:</p>
-            <p className="text-sm text-white bg-gray-800 rounded p-3">{replyModal?.body}</p>
-          </div>
-          <Input
-            label="Their reply text (paste if different)"
-            value={replyText}
-            onChange={(e) => setReplyText(e.target.value)}
-            placeholder="Paste their reply here..."
+      <div className="flex h-[calc(100vh-44px)] relative">
+        {/* Left: details */}
+        <div className="flex-1 min-w-0 flex flex-col bg-white">
+          <LeadHeader
+            lead={lead}
+            onCompose={() => toast.info('Compose email coming soon')}
+            onAddToCampaign={() => toast.info('Campaign picker coming soon')}
           />
-          {autoReply && (
-            <div>
-              <p className="text-sm text-gray-400 mb-2">Generated reply:</p>
-              <p className="text-sm text-white bg-gray-800 rounded p-3 whitespace-pre-wrap">{autoReply}</p>
-            </div>
-          )}
-          <div className="flex gap-3">
-            <Button onClick={handleGenerateReply} loading={generatingReply} variant="secondary">
-              Generate
-            </Button>
-            {autoReply && (
-              <Button onClick={handleSendReply}>
-                Send reply
-              </Button>
+
+          <LeadTabs value={tab} onChange={setTab} counts={counts} />
+
+          <div className="flex-1 overflow-y-auto">
+            {tab === 'activity' && (
+              <ActivityFeed
+                lead={lead}
+                messages={lead.messages}
+                campaignLeads={lead.campaignLeads}
+              />
             )}
+            {tab === 'emails' && (
+              <EmailsTab lead={lead} messages={lead.messages} onChanged={fetchLead} />
+            )}
+            {tab === 'calls' && <CallsTab />}
+            {tab === 'notes' && (
+              <NotesTab lead={lead} onChanged={(updated) => setLead({ ...lead, ...updated })} />
+            )}
+            {tab === 'tasks' && <TasksTab />}
+            {tab === 'files' && <FilesTab />}
           </div>
         </div>
-      </Modal>
-    </div>
+
+        {/* Right panel: desktop */}
+        <div className="hidden md:block">
+          <RightPanel lead={lead} className="h-full" />
+        </div>
+
+        {/* Right panel: mobile drawer */}
+        {panelOpen && (
+          <div className="md:hidden fixed inset-0 z-40">
+            <div
+              className="absolute inset-0 bg-[#0f0f0e]/40"
+              onClick={() => setPanelOpen(false)}
+            />
+            <div className="absolute right-0 top-0 bottom-0 w-80 bg-white shadow-lg flex flex-col">
+              <div className="h-10 px-4 flex items-center justify-between border-b border-[var(--border)]">
+                <span className="text-[13.5px] font-semibold text-[var(--text)]">Details</span>
+                <button
+                  type="button"
+                  onClick={() => setPanelOpen(false)}
+                  aria-label="Close"
+                  className="w-7 h-7 rounded-md inline-flex items-center justify-center text-[var(--text-subtle)] hover:text-[var(--text)] hover:bg-[var(--surface-2)] transition-colors duration-100"
+                >
+                  <X size={14} strokeWidth={1.75} />
+                </button>
+              </div>
+              <RightPanel lead={lead} className="flex-1 border-l-0" />
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
 }

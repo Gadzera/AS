@@ -83,7 +83,7 @@ export default function CampaignDetailPage() {
       <>
         <Topbar />
         <main className="flex-1 p-6">
-          <p className="text-gray-500">Campaign not found.</p>
+          <p className="text-ink-muted">Campaign not found.</p>
           <Link href="/campaigns">
             <Button variant="secondary" className="mt-4">Back to campaigns</Button>
           </Link>
@@ -135,7 +135,7 @@ export default function CampaignDetailPage() {
                 { label: 'Open Rate', value: `${stats.openRate}%` },
               ].map(({ label, value }) => (
                 <Card key={label} padding="sm">
-                  <p className="text-xs text-gray-500">{label}</p>
+                  <p className="text-xs text-ink-muted">{label}</p>
                   <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
                 </Card>
               ))}
@@ -147,7 +147,7 @@ export default function CampaignDetailPage() {
             <Card padding="md">
               <CardHeader>
                 <CardTitle>Email Sequence</CardTitle>
-                <span className="text-sm text-gray-500">
+                <span className="text-sm text-ink-muted">
                   {campaign.sequences?.length ?? 0} step{campaign.sequences?.length !== 1 ? 's' : ''}
                 </span>
               </CardHeader>
@@ -167,37 +167,37 @@ export default function CampaignDetailPage() {
               </CardHeader>
               <dl className="space-y-3 text-sm">
                 <div>
-                  <dt className="text-gray-500">Channel</dt>
+                  <dt className="text-ink-muted">Channel</dt>
                   <dd className="font-medium text-gray-900">{campaign.channel}</dd>
                 </div>
                 <div>
-                  <dt className="text-gray-500">Daily Limit</dt>
+                  <dt className="text-ink-muted">Daily Limit</dt>
                   <dd className="font-medium text-gray-900">{campaign.dailyLimit} emails/day</dd>
                 </div>
                 {campaign.targetIndustry && (
                   <div>
-                    <dt className="text-gray-500">Target Industry</dt>
+                    <dt className="text-ink-muted">Target Industry</dt>
                     <dd className="font-medium text-gray-900">{campaign.targetIndustry}</dd>
                   </div>
                 )}
                 {campaign.targetCountry && (
                   <div>
-                    <dt className="text-gray-500">Target Country</dt>
+                    <dt className="text-ink-muted">Target Country</dt>
                     <dd className="font-medium text-gray-900">{campaign.targetCountry}</dd>
                   </div>
                 )}
                 {campaign.targetSize && (
                   <div>
-                    <dt className="text-gray-500">Company Size</dt>
+                    <dt className="text-ink-muted">Company Size</dt>
                     <dd className="font-medium text-gray-900">{campaign.targetSize}</dd>
                   </div>
                 )}
                 <div>
-                  <dt className="text-gray-500">Created by</dt>
+                  <dt className="text-ink-muted">Created by</dt>
                   <dd className="font-medium text-gray-900">{campaign.user?.name}</dd>
                 </div>
                 <div>
-                  <dt className="text-gray-500">Created</dt>
+                  <dt className="text-ink-muted">Created</dt>
                   <dd className="font-medium text-gray-900">
                     {new Date(campaign.createdAt).toLocaleDateString()}
                   </dd>
@@ -214,7 +214,7 @@ export default function CampaignDetailPage() {
                 <dl className="space-y-2 text-sm">
                   {Object.entries(stats.statusBreakdown).map(([status, count]) => (
                     <div key={status} className="flex items-center justify-between">
-                      <dt className="text-gray-500 capitalize">
+                      <dt className="text-ink-muted capitalize">
                         {status.toLowerCase().replace('_', ' ')}
                       </dt>
                       <dd className="font-semibold text-gray-900">{count}</dd>

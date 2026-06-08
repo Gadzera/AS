@@ -3,18 +3,13 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { Mail, Zap } from 'lucide-react';
 import { authApi } from '@/lib/api';
 import { setToken, setStoredUser } from '@/lib/auth';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 
-const features = [
-  { icon: '⚡', text: 'AI writes hyper-personalized cold emails in seconds' },
-  { icon: '🔥', text: 'Warm-up protection keeps your domain reputation safe' },
-  { icon: '🎯', text: 'Smart sequences follow up until leads reply' },
-  { icon: '📊', text: 'Real-time analytics — opens, clicks, replies' },
-];
+const DEMO_PRIMARY = { email: 'demo@aisdr.dev', password: 'demo1234' };
 
 export default function LoginPage() {
   const router = useRouter();
@@ -22,119 +17,61 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submit = async (creds: { email: string; password: string }) => {
     setError('');
     setLoading(true);
     try {
-      const res = await authApi.login(form);
+      const res = await authApi.login(creds);
       setToken(res.token);
       setStoredUser(res.user);
       router.push('/dashboard');
     } catch (err: unknown) {
       const msg =
-        err instanceof Error
-          ? err.message
-          : (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Login failed';
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+        (err instanceof Error ? err.message : 'Login failed');
       setError(msg);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    void submit(form);
+  };
+
+  const fillDemo = () => {
+    setForm(DEMO_PRIMARY);
+    void submit(DEMO_PRIMARY);
+  };
+
   return (
-    <div className="min-h-screen flex bg-[#080b10]">
-      {/* Left panel — branding */}
-      <div className="hidden lg:flex flex-col justify-between w-[480px] shrink-0 relative overflow-hidden px-12 py-14 bg-gradient-to-br from-[#0d0f1a] to-[#080b10] border-r border-gray-800/60">
-        {/* Animated blobs */}
-        <motion.div
-          animate={{ scale: [1, 1.15, 1], opacity: [0.15, 0.25, 0.15] }}
-          transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
-          className="absolute top-[-80px] left-[-80px] w-80 h-80 rounded-full bg-brand-500 blur-[120px] pointer-events-none"
-        />
-        <motion.div
-          animate={{ scale: [1, 1.2, 1], opacity: [0.1, 0.2, 0.1] }}
-          transition={{ duration: 11, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
-          className="absolute bottom-[-60px] right-[-60px] w-72 h-72 rounded-full bg-purple-600 blur-[100px] pointer-events-none"
-        />
-
-        {/* Logo */}
-        <div className="relative">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-brand-500 to-purple-600 rounded-xl flex items-center justify-center shadow-glow-sm">
-              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-            <span className="text-white font-bold text-lg tracking-tight">AI SDR Agent</span>
-          </div>
+    <div className="min-h-screen flex items-center justify-center bg-[var(--bg)] px-4 py-12">
+      <div className="w-full max-w-[400px]">
+        <div className="flex items-center gap-2.5 mb-8 justify-center">
+          <span
+            className="w-9 h-9 rounded-md flex items-center justify-center"
+            style={{ backgroundColor: 'var(--text)' }}
+          >
+            <Zap className="text-white" size={16} strokeWidth={2.5} />
+          </span>
+          <span className="text-[16px] font-semibold text-[var(--text)]">
+            AI SDR Agent
+          </span>
         </div>
 
-        {/* Hero text */}
-        <div className="relative space-y-6">
-          <div>
-            <h2 className="text-3xl font-bold text-white leading-tight">
-              Your AI sales team,<br />
-              <span className="text-gradient">always on.</span>
-            </h2>
-            <p className="text-gray-400 mt-3 text-sm leading-relaxed">
-              Automate cold outreach, personalize at scale, and book more meetings — without hiring more SDRs.
-            </p>
-          </div>
-
-          <div className="space-y-3">
-            {features.map((f, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, x: -12 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.1 + i * 0.08, duration: 0.3 }}
-                className="flex items-center gap-3"
-              >
-                <span className="text-base">{f.icon}</span>
-                <span className="text-sm text-gray-400">{f.text}</span>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-
-        {/* Social proof */}
-        <div className="relative flex items-center gap-2 text-xs text-gray-600">
-          <div className="flex -space-x-2">
-            {['E', 'M', 'A', 'K'].map((l, i) => (
-              <div key={i} className="w-6 h-6 rounded-full bg-gradient-to-br from-brand-500/60 to-purple-600/60 border border-[#080b10] flex items-center justify-center text-[9px] text-white font-bold">
-                {l}
-              </div>
-            ))}
-          </div>
-          <span>500+ teams automating their sales pipeline</span>
-        </div>
-      </div>
-
-      {/* Right panel — form */}
-      <div className="flex-1 flex items-center justify-center px-6 py-12">
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-          className="w-full max-w-sm"
+        <div
+          className="bg-white border border-[var(--border)] rounded-xl p-6"
+          style={{ boxShadow: 'var(--shadow-sm)' }}
         >
-          {/* Mobile logo */}
-          <div className="flex lg:hidden items-center gap-3 mb-8">
-            <div className="w-8 h-8 bg-gradient-to-br from-brand-500 to-purple-600 rounded-lg flex items-center justify-center">
-              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-            <span className="text-white font-bold text-base">AI SDR Agent</span>
-          </div>
+          <h1 className="text-[20px] font-semibold text-[var(--text)] mb-1 leading-7">
+            Welcome back
+          </h1>
+          <p className="text-[13.5px] text-[var(--text-muted)] mb-6 leading-5">
+            Sign in to continue to your workspace.
+          </p>
 
-          <div className="mb-7">
-            <h1 className="text-2xl font-bold text-white">Welcome back</h1>
-            <p className="text-gray-500 text-sm mt-1">Sign in to your account to continue</p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3">
             <Input
               label="Email"
               type="email"
@@ -144,48 +81,75 @@ export default function LoginPage() {
               required
               autoComplete="email"
             />
-            <div>
-              <Input
-                label="Password"
-                type="password"
-                placeholder="••••••••"
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                required
-                autoComplete="current-password"
-              />
-              <div className="mt-1.5 flex justify-end">
-                <span className="text-xs text-gray-600 hover:text-brand-400 cursor-pointer transition-colors">
-                  Forgot password?
-                </span>
-              </div>
-            </div>
+            <Input
+              label="Password"
+              type="password"
+              placeholder="••••••••"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              required
+              autoComplete="current-password"
+            />
 
             {error && (
-              <motion.div
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-lg px-3 py-2.5"
+              <div
+                className="text-[12.5px] px-3 py-2 rounded-md"
+                style={{
+                  backgroundColor: 'var(--danger-soft)',
+                  color: 'var(--danger)',
+                  border: '1px solid var(--danger-soft)',
+                }}
               >
-                <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                </svg>
                 {error}
-              </motion.div>
+              </div>
             )}
 
-            <Button type="submit" loading={loading} className="w-full mt-1" size="lg">
+            <Button type="submit" loading={loading} className="w-full mt-4" size="lg">
               Sign in
             </Button>
           </form>
 
-          <p className="text-center text-sm text-gray-600 mt-5">
+          <div className="my-5 flex items-center gap-3">
+            <hr className="flex-1 border-[var(--border)]" />
+            <span className="text-[12px] text-[var(--text-subtle)] font-medium">OR</span>
+            <hr className="flex-1 border-[var(--border)]" />
+          </div>
+
+          <Button variant="secondary" className="w-full" size="lg" type="button">
+            <Mail size={14} strokeWidth={1.75} className="text-[var(--text-muted)]" />
+            Continue with Google
+          </Button>
+
+          <p className="text-[12.5px] text-center text-[var(--text-muted)] mt-6">
             Don&apos;t have an account?{' '}
-            <Link href="/register" className="text-brand-400 hover:text-brand-300 font-medium transition-colors">
-              Create one free
+            <Link
+              href="/register"
+              className="text-[var(--text)] font-medium hover:underline underline-offset-2"
+            >
+              Sign up
             </Link>
           </p>
-        </motion.div>
+        </div>
+
+        <div
+          className="mt-4 px-4 py-3 rounded-lg border border-[var(--border)] text-[12.5px]"
+          style={{ backgroundColor: 'var(--surface-2)' }}
+        >
+          <p className="font-semibold text-[var(--text)] mb-1.5">Demo credentials</p>
+          <p className="text-[var(--text-muted)] tabular-nums">demo@aisdr.dev · demo1234</p>
+          <p className="text-[var(--text-muted)] tabular-nums">admin@aisdr.dev · admin1234</p>
+          <button
+            type="button"
+            onClick={fillDemo}
+            className="mt-1.5 text-[var(--brand)] font-medium hover:underline underline-offset-2"
+          >
+            Fill demo
+          </button>
+        </div>
+
+        <p className="text-[12px] text-center text-[var(--text-subtle)] mt-6 leading-5">
+          By signing in you agree to our Terms and Privacy Policy.
+        </p>
       </div>
     </div>
   );

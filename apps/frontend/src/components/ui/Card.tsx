@@ -14,33 +14,25 @@ interface CardProps {
 export default function Card({ children, className, padding = 'md', hover = false }: CardProps) {
   const paddings = { none: '', sm: 'p-4', md: 'p-5', lg: 'p-6' };
 
+  const cls = clsx(
+    'bg-surface rounded-lg border border-line shadow-xs',
+    paddings[padding],
+    className
+  );
+
   if (hover) {
     return (
       <motion.div
-        whileHover={{ y: -2, borderColor: 'rgba(99,102,241,0.3)' }}
-        transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-        className={clsx(
-          'bg-gray-900 rounded-xl border border-gray-800 shadow-card transition-shadow hover:shadow-glow-sm',
-          paddings[padding],
-          className
-        )}
+        whileHover={{ y: -1 }}
+        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+        className={clsx(cls, 'transition-shadow hover:shadow-sm hover:border-line-strong')}
       >
         {children}
       </motion.div>
     );
   }
 
-  return (
-    <div
-      className={clsx(
-        'bg-gray-900 rounded-xl border border-gray-800 shadow-card',
-        paddings[padding],
-        className
-      )}
-    >
-      {children}
-    </div>
-  );
+  return <div className={cls}>{children}</div>;
 }
 
 export function CardHeader({ children, className }: { children: ReactNode; className?: string }) {
@@ -52,7 +44,5 @@ export function CardHeader({ children, className }: { children: ReactNode; class
 }
 
 export function CardTitle({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <h3 className={clsx('text-sm font-semibold text-white', className)}>{children}</h3>
-  );
+  return <h3 className={clsx('text-sm font-semibold text-ink', className)}>{children}</h3>;
 }

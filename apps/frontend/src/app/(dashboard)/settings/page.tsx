@@ -90,28 +90,28 @@ export default function SettingsPage() {
             ) : (
               <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div>
-                  <dt className="text-gray-500">Name</dt>
-                  <dd className="font-medium text-white">{user?.name}</dd>
+                  <dt className="text-ink-muted">Name</dt>
+                  <dd className="font-medium text-ink">{user?.name}</dd>
                 </div>
                 <div>
-                  <dt className="text-gray-500">Email</dt>
-                  <dd className="font-medium text-white">{user?.email}</dd>
+                  <dt className="text-ink-muted">Email</dt>
+                  <dd className="font-medium text-ink">{user?.email}</dd>
                 </div>
                 <div>
-                  <dt className="text-gray-500">Organization</dt>
-                  <dd className="font-medium text-white">{user?.org?.name}</dd>
+                  <dt className="text-ink-muted">Organization</dt>
+                  <dd className="font-medium text-ink">{user?.org?.name}</dd>
                 </div>
                 <div>
-                  <dt className="text-gray-500">Role</dt>
-                  <dd className="font-medium text-white">{user?.role}</dd>
+                  <dt className="text-ink-muted">Role</dt>
+                  <dd className="font-medium text-ink">{user?.role}</dd>
                 </div>
                 <div>
-                  <dt className="text-gray-500">Current plan</dt>
-                  <dd className="font-medium text-white">{user?.org?.plan}</dd>
+                  <dt className="text-ink-muted">Current plan</dt>
+                  <dd className="font-medium text-ink">{user?.org?.plan}</dd>
                 </div>
                 <div>
-                  <dt className="text-gray-500">Leads limit</dt>
-                  <dd className="font-medium text-white">{user?.org?.leadsLimit?.toLocaleString()}</dd>
+                  <dt className="text-ink-muted">Leads limit</dt>
+                  <dd className="font-medium text-ink">{user?.org?.leadsLimit?.toLocaleString()}</dd>
                 </div>
               </dl>
             )}
@@ -129,14 +129,14 @@ export default function SettingsPage() {
             </CardHeader>
 
             {subscription && (
-              <div className="mb-6 p-4 bg-gray-800/40 rounded-lg text-sm">
+              <div className="mb-6 p-4 bg-surface-2/40 rounded-lg text-sm">
                 <p>
-                  <span className="text-gray-500">Status:</span>{' '}
+                  <span className="text-ink-muted">Status:</span>{' '}
                   <span className="font-medium capitalize">{subscription.status}</span>
                 </p>
                 {subscription.currentPeriodEnd && (
                   <p className="mt-1">
-                    <span className="text-gray-500">Renews:</span>{' '}
+                    <span className="text-ink-muted">Renews:</span>{' '}
                     <span className="font-medium">
                       {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
                     </span>
@@ -152,19 +152,19 @@ export default function SettingsPage() {
                   <div
                     key={plan.id}
                     className={`border-2 rounded-xl p-4 ${
-                      isCurrent ? 'border-brand-500/60 bg-brand-500/10' : 'border-gray-700'
+                      isCurrent ? 'border-brand-500/60 bg-brand-50' : 'border-line-strong'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-semibold text-white">{plan.name}</h3>
+                      <h3 className="font-semibold text-ink">{plan.name}</h3>
                       {isCurrent && (
-                        <span className="text-xs bg-brand-500 text-white px-2 py-0.5 rounded-full">
+                        <span className="text-xs bg-brand-500 text-ink px-2 py-0.5 rounded-full">
                           Current
                         </span>
                       )}
                     </div>
-                    <p className="text-2xl font-bold text-white mb-1">{plan.price}</p>
-                    <ul className="text-xs text-gray-500 space-y-1 mb-4">
+                    <p className="text-2xl font-bold text-ink mb-1">{plan.price}</p>
+                    <ul className="text-xs text-ink-muted space-y-1 mb-4">
                       {plan.features.map((f) => (
                         <li key={f} className="flex items-center gap-1">
                           <svg className="w-3.5 h-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -195,7 +195,7 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle>API Integrations</CardTitle>
             </CardHeader>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-ink-muted mb-4">
               API keys are configured via environment variables on the server. Contact your admin to update them.
             </p>
             <div className="space-y-3">
@@ -211,14 +211,14 @@ export default function SettingsPage() {
                   className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
                 >
                   <div>
-                    <p className="text-sm font-medium text-white">{item.name}</p>
-                    <p className="text-xs text-gray-400 font-mono">{item.key}</p>
+                    <p className="text-sm font-medium text-ink">{item.name}</p>
+                    <p className="text-xs text-ink-muted font-mono">{item.key}</p>
                   </div>
                   <span
                     className={`text-xs px-2 py-1 rounded-full ${
                       item.required
                         ? 'bg-red-100 text-red-700'
-                        : 'bg-gray-100 text-gray-500'
+                        : 'bg-gray-100 text-ink-muted'
                     }`}
                   >
                     {item.required ? 'Required' : 'Optional'}

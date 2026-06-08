@@ -1,110 +1,209 @@
 'use client';
 
-import { Lead } from '@/types';
-import { LeadStatusBadge, ScoreBadge } from '@/components/ui/Badge';
-import Button from '@/components/ui/Button';
+import { useMemo } from 'react';
+import {
+  ArrowDown,
+  ArrowUp,
+  Briefcase,
+  Building2,
+  CalendarDays,
+  CircleDot,
+  Hash,
+  Mail,
+  MapPin,
+  Plus,
+  Tag as TagIcon,
+  User as UserIcon,
+} from 'lucide-react';
+import clsx from 'clsx';
+
+import type { Lead } from '@/types';
+import { useSelection } from '@/lib/selection';
+import LeadRow from './LeadRow';
+import type { LeadsQuery, SortField } from './LeadFilters';
 
 interface LeadsTableProps {
   leads: Lead[];
-  onAddToCampaign?: (lead: Lead) => void;
-  onGenerateOutreach?: (lead: Lead) => void;
-  onView?: (lead: Lead) => void;
+  total: number;
+  loading?: boolean;
+  query: LeadsQuery;
+  onQueryChange: (next: LeadsQuery) => void;
+  onMenu?: (lead: Lead, anchor: HTMLElement) => void;
 }
+
+interface ColumnDef {
+  key: string;
+  label: string;
+  width: number;
+  icon?: React.ReactNode;
+  sortField?: SortField;
+}
+
+const COLUMNS: ColumnDef[] = [
+  { key: 'name',     label: 'Name',     width: 220, icon: <UserIcon   size={12} strokeWidth={1.75} />, sortField: 'name' },
+  { key: 'title',    label: 'Title',    width: 180, icon: <Briefcase  size={12} strokeWidth={1.75} /> },
+  { key: 'company',  label: 'Company',  width: 160, icon: <Building2  size={12} strokeWidth={1.75} /> },
+  { key: 'industry', label: 'Industry', width: 140, icon: <TagIcon    size={12} strokeWidth={1.75} /> },
+  { key: 'status',   label: 'Status',   width: 120, icon: <CircleDot  size={12} strokeWidth={1.75} /> },
+  { key: 'score',    label: 'Score',    width:  80, icon: <Hash       size={12} strokeWidth={1.75} />, sortField: 'score' },
+  { key: 'email',    label: 'Email',    width: 220, icon: <Mail       size={12} strokeWidth={1.75} /> },
+  { key: 'location', label: 'Location', width: 140, icon: <MapPin     size={12} strokeWidth={1.75} /> },
+  { key: 'created',  label: 'Created',  width: 100, icon: <CalendarDays size={12} strokeWidth={1.75} />, sortField: 'createdAt' },
+];
+
+const TOTAL_MIN_WIDTH = 36 + COLUMNS.reduce((a, c) => a + c.width, 0) + 36;
 
 export default function LeadsTable({
   leads,
-  onAddToCampaign,
-  onGenerateOutreach,
-  onView,
+  total,
+  loading,
+  query,
+  onQueryChange,
+  onMenu,
 }: LeadsTableProps) {
-  if (leads.length === 0) {
-    return (
-      <div className="text-center py-12 text-gray-600">
-        <svg className="w-10 h-10 mx-auto mb-3 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1}
-            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-        <p className="font-medium text-gray-400">No leads found</p>
-        <p className="text-sm mt-1 text-gray-600">Import a CSV or add leads manually</p>
-      </div>
-    );
-  }
+  const { selected, selectMany, toggleMany, clear } = useSelection();
+
+  const allIds = useMemo(() => leads.map((l) => l.id), [leads]);
+  const allChecked = leads.length > 0 && allIds.every((id) => selected.has(id));
+  const someChecked = !allChecked && allIds.some((id) => selected.has(id));
+
+  const headerHeight = 32;
+
+  const handleHeaderSort = (field?: SortField) => {
+    if (!field) return;
+    if (query.sortField === field) {
+      onQueryChange({ ...query, sortDir: query.sortDir === 'desc' ? 'asc' : 'desc' });
+    } else {
+      onQueryChange({ ...query, sortField: field, sortDir: 'desc' });
+    }
+  };
+
+  const handleToggleAll = () => {
+    if (allChecked) {
+      // Deselect only this page's leads (selection may include items from other pages).
+      const remaining = new Set(selected);
+      allIds.forEach((id) => remaining.delete(id));
+      if (remaining.size === 0) clear();
+      else toggleMany(allIds);
+    } else {
+      selectMany(allIds);
+    }
+  };
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm text-left">
+    <div className="overflow-auto bg-[var(--surface)]">
+      <table
+        className="w-full text-[13.5px] border-separate border-spacing-0"
+        style={{ minWidth: TOTAL_MIN_WIDTH }}
+      >
+        <colgroup>
+          <col style={{ width: 36 }} />
+          {COLUMNS.map((c) => (
+            <col key={c.key} style={{ width: c.width }} />
+          ))}
+          <col style={{ width: 36 }} />
+        </colgroup>
+
         <thead>
-          <tr className="border-b border-gray-800">
-            <th className="pb-3 pr-4 font-medium text-gray-500 whitespace-nowrap text-xs uppercase tracking-wide">Name</th>
-            <th className="pb-3 pr-4 font-medium text-gray-500 whitespace-nowrap text-xs uppercase tracking-wide">Company</th>
-            <th className="pb-3 pr-4 font-medium text-gray-500 whitespace-nowrap text-xs uppercase tracking-wide">Title</th>
-            <th className="pb-3 pr-4 font-medium text-gray-500 whitespace-nowrap text-xs uppercase tracking-wide">Score</th>
-            <th className="pb-3 pr-4 font-medium text-gray-500 whitespace-nowrap text-xs uppercase tracking-wide">Status</th>
-            <th className="pb-3 pr-4 font-medium text-gray-500 whitespace-nowrap text-xs uppercase tracking-wide">Country</th>
-            <th className="pb-3 font-medium text-gray-500 whitespace-nowrap text-xs uppercase tracking-wide">Actions</th>
+          <tr className="bg-[var(--surface-2)]" style={{ height: headerHeight }}>
+            <th
+              scope="col"
+              className="sticky top-0 z-10 bg-[var(--surface-2)] border-b border-[var(--border)] px-2.5 text-left"
+            >
+              <input
+                type="checkbox"
+                checked={allChecked}
+                ref={(el) => {
+                  if (el) el.indeterminate = someChecked;
+                }}
+                onChange={handleToggleAll}
+                aria-label={allChecked ? 'Deselect all leads' : 'Select all leads'}
+                className="w-[14px] h-[14px] cursor-pointer accent-[var(--brand)] align-middle"
+              />
+            </th>
+            {COLUMNS.map((col) => {
+              const isSorted = col.sortField && query.sortField === col.sortField;
+              return (
+                <th
+                  key={col.key}
+                  scope="col"
+                  className={clsx(
+                    'sticky top-0 z-10 bg-[var(--surface-2)] border-b border-[var(--border)] px-2.5 text-left font-medium text-[12px] text-[var(--text-muted)]',
+                    col.sortField && 'cursor-pointer hover:text-[var(--text)]',
+                  )}
+                  onClick={() => handleHeaderSort(col.sortField)}
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    {col.icon && (
+                      <span className="text-[var(--text-subtle)] inline-flex">{col.icon}</span>
+                    )}
+                    <span>{col.label}</span>
+                    {isSorted && (
+                      query.sortDir === 'desc' ? (
+                        <ArrowDown size={12} strokeWidth={1.75} className="text-[var(--text-subtle)]" />
+                      ) : (
+                        <ArrowUp size={12} strokeWidth={1.75} className="text-[var(--text-subtle)]" />
+                      )
+                    )}
+                  </span>
+                </th>
+              );
+            })}
+            <th
+              scope="col"
+              aria-label="Actions"
+              className="sticky top-0 z-10 bg-[var(--surface-2)] border-b border-[var(--border)] px-2.5"
+            />
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-800/60">
-          {leads.map((lead) => (
-            <tr key={lead.id} className="hover:bg-gray-800/30 transition-colors">
-              <td className="py-3 pr-4">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 bg-gradient-to-br from-brand-500/20 to-purple-500/20 text-brand-400 border border-brand-500/20 rounded-full flex items-center justify-center text-xs font-bold shrink-0">
-                    {lead.firstName.charAt(0)}{lead.lastName.charAt(0)}
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-100 whitespace-nowrap">
-                      {lead.firstName} {lead.lastName}
-                    </p>
-                    {lead.email && (
-                      <p className="text-xs text-gray-500 truncate max-w-[180px]">{lead.email}</p>
-                    )}
-                  </div>
-                </div>
-              </td>
-              <td className="py-3 pr-4">
-                <p className="text-gray-300 whitespace-nowrap">{lead.company ?? '—'}</p>
-                {lead.companySize && (
-                  <p className="text-xs text-gray-600">{lead.companySize} emp.</p>
-                )}
-              </td>
-              <td className="py-3 pr-4">
-                <p className="text-gray-400 whitespace-nowrap max-w-[160px] truncate">
-                  {lead.title ?? '—'}
-                </p>
-              </td>
-              <td className="py-3 pr-4">
-                <ScoreBadge score={lead.score} />
-              </td>
-              <td className="py-3 pr-4">
-                <LeadStatusBadge status={lead.status} />
-              </td>
-              <td className="py-3 pr-4 text-gray-500 whitespace-nowrap">
-                {lead.country ?? '—'}
-              </td>
-              <td className="py-3">
-                <div className="flex items-center gap-1">
-                  {onView && (
-                    <Button size="sm" variant="ghost" onClick={() => onView(lead)}>
-                      View
-                    </Button>
-                  )}
-                  {onGenerateOutreach && (
-                    <Button size="sm" variant="ghost" onClick={() => onGenerateOutreach(lead)}>
-                      AI Write
-                    </Button>
-                  )}
-                  {onAddToCampaign && (
-                    <Button size="sm" variant="ghost" onClick={() => onAddToCampaign(lead)}>
-                      + Campaign
-                    </Button>
-                  )}
-                </div>
-              </td>
-            </tr>
-          ))}
+
+        <tbody>
+          {loading ? (
+            Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)
+          ) : (
+            leads.map((lead) => <LeadRow key={lead.id} lead={lead} onMenu={onMenu} />)
+          )}
         </tbody>
+
+        <tfoot>
+          <tr
+            className="sticky bottom-0 bg-[var(--surface)]"
+            style={{ height: 36 }}
+          >
+            <td className="border-t border-[var(--border)] px-2.5" />
+            <td colSpan={COLUMNS.length + 1} className="border-t border-[var(--border)] px-2.5">
+              <div className="flex items-center gap-3">
+                <span className="text-[12.5px] text-[var(--text-muted)] tabular-nums">
+                  {total} count
+                </span>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 h-6 px-1.5 rounded-md text-[12px] text-[var(--text-subtle)] hover:text-[var(--text)] hover:bg-[var(--surface-2)] transition-colors duration-100"
+                >
+                  <Plus size={12} strokeWidth={1.75} />
+                  Add calculation
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tfoot>
       </table>
     </div>
+  );
+}
+
+function SkeletonRow() {
+  return (
+    <tr style={{ height: 36 }}>
+      <td className="border-b border-[var(--border)] px-2.5">
+        <span className="skeleton inline-block h-3.5 w-3.5 rounded-sm align-middle" />
+      </td>
+      {COLUMNS.map((c) => (
+        <td key={c.key} className="border-b border-[var(--border)] px-2.5">
+          <span className="skeleton inline-block h-3 rounded-sm w-[60%] align-middle" />
+        </td>
+      ))}
+      <td className="border-b border-[var(--border)] px-2.5" />
+    </tr>
   );
 }

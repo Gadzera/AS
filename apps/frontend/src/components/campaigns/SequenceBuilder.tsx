@@ -59,7 +59,7 @@ export default function SequenceBuilder({
   return (
     <div className="space-y-4">
       {sequences.length === 0 && !adding && (
-        <p className="text-gray-500 text-sm text-center py-6">
+        <p className="text-ink-muted text-sm text-center py-6">
           No sequence steps yet. Add your first message below.
         </p>
       )}
@@ -69,7 +69,7 @@ export default function SequenceBuilder({
         <div key={step.id} className="relative flex gap-4">
           {/* Timeline connector */}
           <div className="flex flex-col items-center">
-            <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold shrink-0">
+            <div className="w-8 h-8 bg-blue-600 text-ink rounded-full flex items-center justify-center text-sm font-bold shrink-0">
               {step.stepNumber}
             </div>
             {idx < sequences.length - 1 && (
@@ -85,14 +85,14 @@ export default function SequenceBuilder({
                   {step.channel}
                 </span>
                 {step.delayDays > 0 && (
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-ink-muted">
                     +{step.delayDays} day{step.delayDays !== 1 ? 's' : ''}
                   </span>
                 )}
               </div>
               <button
                 onClick={() => handleDelete(step.id)}
-                className="text-gray-400 hover:text-red-600 transition-colors"
+                className="text-ink-muted hover:text-red-600 transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -105,7 +105,7 @@ export default function SequenceBuilder({
                 Subject: {step.subject}
               </p>
             )}
-            <p className="text-sm text-gray-600 whitespace-pre-wrap line-clamp-3">{step.body}</p>
+            <p className="text-sm text-ink-subtle whitespace-pre-wrap line-clamp-3">{step.body}</p>
           </div>
         </div>
       ))}
@@ -117,7 +117,7 @@ export default function SequenceBuilder({
 
           <div className="flex gap-3">
             <div className="flex-1">
-              <label className="text-sm font-medium text-gray-700">Channel</label>
+              <label className="text-sm font-medium text-ink-subtle">Channel</label>
               <select
                 className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
                 value={form.channel}
@@ -148,7 +148,7 @@ export default function SequenceBuilder({
           )}
 
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-700">Message body</label>
+            <label className="text-sm font-medium text-ink-subtle">Message body</label>
             <textarea
               className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               rows={5}

@@ -1,0 +1,911 @@
+'use client';
+
+import Link from 'next/link';
+import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
+import {
+  Activity,
+  Building2,
+  ChevronDown,
+  ExternalLink,
+  FileText,
+  Loader2,
+  Mail,
+  MessageSquare,
+  MoreHorizontal,
+  Phone,
+  Plus,
+  SquareCheckBig,
+  StickyNote,
+} from 'lucide-react';
+import {
+  getObject,
+  getRecord,
+  updateRecord,
+  type CrmAttribute,
+  type CrmAttributeOption,
+  type CrmObjectDetail,
+  type CrmRecord,
+  type CrmRecordValue,
+} from '@/lib/crmApi';
+
+interface PageProps {
+  params: {
+    objectKey: string;
+    recordId: string;
+  };
+}
+
+type TabKey = 'activity' | 'emails' | 'calls' | 'notes' | 'tasks' | 'comments';
+type DraftValue = string | string[] | boolean;
+
+const tabs: Array<{ key: TabKey; label: string; count?: number }> = [
+  { key: 'activity', label: 'Activity' },
+  { key: 'emails', label: 'Emails', count: 0 },
+  { key: 'calls', label: 'Calls', count: 0 },
+  { key: 'notes', label: 'Notes', count: 0 },
+  { key: 'tasks', label: 'Tasks', count: 0 },
+  { key: 'comments', label: 'Comments', count: 0 },
+];
+
+const tagClasses = [
+  'bg-yellow-50 text-yellow-800 ring-yellow-200',
+  'bg-green-50 text-green-800 ring-green-200',
+  'bg-blue-50 text-blue-800 ring-blue-200',
+  'bg-purple-50 text-purple-800 ring-purple-200',
+  'bg-pink-50 text-pink-800 ring-pink-200',
+  'bg-orange-50 text-orange-800 ring-orange-200',
+  'bg-slate-50 text-slate-800 ring-slate-200',
+  'bg-emerald-50 text-emerald-800 ring-emerald-200',
+];
+
+function isObjectValue(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function hashText(text: string): number {
+  let hash = 0;
+
+  for (let index = 0; index < text.length; index += 1) {
+    hash = (hash * 31 + text.charCodeAt(index)) % tagClasses.length;
+  }
+
+  return Math.abs(hash);
+}
+
+function formatScalar(value: unknown): string {
+  if (value === null || value === undefined || value === '') {
+    return '';
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => formatScalar(item)).filter(Boolean).join(', ');
+  }
+
+  if (isObjectValue(value)) {
+    const label =
+      value.displayName ??
+      value.name ??
+      value.label ??
+      value.title ??
+      value.key ??
+      value.id ??
+      JSON.stringify(value);
+
+    return String(label);
+  }
+
+  return String(value);
+}
+
+function formatDate(value: unknown): string {
+  const text = formatScalar(value);
+
+  if (!text) {
+    return '';
+  }
+
+  const date = new Date(text);
+
+  if (Number.isNaN(date.getTime())) {
+    return text;
+  }
+
+  return new Intl.DateTimeFormat('en', {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+  }).format(date);
+}
+
+function formatDateInput(value: unknown): string {
+  const text = formatScalar(value);
+
+  if (!text) {
+    return '';
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}/.test(text)) {
+    return text.slice(0, 10);
+  }
+
+  const date = new Date(text);
+
+  if (Number.isNaN(date.getTime())) {
+    return text;
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
+function normalizeUrl(value: string): string {
+  if (!value) {
+    return '';
+  }
+
+  if (/^https?:\/\//i.test(value)) {
+    return value;
+  }
+
+  return `https://${value}`;
+}
+
+function getTagLabels(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map((item) => formatScalar(item)).filter(Boolean);
+  }
+
+  const text = formatScalar(value);
+
+  if (!text) {
+    return [];
+  }
+
+  if (text.includes(',')) {
+    return text
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  return [text];
+}
+
+function getInitials(text: string): string {
+  const parts = text
+    .split(/\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (!parts.length) {
+    return 'R';
+  }
+
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('');
+}
+
+function getAttributeOptions(attribute: CrmAttribute): CrmAttributeOption[] {
+  const rawOptions = [
+    ...(attribute.options ?? []),
+    ...(attribute.config?.options ?? []),
+    ...(attribute.config?.choices ?? []),
+  ];
+
+  const seen = new Set<string>();
+  const options: CrmAttributeOption[] = [];
+
+  rawOptions.forEach((option) => {
+    const key = option.key || option.label || option.name;
+
+    if (!key || seen.has(key)) {
+      return;
+    }
+
+    seen.add(key);
+    options.push(option);
+  });
+
+  return options.sort((first, second) => {
+    const firstOrder = typeof first.order === 'number' ? first.order : 0;
+    const secondOrder = typeof second.order === 'number' ? second.order : 0;
+    return firstOrder - secondOrder;
+  });
+}
+
+function getOptionLabel(option: CrmAttributeOption): string {
+  return option.label ?? option.name ?? option.key;
+}
+
+function resolveOptionKey(attribute: CrmAttribute, value: unknown): string {
+  const text = formatScalar(value);
+  const option = getAttributeOptions(attribute).find((item) => {
+    return item.key === text || item.label === text || item.name === text;
+  });
+
+  return option?.key ?? text;
+}
+
+function resolveOptionLabel(attribute: CrmAttribute, value: unknown): string {
+  const text = formatScalar(value);
+  const option = getAttributeOptions(attribute).find((item) => {
+    return item.key === text || item.label === text || item.name === text;
+  });
+
+  return option ? getOptionLabel(option) : text;
+}
+
+function getTagLabelsForAttribute(attribute: CrmAttribute, value: unknown): string[] {
+  return getTagLabels(value).map((label) => resolveOptionLabel(attribute, label));
+}
+
+function valueToDraftValue(attribute: CrmAttribute, value: CrmRecordValue | undefined): DraftValue {
+  if (attribute.type === 'BOOLEAN') {
+    return value === true || value === 'true' || value === 1 || value === '1';
+  }
+
+  if (attribute.type === 'MULTI_SELECT') {
+    return getTagLabels(value).map((item) => resolveOptionKey(attribute, item));
+  }
+
+  if (attribute.type === 'SELECT') {
+    return resolveOptionKey(attribute, value);
+  }
+
+  if (attribute.type === 'DATE') {
+    return formatDateInput(value);
+  }
+
+  return formatScalar(value);
+}
+
+function normalizeDraftValue(attribute: CrmAttribute, value: DraftValue): CrmRecordValue {
+  if (attribute.type === 'BOOLEAN') {
+    return Boolean(value);
+  }
+
+  if (attribute.type === 'MULTI_SELECT') {
+    if (Array.isArray(value)) {
+      return value.filter(Boolean);
+    }
+
+    return String(value)
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  const text = Array.isArray(value) ? value.join(', ') : String(value).trim();
+
+  if (!text) {
+    return null;
+  }
+
+  if (attribute.type === 'NUMBER' || attribute.type === 'CURRENCY') {
+    const numberValue = Number(text);
+    return Number.isNaN(numberValue) ? text : numberValue;
+  }
+
+  return text;
+}
+
+function getInputType(attribute: CrmAttribute): string {
+  if (attribute.type === 'EMAIL') return 'email';
+  if (attribute.type === 'URL') return 'url';
+  if (attribute.type === 'NUMBER' || attribute.type === 'CURRENCY') return 'number';
+  if (attribute.type === 'DATE') return 'date';
+
+  return 'text';
+}
+
+function renderTabIcon(tab: TabKey) {
+  const className = 'h-3.5 w-3.5';
+
+  switch (tab) {
+    case 'activity':
+      return <Activity className={className} />;
+    case 'emails':
+      return <Mail className={className} />;
+    case 'calls':
+      return <Phone className={className} />;
+    case 'notes':
+      return <StickyNote className={className} />;
+    case 'tasks':
+      return <SquareCheckBig className={className} />;
+    case 'comments':
+      return <MessageSquare className={className} />;
+    default:
+      return <Activity className={className} />;
+  }
+}
+
+function renderTag(label: string) {
+  const className = tagClasses[hashText(label)];
+
+  return (
+    <span
+      key={label}
+      className={`inline-flex max-w-[180px] items-center truncate rounded-md px-1.5 py-0.5 text-[12px] font-medium ring-1 ring-inset ${className}`}
+      title={label}
+    >
+      {label}
+    </span>
+  );
+}
+
+function renderEmptyValue(attribute: CrmAttribute) {
+  return <span className="text-gray-400">Set {attribute.name}...</span>;
+}
+
+function renderDisplayValue(attribute: CrmAttribute, value: CrmRecordValue | undefined) {
+  if (value === null || value === undefined || value === '') {
+    return renderEmptyValue(attribute);
+  }
+
+  switch (attribute.type) {
+    case 'URL': {
+      const url = formatScalar(value);
+
+      if (!url) {
+        return renderEmptyValue(attribute);
+      }
+
+      return (
+        <a
+          href={normalizeUrl(url)}
+          target="_blank"
+          rel="noreferrer"
+          onClick={(event) => event.stopPropagation()}
+          className="inline-flex min-w-0 items-center gap-1 truncate text-blue-700 underline-offset-2 hover:underline"
+          title={url}
+        >
+          <span className="truncate">{url.replace(/^https?:\/\//, '')}</span>
+          <ExternalLink className="h-3 w-3 shrink-0" />
+        </a>
+      );
+    }
+
+    case 'EMAIL': {
+      const email = formatScalar(value);
+
+      if (!email) {
+        return renderEmptyValue(attribute);
+      }
+
+      return (
+        <a
+          href={`mailto:${email}`}
+          onClick={(event) => event.stopPropagation()}
+          className="truncate text-blue-700 underline-offset-2 hover:underline"
+          title={email}
+        >
+          {email}
+        </a>
+      );
+    }
+
+    case 'SELECT':
+    case 'MULTI_SELECT': {
+      const labels = getTagLabelsForAttribute(attribute, value);
+
+      if (!labels.length) {
+        return renderEmptyValue(attribute);
+      }
+
+      return <div className="flex min-w-0 flex-wrap gap-1">{labels.map(renderTag)}</div>;
+    }
+
+    case 'BOOLEAN': {
+      const checked = value === true || value === 'true' || value === 1 || value === '1';
+
+      return checked ? (
+        <span className="text-gray-900">Yes</span>
+      ) : (
+        <span className="text-gray-400">No</span>
+      );
+    }
+
+    case 'DATE': {
+      const date = formatDate(value);
+      return date ? <span className="truncate text-gray-900">{date}</span> : renderEmptyValue(attribute);
+    }
+
+    case 'CURRENCY':
+    case 'LOCATION':
+    case 'NUMBER':
+    case 'RELATIONSHIP':
+    case 'TEXT':
+    default: {
+      const text = formatScalar(value);
+
+      return text ? (
+        <span className="truncate text-gray-900" title={text}>
+          {text}
+        </span>
+      ) : (
+        renderEmptyValue(attribute)
+      );
+    }
+  }
+}
+
+export default function RecordPage({ params }: PageProps) {
+  const objectKey = params.objectKey;
+  const recordId = params.recordId;
+
+  const [object, setObject] = useState<CrmObjectDetail | null>(null);
+  const [record, setRecord] = useState<CrmRecord | null>(null);
+  const [activeTab, setActiveTab] = useState<TabKey>('activity');
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [draftValue, setDraftValue] = useState<DraftValue>('');
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const attributes = useMemo(() => {
+    if (!object) {
+      return [];
+    }
+
+    return [...object.attributes].sort((first, second) => {
+      const firstOrder = typeof first.order === 'number' ? first.order : 0;
+      const secondOrder = typeof second.order === 'number' ? second.order : 0;
+      return firstOrder - secondOrder;
+    });
+  }, [object]);
+
+  const displayName = record?.displayName || 'Record';
+
+  async function loadRecord() {
+    setIsLoading(true);
+    setLoadError(null);
+
+    try {
+      const [objectData, recordData] = await Promise.all([getObject(objectKey), getRecord(recordId)]);
+      setObject(objectData);
+      setRecord(recordData);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Не удалось загрузить запись.');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadRecord();
+  }, [objectKey, recordId]);
+
+  function startEdit(attribute: CrmAttribute) {
+    if (!record || savingKey) {
+      return;
+    }
+
+    setSaveError(null);
+    setEditingKey(attribute.key);
+    setDraftValue(valueToDraftValue(attribute, record.values?.[attribute.key]));
+  }
+
+  function cancelEdit() {
+    setEditingKey(null);
+    setDraftValue('');
+  }
+
+  async function handleSave(attribute: CrmAttribute, value: DraftValue = draftValue) {
+    if (!record) {
+      return;
+    }
+
+    const normalizedValue = normalizeDraftValue(attribute, value);
+    const previousRecord = record;
+    const nextDisplayName =
+      attribute.isPrimary && formatScalar(normalizedValue)
+        ? formatScalar(normalizedValue)
+        : previousRecord.displayName;
+
+    const optimisticRecord: CrmRecord = {
+      ...previousRecord,
+      displayName: nextDisplayName,
+      values: {
+        ...previousRecord.values,
+        [attribute.key]: normalizedValue,
+      },
+    };
+
+    setEditingKey(null);
+    setDraftValue('');
+    setSavingKey(attribute.key);
+    setSaveError(null);
+    setRecord(optimisticRecord);
+
+    try {
+      const updatedRecord = await updateRecord(record.id, {
+        [attribute.key]: normalizedValue,
+      });
+
+      setRecord(updatedRecord);
+    } catch (err) {
+      setRecord(previousRecord);
+      setSaveError(err instanceof Error ? err.message : 'Не удалось сохранить значение.');
+    } finally {
+      setSavingKey(null);
+    }
+  }
+
+  function handleEditorKeyDown(
+    event: KeyboardEvent<HTMLInputElement | HTMLSelectElement>,
+    attribute: CrmAttribute,
+  ) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      cancelEdit();
+      return;
+    }
+
+    if (event.key === 'Enter' && attribute.type !== 'MULTI_SELECT') {
+      event.preventDefault();
+      event.currentTarget.blur();
+    }
+  }
+
+  function renderEditor(attribute: CrmAttribute) {
+    const options = getAttributeOptions(attribute);
+
+    if (attribute.type === 'BOOLEAN') {
+      const checked = Boolean(draftValue);
+
+      return (
+        <label className="inline-flex items-center gap-2">
+          <input
+            autoFocus
+            type="checkbox"
+            checked={checked}
+            onChange={(event) => {
+              setDraftValue(event.target.checked);
+              void handleSave(attribute, event.target.checked);
+            }}
+            onKeyDown={(event) => handleEditorKeyDown(event, attribute)}
+            className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600"
+          />
+          <span className="text-[13px] text-gray-700">{checked ? 'Yes' : 'No'}</span>
+        </label>
+      );
+    }
+
+    if (attribute.type === 'SELECT' && options.length > 0) {
+      const value = typeof draftValue === 'string' ? draftValue : '';
+
+      return (
+        <select
+          autoFocus
+          value={value}
+          onChange={(event) => {
+            setDraftValue(event.target.value);
+            void handleSave(attribute, event.target.value);
+          }}
+          onKeyDown={(event) => handleEditorKeyDown(event, attribute)}
+          className="h-7 w-full rounded-md border border-blue-200 bg-white px-2 text-[13px] text-gray-900 outline-none ring-blue-100 focus:border-blue-500 focus:ring-2"
+        >
+          <option value="">Unset</option>
+          {options.map((option) => (
+            <option key={option.key} value={option.key}>
+              {getOptionLabel(option)}
+            </option>
+          ))}
+        </select>
+      );
+    }
+
+    if (attribute.type === 'MULTI_SELECT' && options.length > 0) {
+      const values = Array.isArray(draftValue) ? draftValue : [];
+
+      return (
+        <select
+          autoFocus
+          multiple
+          value={values}
+          onChange={(event) => {
+            const selected = Array.from(event.target.selectedOptions).map((option) => option.value);
+            setDraftValue(selected);
+          }}
+          onBlur={() => void handleSave(attribute)}
+          onKeyDown={(event) => handleEditorKeyDown(event, attribute)}
+          className="min-h-[76px] w-full rounded-md border border-blue-200 bg-white px-2 py-1 text-[13px] text-gray-900 outline-none ring-blue-100 focus:border-blue-500 focus:ring-2"
+        >
+          {options.map((option) => (
+            <option key={option.key} value={option.key}>
+              {getOptionLabel(option)}
+            </option>
+          ))}
+        </select>
+      );
+    }
+
+    const value = Array.isArray(draftValue) ? draftValue.join(', ') : String(draftValue);
+
+    return (
+      <input
+        autoFocus
+        type={getInputType(attribute)}
+        value={value}
+        step={attribute.type === 'NUMBER' || attribute.type === 'CURRENCY' ? 'any' : undefined}
+        onChange={(event) => setDraftValue(event.target.value)}
+        onBlur={() => void handleSave(attribute)}
+        onKeyDown={(event) => handleEditorKeyDown(event, attribute)}
+        onFocus={(event) => event.currentTarget.select()}
+        className="h-7 w-full rounded-md border border-blue-200 bg-white px-2 text-[13px] text-gray-900 outline-none ring-blue-100 placeholder:text-gray-400 focus:border-blue-500 focus:ring-2"
+      />
+    );
+  }
+
+  function renderTabContent() {
+    if (activeTab === 'activity') {
+      return (
+        <div className="flex h-full min-h-[360px] items-center justify-center text-[13px] text-gray-500">
+          <div className="text-center">
+            <Activity className="mx-auto mb-2 h-5 w-5 text-gray-300" />
+            <div>История появится здесь</div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex h-full min-h-[360px] items-center justify-center text-[13px] text-gray-500">
+        Нет данных
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full min-h-screen items-center justify-center bg-white text-[13px] text-gray-600">
+        <Loader2 className="mr-2 h-4 w-4 animate-spin text-gray-400" />
+        Loading...
+      </div>
+    );
+  }
+
+  if (loadError || !object || !record) {
+    return (
+      <div className="flex h-full min-h-screen items-center justify-center bg-white px-6 text-center">
+        <div>
+          <div className="text-[14px] font-semibold text-gray-950">Не удалось открыть запись</div>
+          <div className="mt-1 text-[13px] text-gray-500">{loadError ?? 'Запись не найдена.'}</div>
+          <button
+            type="button"
+            onClick={() => void loadRecord()}
+            className="mt-4 h-8 rounded-md border border-gray-200 bg-white px-3 text-[13px] font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Повторить
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full min-h-screen flex-col bg-white text-[13px] text-gray-800">
+      <header className="shrink-0 border-b border-gray-200 bg-white">
+        <div className="flex h-10 items-center justify-between border-b border-gray-100 px-4">
+          <div className="flex min-w-0 items-center gap-2 text-[13px] text-gray-500">
+            <Link
+              href={`/crm/${encodeURIComponent(object.key)}`}
+              className="inline-flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-gray-600 hover:bg-gray-50 hover:text-gray-950"
+            >
+              <Building2 className="h-3.5 w-3.5 shrink-0 text-blue-600" />
+              <span className="truncate">{object.pluralName}</span>
+            </Link>
+
+            <span className="text-gray-300">/</span>
+
+            <span className="truncate font-medium text-gray-800">{displayName}</span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 text-[13px] font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+            >
+              <Mail className="h-3.5 w-3.5" />
+              Compose email
+            </button>
+
+            <button
+              type="button"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+              aria-label="More actions"
+            >
+              <MoreHorizontal className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex h-14 items-center justify-between px-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-gray-50 text-[12px] font-semibold text-gray-600">
+              {getInitials(displayName)}
+            </div>
+
+            <div className="min-w-0">
+              <h1 className="truncate text-[16px] font-semibold text-gray-950">{displayName}</h1>
+              <div className="mt-1 flex items-center gap-1.5 text-[12px] text-gray-500">
+                <span className="rounded-md bg-gray-100 px-1.5 py-0.5 text-gray-700">
+                  {object.singularName}
+                </span>
+                <span className="rounded-md bg-gray-100 px-1.5 py-0.5 text-gray-700">
+                  {object.key}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className="inline-flex h-7 items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 text-[13px] text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add to list
+          </button>
+        </div>
+      </header>
+
+      <div className="flex min-h-0 flex-1">
+        <main className="flex min-w-0 flex-1 flex-col bg-white">
+          <div className="flex h-10 shrink-0 items-center border-b border-gray-200 px-3">
+            {tabs.map((tab) => {
+              const isActive = tab.key === activeTab;
+
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveTab(tab.key)}
+                  className={[
+                    'mr-1 inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[13px]',
+                    isActive
+                      ? 'border-gray-300 bg-white font-medium text-gray-950 shadow-sm'
+                      : 'border-transparent text-gray-600 hover:bg-gray-50 hover:text-gray-950',
+                  ].join(' ')}
+                >
+                  {renderTabIcon(tab.key)}
+                  <span>{tab.label}</span>
+                  {typeof tab.count === 'number' ? (
+                    <span className="ml-0.5 rounded bg-gray-100 px-1 text-[11px] text-gray-500">
+                      {tab.count}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-auto bg-white">{renderTabContent()}</div>
+        </main>
+
+        <aside className="flex w-[430px] shrink-0 flex-col border-l border-gray-200 bg-white">
+          <div className="flex h-10 shrink-0 items-center border-b border-gray-200 px-3">
+            <button
+              type="button"
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 text-[13px] font-medium text-gray-950 shadow-sm"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Details
+            </button>
+
+            <button
+              type="button"
+              className="ml-1 inline-flex h-8 items-center gap-1.5 rounded-md border border-transparent px-2.5 text-[13px] text-gray-600 hover:bg-gray-50 hover:text-gray-950"
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              Comments
+              <span className="rounded bg-gray-100 px-1 text-[11px] text-gray-500">0</span>
+            </button>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-auto">
+            <section className="border-b border-gray-200">
+              <button
+                type="button"
+                className="flex h-10 w-full items-center gap-2 px-4 text-left text-[13px] font-medium text-gray-900"
+              >
+                <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
+                Record Details
+              </button>
+
+              <div className="pb-2">
+                {attributes.map((attribute) => {
+                  const value = record.values?.[attribute.key];
+                  const isEditing = editingKey === attribute.key;
+                  const isSaving = savingKey === attribute.key;
+
+                  return (
+                    <div
+                      key={attribute.id}
+                      className="grid grid-cols-[128px_minmax(0,1fr)] gap-3 px-4 py-2 hover:bg-gray-50"
+                    >
+                      <div className="flex min-w-0 items-center gap-1.5 text-[12px] text-gray-500">
+                        <span className="h-3.5 w-3.5 shrink-0 rounded-sm border border-gray-200 bg-white" />
+                        <span className="truncate" title={attribute.name}>
+                          {attribute.name}
+                        </span>
+                      </div>
+
+                      <div className="min-w-0">
+                        {isEditing ? (
+                          renderEditor(attribute)
+                        ) : (
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => startEdit(attribute)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                startEdit(attribute);
+                              }
+                            }}
+                            className="flex min-h-[24px] min-w-0 cursor-text items-center rounded-md px-1 py-0.5 outline-none hover:bg-white focus:bg-white focus:ring-2 focus:ring-blue-100"
+                          >
+                            {renderDisplayValue(attribute, value)}
+                          </div>
+                        )}
+
+                        {isSaving ? (
+                          <div className="mt-1 inline-flex items-center gap-1 text-[11px] text-gray-400">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Saving
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="border-b border-gray-200">
+              <button
+                type="button"
+                className="flex h-10 w-full items-center gap-2 px-4 text-left text-[13px] font-medium text-gray-900"
+              >
+                <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
+                System
+              </button>
+
+              <div className="pb-2">
+                <div className="grid grid-cols-[128px_minmax(0,1fr)] gap-3 px-4 py-2">
+                  <div className="text-[12px] text-gray-500">Record ID</div>
+                  <div className="truncate text-[13px] text-gray-900" title={record.id}>
+                    {record.id}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-[128px_minmax(0,1fr)] gap-3 px-4 py-2">
+                  <div className="text-[12px] text-gray-500">Created</div>
+                  <div className="truncate text-[13px] text-gray-900">
+                    {record.createdAt ? formatDate(record.createdAt) : '—'}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-[128px_minmax(0,1fr)] gap-3 px-4 py-2">
+                  <div className="text-[12px] text-gray-500">Updated</div>
+                  <div className="truncate text-[13px] text-gray-900">
+                    {record.updatedAt ? formatDate(record.updatedAt) : '—'}
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {saveError ? (
+              <div className="m-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[12px] text-red-700">
+                {saveError}
+              </div>
+            ) : null}
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+}

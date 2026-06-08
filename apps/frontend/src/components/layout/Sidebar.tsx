@@ -2,152 +2,174 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import clsx from 'clsx';
+import {
+  LayoutDashboard,
+  Users,
+  Megaphone,
+  Sparkles,
+  Settings,
+  Search,
+  Slash,
+  ChevronDown,
+  LogOut,
+  Flame,
+  MessageSquareReply,
+  Snowflake,
+  List,
+} from 'lucide-react';
 import { logout } from '@/lib/auth';
+import type { ReactNode } from 'react';
 
-const navItems = [
-  {
-    href: '/dashboard',
-    label: 'Dashboard',
-    icon: (
-      <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-        <path strokeLinecap="round" strokeLinejoin="round"
-          d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-      </svg>
-    ),
-  },
-  {
-    href: '/leads',
-    label: 'Leads',
-    icon: (
-      <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-        <path strokeLinecap="round" strokeLinejoin="round"
-          d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-      </svg>
-    ),
-  },
-  {
-    href: '/campaigns',
-    label: 'Campaigns',
-    icon: (
-      <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-        <path strokeLinecap="round" strokeLinejoin="round"
-          d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-      </svg>
-    ),
-  },
-  {
-    href: '/outreach',
-    label: 'AI Outreach',
-    icon: (
-      <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-        <path strokeLinecap="round" strokeLinejoin="round"
-          d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-      </svg>
-    ),
-  },
-  {
-    href: '/settings',
-    label: 'Settings',
-    icon: (
-      <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-        <path strokeLinecap="round" strokeLinejoin="round"
-          d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-      </svg>
-    ),
-  },
+interface NavItem {
+  href: string;
+  label: string;
+  icon: ReactNode;
+}
+
+const recordsNav: NavItem[] = [
+  { href: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={16} strokeWidth={1.75} /> },
+  { href: '/leads',     label: 'Leads',     icon: <Users          size={16} strokeWidth={1.75} /> },
+  { href: '/campaigns', label: 'Campaigns', icon: <Megaphone      size={16} strokeWidth={1.75} /> },
+  { href: '/outreach',  label: 'AI Outreach', icon: <Sparkles     size={16} strokeWidth={1.75} /> },
+  { href: '/settings',  label: 'Settings',  icon: <Settings       size={16} strokeWidth={1.75} /> },
 ];
+
+const listsNav: { key: string; label: string; icon: ReactNode }[] = [
+  { key: 'hot',     label: 'Hot Leads',     icon: <Flame              size={16} strokeWidth={1.75} /> },
+  { key: 'replied', label: 'Replied',       icon: <MessageSquareReply size={16} strokeWidth={1.75} /> },
+  { key: 'cold',    label: 'Cold Outreach', icon: <Snowflake          size={16} strokeWidth={1.75} /> },
+  { key: 'all',     label: 'All lists',     icon: <List               size={16} strokeWidth={1.75} /> },
+];
+
+function SectionHeading({ children }: { children: ReactNode }) {
+  return (
+    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8a80] px-3 mb-1 mt-4">
+      {children}
+    </p>
+  );
+}
 
 export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <div className="flex flex-col w-60 min-h-screen bg-[#0a0d14] border-r border-gray-800/60">
-      {/* Logo */}
-      <div className="flex items-center gap-3 px-5 py-5 border-b border-gray-800/60">
-        <div className="relative w-8 h-8 shrink-0">
-          <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-brand-500 to-purple-600 opacity-20 blur-sm" />
-          <div className="relative w-8 h-8 bg-gradient-to-br from-brand-500 to-purple-600 rounded-lg flex items-center justify-center shadow-glow-sm">
-            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+    <aside className="sticky top-0 h-screen w-[240px] shrink-0 flex flex-col bg-[#f8f7f5] border-r border-[#e3e3dd]">
+      <div className="px-2 pt-3">
+        <button
+          type="button"
+          className="w-full h-11 flex items-center gap-2.5 px-2 rounded-lg hover:bg-[#ebebe6] transition-colors duration-100"
+        >
+          <span className="w-7 h-7 rounded-md bg-[#0f0f0e] flex items-center justify-center shrink-0">
+            <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
-          </div>
-        </div>
-        <div>
-          <p className="text-white font-bold text-sm leading-tight tracking-tight">AI SDR Agent</p>
-          <p className="text-gray-500 text-[11px] mt-0.5">Sales Automation</p>
+          </span>
+          <span className="text-[14px] font-semibold text-[#1a1a1a] leading-tight truncate flex-1 text-left">
+            AI SDR Agent
+          </span>
+          <ChevronDown size={14} strokeWidth={2} className="text-[#8a8a80] shrink-0" />
+        </button>
+      </div>
+
+      <div className="px-2 mt-2">
+        <div className="h-9 flex items-center gap-1">
+          <button
+            type="button"
+            className="flex-1 h-9 flex items-center gap-2 px-2 rounded-md hover:bg-[#ebebe6] transition-colors duration-100 text-[13.5px] text-[#5e5e58] font-medium"
+          >
+            <Search size={14} strokeWidth={1.75} className="text-[#8a8a80]" />
+            <span className="flex-1 text-left">Quick actions</span>
+            <span className="text-[11px] bg-[#ebebe6] rounded-md px-1.5 py-0.5 font-medium text-[#5e5e58] tracking-tight">
+              {String.fromCharCode(8984)}K
+            </span>
+          </button>
+          <button
+            type="button"
+            aria-label="Search"
+            className="w-7 h-7 rounded-md flex items-center justify-center text-[#8a8a80] hover:bg-[#ebebe6] hover:text-[#1a1a1a] transition-colors duration-100"
+          >
+            <Search size={14} strokeWidth={1.75} />
+          </button>
+          <button
+            type="button"
+            aria-label="Slash commands"
+            className="w-7 h-7 rounded-md flex items-center justify-center text-[#8a8a80] hover:bg-[#ebebe6] hover:text-[#1a1a1a] transition-colors duration-100"
+          >
+            <Slash size={14} strokeWidth={1.75} />
+          </button>
         </div>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5">
-        {navItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-          return (
-            <Link key={item.href} href={item.href} className="relative block">
-              <AnimatePresence>
+      <nav className="flex-1 overflow-y-auto px-2 pb-3">
+        <SectionHeading>Records</SectionHeading>
+        <ul className="space-y-0.5">
+          {recordsNav.map((item) => {
+            const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+            return (
+              <li key={item.href} className="relative">
                 {isActive && (
                   <motion.div
-                    layoutId="nav-active-bg"
-                    className="absolute inset-0 rounded-lg bg-brand-500/10 border border-brand-500/20"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                    layoutId="nav-active"
+                    className="absolute inset-0 rounded-md bg-white shadow-[0_1px_2px_rgba(15,15,14,0.05)]"
+                    transition={{ type: 'spring', stiffness: 500, damping: 38 }}
                   />
                 )}
-              </AnimatePresence>
-              <motion.div
-                whileHover={!isActive ? { x: 2 } : {}}
-                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                className={clsx(
-                  'relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-colors duration-150',
-                  isActive
-                    ? 'text-brand-400'
-                    : 'text-gray-500 hover:text-gray-300'
-                )}
+                <Link
+                  href={item.href}
+                  className={clsx(
+                    'relative flex items-center gap-2.5 px-3 h-8 rounded-md text-[13.5px] font-medium transition-colors duration-100',
+                    isActive
+                      ? 'text-[#1a1a1a]'
+                      : 'text-[#5e5e58] hover:text-[#1a1a1a] hover:bg-[#ebebe6]'
+                  )}
+                >
+                  <span className={clsx('shrink-0', isActive ? 'text-[#4f46e5]' : 'text-[#8a8a80]')}>
+                    {item.icon}
+                  </span>
+                  <span className="truncate">{item.label}</span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+
+        <SectionHeading>Lists</SectionHeading>
+        <ul className="space-y-0.5">
+          {listsNav.map((item) => (
+            <li key={item.key}>
+              <button
+                type="button"
+                className="w-full flex items-center gap-2.5 px-3 h-8 rounded-md text-[13.5px] font-medium text-[#5e5e58] hover:text-[#1a1a1a] hover:bg-[#ebebe6] transition-colors duration-100"
               >
-                {isActive && (
-                  <motion.div
-                    layoutId="nav-active-indicator"
-                    className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-gradient-to-b from-brand-400 to-purple-500 rounded-full"
-                    transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                  />
-                )}
-                <span className={clsx('shrink-0 w-[18px] h-[18px] flex items-center justify-center', isActive && 'text-brand-400')}>
-                  {item.icon}
-                </span>
-                {item.label}
-              </motion.div>
-            </Link>
-          );
-        })}
+                <span className="shrink-0 text-[#8a8a80]">{item.icon}</span>
+                <span className="truncate text-left">{item.label}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
       </nav>
 
-      {/* Bottom section */}
-      <div className="px-3 py-4 border-t border-gray-800/60 space-y-1">
-        {/* Upgrade hint */}
-        <div className="mb-3 mx-1 p-3 rounded-lg bg-gradient-to-br from-brand-500/10 to-purple-600/10 border border-brand-500/20">
-          <p className="text-[11px] font-semibold text-brand-400 mb-0.5">PRO Plan</p>
-          <p className="text-[11px] text-gray-500 leading-relaxed">Unlimited leads &amp; sequences</p>
+      <div className="px-2 pb-3 pt-2">
+        <div className="h-14 px-3 flex flex-col justify-center rounded-md border border-[#e3e3dd] bg-white">
+          <p className="text-[11px] font-semibold tracking-[0.06em] text-[#4f46e5] leading-none">
+            STARTER PLAN
+          </p>
+          <p className="text-[12px] text-[#5e5e58] mt-1.5 leading-none">
+            500 leads &middot; 3 campaigns
+          </p>
         </div>
 
-        <motion.button
-          whileHover={{ x: 2 }}
-          whileTap={{ scale: 0.98 }}
-          transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+        <button
+          type="button"
           onClick={logout}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium text-gray-600 hover:text-gray-400 hover:bg-gray-800/50 transition-colors duration-150"
+          className="mt-1.5 w-full h-10 flex items-center gap-2.5 px-3 rounded-md text-[13.5px] font-medium text-[#5e5e58] hover:text-[#1a1a1a] hover:bg-[#ebebe6] transition-colors duration-100"
         >
-          <svg className="w-[18px] h-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-            <path strokeLinecap="round" strokeLinejoin="round"
-              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-          </svg>
-          Sign out
-        </motion.button>
+          <LogOut size={16} strokeWidth={1.75} className="text-[#8a8a80]" />
+          <span>Sign out</span>
+        </button>
       </div>
-    </div>
+    </aside>
   );
 }

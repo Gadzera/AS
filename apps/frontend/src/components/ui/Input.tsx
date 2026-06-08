@@ -1,6 +1,7 @@
 'use client';
 
-import { InputHTMLAttributes, forwardRef } from 'react';
+import { forwardRef, type InputHTMLAttributes } from 'react';
+import { AlertCircle } from 'lucide-react';
 import clsx from 'clsx';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
@@ -9,38 +10,46 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   hint?: string;
 }
 
-const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, hint, className, id, ...props }, ref) => {
-    const inputId = id ?? label?.toLowerCase().replace(/\s+/g, '-');
-
-    return (
-      <div className="flex flex-col gap-1.5">
-        {label && (
-          <label htmlFor={inputId} className="text-xs font-medium text-gray-400 uppercase tracking-wide">
-            {label}
-          </label>
+const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
+  { label, error, hint, className, id, ...props },
+  ref,
+) {
+  const inputId = id ?? label?.toLowerCase().replace(/\s+/g, '-');
+  return (
+    <div className="flex flex-col gap-1">
+      {label && (
+        <label
+          htmlFor={inputId}
+          className="text-[12px] font-medium text-[var(--text-muted)] leading-4"
+        >
+          {label}
+        </label>
+      )}
+      <input
+        id={inputId}
+        ref={ref}
+        className={clsx(
+          'block w-full h-8 px-2.5 rounded-md bg-white text-[13.5px] text-[var(--text)]',
+          'border border-[var(--border-strong)]',
+          'placeholder:text-[var(--text-subtle)]',
+          'transition-colors duration-100',
+          'focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand-soft)]',
+          error && 'border-[var(--danger)] focus:border-[var(--danger)] focus:ring-[var(--danger-soft)]',
+          className,
         )}
-        <input
-          id={inputId}
-          ref={ref}
-          className={clsx(
-            'block w-full rounded-lg bg-gray-900 border px-3 py-2 text-sm text-gray-100',
-            'placeholder:text-gray-600 transition-all duration-150',
-            'focus:outline-none focus:ring-2 focus:ring-offset-0',
-            error
-              ? 'border-red-500/50 focus:border-red-500 focus:ring-red-500/20'
-              : 'border-gray-700 focus:border-brand-500/70 focus:ring-brand-500/20 hover:border-gray-600',
-            className
-          )}
-          {...props}
-        />
-        {error && <p className="text-xs text-red-400 flex items-center gap-1"><span>⚠</span>{error}</p>}
-        {hint && !error && <p className="text-xs text-gray-600">{hint}</p>}
-      </div>
-    );
-  }
-);
-
-Input.displayName = 'Input';
+        {...props}
+      />
+      {error && (
+        <p className="text-[12px] text-[var(--danger)] inline-flex items-center gap-1 leading-4">
+          <AlertCircle size={12} strokeWidth={1.75} />
+          <span>{error}</span>
+        </p>
+      )}
+      {hint && !error && (
+        <p className="text-[12px] text-[var(--text-subtle)] leading-4">{hint}</p>
+      )}
+    </div>
+  );
+});
 
 export default Input;

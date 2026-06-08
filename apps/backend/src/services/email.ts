@@ -1,7 +1,12 @@
 import nodemailer from 'nodemailer';
+
 import { config } from '../config';
 
 let transporter: nodemailer.Transporter | null = null;
+
+function isSmtpConfigured(): boolean {
+  return config.smtp.user.trim().length > 0 && config.smtp.pass.trim().length > 0;
+}
 
 function getTransporter(): nodemailer.Transporter {
   if (!transporter) {
@@ -15,6 +20,7 @@ function getTransporter(): nodemailer.Transporter {
       },
     });
   }
+
   return transporter;
 }
 
@@ -28,9 +34,17 @@ export interface SendEmailOptions {
 }
 
 /**
- * Send an email via configured SMTP
+ * Отправляет email через настроенный SMTP.
+ * Если SMTP_USER или SMTP_PASS не заданы, включает demo-режим без реальной отправки.
  */
 export async function sendEmail(options: SendEmailOptions): Promise<{ messageId: string }> {
+  if (!isSmtpConfigured()) {
+    const messageId = 'demo-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+    console.log('[email:demo] -> ' + options.to + ' | ' + options.subject);
+
+    return { messageId };
+  }
+
   const t = getTransporter();
 
   const mailOptions: nodemailer.SendMailOptions = {
@@ -51,9 +65,14 @@ export async function sendEmail(options: SendEmailOptions): Promise<{ messageId:
 }
 
 /**
- * Verify SMTP connection
+ * Проверяет SMTP-соединение.
+ * В demo-режиме без SMTP_USER или SMTP_PASS возвращает true.
  */
 export async function verifySmtpConnection(): Promise<boolean> {
+  if (!isSmtpConfigured()) {
+    return true;
+  }
+
   try {
     const t = getTransporter();
     await t.verify();
@@ -64,7 +83,7 @@ export async function verifySmtpConnection(): Promise<boolean> {
 }
 
 /**
- * Create a transporter with custom SMTP settings (for org-specific keys)
+ * Создает transporter с кастомными SMTP-настройками для org-specific ключей.
  */
 export function createCustomTransporter(smtpConfig: {
   host: string;

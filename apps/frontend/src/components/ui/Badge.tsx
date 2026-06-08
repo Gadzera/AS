@@ -11,23 +11,23 @@ interface BadgeProps {
 }
 
 const variants: Record<BadgeVariant, string> = {
-  green:  'bg-green-500/10  text-green-400  border border-green-500/20',
-  yellow: 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20',
-  red:    'bg-red-500/10    text-red-400    border border-red-500/20',
-  blue:   'bg-blue-500/10   text-blue-400   border border-blue-500/20',
-  gray:   'bg-gray-500/10   text-gray-400   border border-gray-500/20',
-  purple: 'bg-purple-500/10 text-purple-400 border border-purple-500/20',
-  indigo: 'bg-brand-500/10  text-brand-400  border border-brand-500/20',
+  green:  'bg-[#ecfdf5] text-[#047857] border border-[#a7f3d0]',
+  yellow: 'bg-[#fffbeb] text-[#b45309] border border-[#fde68a]',
+  red:    'bg-[#fef2f2] text-[#b91c1c] border border-[#fecaca]',
+  blue:   'bg-[#eff6ff] text-[#1d4ed8] border border-[#bfdbfe]',
+  gray:   'bg-surface-2  text-ink-muted  border border-line',
+  purple: 'bg-[#faf5ff] text-[#7e22ce] border border-[#e9d5ff]',
+  indigo: 'bg-brand-50   text-brand-700  border border-brand-200',
 };
 
 const dotColors: Record<BadgeVariant, string> = {
-  green:  'bg-green-400',
-  yellow: 'bg-yellow-400',
-  red:    'bg-red-400',
-  blue:   'bg-blue-400',
-  gray:   'bg-gray-400',
-  purple: 'bg-purple-400',
-  indigo: 'bg-brand-400',
+  green:  'bg-[#10b981]',
+  yellow: 'bg-[#d97706]',
+  red:    'bg-[#dc2626]',
+  blue:   'bg-[#2563eb]',
+  gray:   'bg-ink-subtle',
+  purple: 'bg-[#9333ea]',
+  indigo: 'bg-brand-600',
 };
 
 export default function Badge({ variant = 'gray', children, className, dot }: BadgeProps) {
@@ -44,7 +44,7 @@ export function LeadStatusBadge({ status }: { status: LeadStatus | string }) {
     NEW:         { variant: 'blue',   label: 'New',         dot: true },
     CONTACTED:   { variant: 'yellow', label: 'Contacted',   dot: true },
     REPLIED:     { variant: 'purple', label: 'Replied',     dot: true },
-    HOT:         { variant: 'red',    label: '🔥 Hot' },
+    HOT:         { variant: 'red',    label: 'Hot',         dot: true },
     CONVERTED:   { variant: 'green',  label: 'Converted',   dot: true },
     LOST:        { variant: 'gray',   label: 'Lost' },
     UNSUBSCRIBED:{ variant: 'gray',   label: 'Unsubscribed' },
@@ -65,14 +65,13 @@ export function CampaignStatusBadge({ status }: { status: CampaignStatus | strin
 }
 
 export function ScoreBadge({ score }: { score: number }) {
-  const variant: BadgeVariant = score >= 70 ? 'green' : score >= 40 ? 'yellow' : score > 0 ? 'red' : 'gray';
   return (
     <span className={clsx(
-      'inline-flex items-center justify-center w-9 h-6 rounded-md text-xs font-bold tabular-nums',
-      score >= 70 ? 'bg-green-500/15 text-green-400' :
-      score >= 40 ? 'bg-yellow-500/15 text-yellow-400' :
-      score > 0  ? 'bg-red-500/15 text-red-400' :
-                   'bg-gray-500/15 text-gray-500'
+      'inline-flex items-center justify-center min-w-[36px] h-6 px-1.5 rounded-md text-xs font-semibold tabular-nums',
+      score >= 70 ? 'bg-[#ecfdf5] text-[#047857]' :
+      score >= 40 ? 'bg-[#fffbeb] text-[#b45309]' :
+      score > 0  ? 'bg-[#fef2f2] text-[#b91c1c]' :
+                   'bg-surface-2 text-ink-subtle'
     )}>
       {score}
     </span>

@@ -1,7 +1,15 @@
 'use client';
 
-import { createContext, useCallback, useContext, useRef, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { Check, AlertCircle, Info, X } from 'lucide-react';
 import clsx from 'clsx';
 
 type ToastType = 'success' | 'error' | 'info' | 'warning';
@@ -18,139 +26,145 @@ interface ToastContextValue {
   success: (message: string, description?: string) => void;
   error: (message: string, description?: string) => void;
   info: (message: string, description?: string) => void;
+  warning: (message: string, description?: string) => void;
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
-const icons: Record<ToastType, JSX.Element> = {
-  success: (
-    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-    </svg>
-  ),
-  error: (
-    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-    </svg>
-  ),
-  warning: (
-    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-    </svg>
-  ),
-  info: (
-    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-  ),
-};
-
-const styles: Record<ToastType, { wrap: string; icon: string; bar: string }> = {
-  success: {
-    wrap: 'border-green-500/20 bg-gray-900',
-    icon: 'bg-green-500/10 text-green-400',
-    bar:  'bg-green-500',
-  },
-  error: {
-    wrap: 'border-red-500/20 bg-gray-900',
-    icon: 'bg-red-500/10 text-red-400',
-    bar:  'bg-red-500',
-  },
-  warning: {
-    wrap: 'border-yellow-500/20 bg-gray-900',
-    icon: 'bg-yellow-500/10 text-yellow-400',
-    bar:  'bg-yellow-500',
-  },
-  info: {
-    wrap: 'border-brand-500/20 bg-gray-900',
-    icon: 'bg-brand-500/10 text-brand-400',
-    bar:  'bg-brand-500',
-  },
-};
-
 const DURATION = 4000;
 
-function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string) => void }) {
-  const s = styles[toast.type];
+function getIcon(type: ToastType) {
+  switch (type) {
+    case 'success':
+      return <Check size={14} strokeWidth={2} style={{ color: 'var(--success)' }} />;
+    case 'error':
+      return <AlertCircle size={14} strokeWidth={2} style={{ color: 'var(--danger)' }} />;
+    case 'warning':
+      return <AlertCircle size={14} strokeWidth={2} style={{ color: 'var(--warning)' }} />;
+    case 'info':
+    default:
+      return <Info size={14} strokeWidth={2} style={{ color: 'var(--info)' }} />;
+  }
+}
+
+function ToastItem({
+  toast,
+  onDismiss,
+  onPause,
+  onResume,
+}: {
+  toast: Toast;
+  onDismiss: (id: string) => void;
+  onPause: (id: string) => void;
+  onResume: (id: string) => void;
+}) {
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: 16, scale: 0.96 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.96, x: 60 }}
-      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+      initial={{ opacity: 0, x: 8 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 8 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
+      onMouseEnter={() => onPause(toast.id)}
+      onMouseLeave={() => onResume(toast.id)}
       className={clsx(
-        'relative flex items-start gap-3 w-80 p-3.5 rounded-xl border shadow-2xl overflow-hidden',
-        s.wrap
+        'bg-white border border-[var(--border)] rounded-lg pl-3 pr-2 h-10',
+        'flex items-center gap-2.5 min-w-[280px] max-w-[400px]',
       )}
+      style={{ boxShadow: 'var(--shadow-popover)' }}
+      role="status"
     >
-      {/* Progress bar */}
-      <motion.div
-        className={clsx('absolute bottom-0 left-0 h-0.5', s.bar)}
-        initial={{ width: '100%' }}
-        animate={{ width: '0%' }}
-        transition={{ duration: DURATION / 1000, ease: 'linear' }}
-      />
-
-      {/* Icon */}
-      <div className={clsx('shrink-0 w-7 h-7 rounded-lg flex items-center justify-center', s.icon)}>
-        {icons[toast.type]}
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 min-w-0 pt-0.5">
-        <p className="text-sm font-medium text-white leading-snug">{toast.message}</p>
+      <span className="shrink-0 inline-flex items-center">{getIcon(toast.type)}</span>
+      <div className="flex-1 min-w-0">
+        <p className="text-[13px] text-[var(--text)] truncate leading-none">
+          {toast.message}
+        </p>
         {toast.description && (
-          <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{toast.description}</p>
+          <p className="text-[12px] text-[var(--text-muted)] truncate mt-0.5 leading-none">
+            {toast.description}
+          </p>
         )}
       </div>
-
-      {/* Dismiss */}
       <button
+        type="button"
         onClick={() => onDismiss(toast.id)}
-        className="shrink-0 p-1 text-gray-600 hover:text-gray-400 rounded transition-colors"
+        aria-label="Dismiss"
+        className="shrink-0 w-5 h-5 rounded inline-flex items-center justify-center text-[var(--text-subtle)] hover:text-[var(--text)] hover:bg-[var(--surface-2)] transition-colors duration-100"
       >
-        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-        </svg>
+        <X size={12} strokeWidth={1.75} />
       </button>
     </motion.div>
   );
 }
 
-export function ToastProvider({ children }: { children: React.ReactNode }) {
+export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const timers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
+  const clearTimer = (id: string) => {
+    const t = timers.current.get(id);
+    if (t) {
+      clearTimeout(t);
+      timers.current.delete(id);
+    }
+  };
+
   const dismiss = useCallback((id: string) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
-    const timer = timers.current.get(id);
-    if (timer) { clearTimeout(timer); timers.current.delete(id); }
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+    clearTimer(id);
   }, []);
 
-  const add = useCallback((message: string, opts: { type?: ToastType; description?: string } = {}) => {
-    const id = Math.random().toString(36).slice(2);
-    const type = opts.type ?? 'info';
-    setToasts(prev => [...prev.slice(-4), { id, type, message, description: opts.description }]);
+  const scheduleDismiss = (id: string) => {
+    clearTimer(id);
     const timer = setTimeout(() => dismiss(id), DURATION);
     timers.current.set(id, timer);
-  }, [dismiss]);
+  };
+
+  const pause = useCallback((id: string) => {
+    clearTimer(id);
+  }, []);
+
+  const resume = useCallback((id: string) => {
+    scheduleDismiss(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const add = useCallback(
+    (
+      message: string,
+      opts: { type?: ToastType; description?: string } = {},
+    ) => {
+      const id = Math.random().toString(36).slice(2);
+      const type = opts.type ?? 'info';
+      setToasts((prev) => [...prev.slice(-4), { id, type, message, description: opts.description }]);
+      scheduleDismiss(id);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [dismiss],
+  );
 
   const ctx: ToastContextValue = {
     toast: add,
     success: (msg, desc) => add(msg, { type: 'success', description: desc }),
     error:   (msg, desc) => add(msg, { type: 'error',   description: desc }),
     info:    (msg, desc) => add(msg, { type: 'info',    description: desc }),
+    warning: (msg, desc) => add(msg, { type: 'warning', description: desc }),
   };
 
   return (
     <ToastContext.Provider value={ctx}>
       {children}
-      <div className="fixed bottom-5 right-5 z-[100] flex flex-col gap-2 items-end pointer-events-none">
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2 items-end pointer-events-none max-w-[400px]">
         <div className="pointer-events-auto flex flex-col gap-2">
           <AnimatePresence mode="popLayout">
-            {toasts.map(t => (
-              <ToastItem key={t.id} toast={t} onDismiss={dismiss} />
+            {toasts.map((t) => (
+              <ToastItem
+                key={t.id}
+                toast={t}
+                onDismiss={dismiss}
+                onPause={pause}
+                onResume={resume}
+              />
             ))}
           </AnimatePresence>
         </div>

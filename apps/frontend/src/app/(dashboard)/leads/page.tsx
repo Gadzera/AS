@@ -1,266 +1,607 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { leadsApi, outreachApi } from '@/lib/api';
-import { api } from '@/lib/api';
-import type { Lead, LeadStatus } from '@/types';
+import {
+  Grid,
+  Mail,
+  Plus,
+  Settings2,
+  Upload,
+  Users,
+  X,
+} from 'lucide-react';
+
+import { leadsApi } from '@/lib/api';
+import api from '@/lib/api';
+import type { Lead } from '@/types';
+import { SelectionProvider, useSelection } from '@/lib/selection';
+
 import Topbar from '@/components/layout/Topbar';
-import Card from '@/components/ui/Card';
+import { ViewTabsRow } from '@/components/layout/PageHeader';
+import BulkActionFooter from '@/components/layout/BulkActionFooter';
 import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
-import LeadsTable from '@/components/leads/LeadsTable';
+import FilterChip from '@/components/ui/FilterChip';
 import Modal from '@/components/ui/Modal';
 
-const STATUS_OPTIONS: LeadStatus[] = [
-  'NEW', 'CONTACTED', 'REPLIED', 'HOT', 'CONVERTED', 'LOST', 'UNSUBSCRIBED',
-];
+import LeadsTable from '@/components/leads/LeadsTable';
+import LeadFilters, { type LeadsQuery } from '@/components/leads/LeadFilters';
+import EmptyLeadsState from '@/components/leads/EmptyLeadsState';
+
+const DEFAULT_QUERY: LeadsQuery = {
+  sortField: 'score',
+  sortDir: 'desc',
+  status: '',
+  industry: '',
+};
 
 export default function LeadsPage() {
+  return (
+    <SelectionProvider>
+      <LeadsPageInner />
+    </SelectionProvider>
+  );
+}
+
+function LeadsPageInner() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [pages, setPages] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState<LeadsQuery>(DEFAULT_QUERY);
 
-  // Filters
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState('');
-  const [country, setCountry] = useState('');
-  const [industry, setIndustry] = useState('');
-
-  // CSV import
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null);
-
-  const handleCSVImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImporting(true);
-    setImportResult(null);
-    try {
-      const text = await file.text();
-      const res = await api.post<{ imported: number; skipped: number }>('/leads/import', { csvContent: text });
-      setImportResult(res.data);
-      fetchLeads();
-    } catch (err: any) {
-      alert(err?.response?.data?.error ?? 'Import failed');
-    } finally {
-      setImporting(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
-
-  // Outreach modal
-  const [outreachLead, setOutreachLead] = useState<Lead | null>(null);
-  const [outreachText, setOutreachText] = useState('');
-  const [outreachSubject, setOutreachSubject] = useState('');
-  const [generatingOutreach, setGeneratingOutreach] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
   const fetchLeads = useCallback(async () => {
     setLoading(true);
     try {
       const res = await leadsApi.list({
-        page,
-        limit: 25,
-        search: search || undefined,
-        status: status || undefined,
-        country: country || undefined,
-        industry: industry || undefined,
+        page: 1,
+        limit: 200,
+        status: query.status || undefined,
+        industry: query.industry || undefined,
       });
-      setLeads(res.leads);
+      const sorted = sortLeads(res.leads, query);
+      setLeads(sorted);
       setTotal(res.total);
-      setPages(res.pages);
     } catch (err) {
       console.error('Failed to fetch leads:', err);
     } finally {
       setLoading(false);
     }
-  }, [page, search, status, country, industry]);
+  }, [query]);
 
   useEffect(() => {
-    const timer = setTimeout(fetchLeads, 300);
-    return () => clearTimeout(timer);
+    fetchLeads();
   }, [fetchLeads]);
 
-  const handleGenerateOutreach = async (lead: Lead) => {
-    setOutreachLead(lead);
-    setOutreachText('');
-    setOutreachSubject('');
-    setGeneratingOutreach(true);
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
-    try {
-      const result = await outreachApi.generate({
-        leadId: lead.id,
-        language: 'en',
-        tone: 'professional',
-      });
-      setOutreachText(result.body);
-      setOutreachSubject(result.subject);
-    } catch (err) {
-      console.error('Failed to generate outreach:', err);
-      setOutreachText('Failed to generate message. Check your Claude API key.');
-    } finally {
-      setGeneratingOutreach(false);
+  const reload = () => fetchLeads();
+
+  const isEmpty = !loading && total === 0;
+
+  return (
+    <>
+      <Topbar
+        title="Leads"
+        icon={<Users size={16} strokeWidth={1.75} />}
+        actions={<TopbarActions />}
+      />
+
+      <ViewTabsRow
+        left={[
+          <FilterChip
+            key="all"
+            icon={<Grid size={12} strokeWidth={1.75} />}
+            label="All Leads"
+            active
+          />,
+          <FilterChip
+            key="view"
+            icon={<Settings2 size={12} strokeWidth={1.75} />}
+            label="View settings"
+          />,
+        ]}
+        right={[
+          <Button
+            key="import"
+            size="sm"
+            variant="secondary"
+            onClick={() => setImportOpen(true)}
+          >
+            <Upload size={14} strokeWidth={1.75} />
+            Import / Export
+          </Button>,
+          <Button
+            key="new"
+            size="sm"
+            onClick={() => setCreateOpen(true)}
+          >
+            <Plus size={14} strokeWidth={1.75} />
+            New Lead
+          </Button>,
+        ]}
+      />
+
+      <LeadFilters query={query} onChange={setQuery} />
+
+      {isEmpty ? (
+        <EmptyLeadsState
+          onAdd={() => setCreateOpen(true)}
+          onImport={() => setImportOpen(true)}
+        />
+      ) : (
+        <LeadsTable
+          leads={leads}
+          total={total}
+          loading={loading}
+          query={query}
+          onQueryChange={setQuery}
+        />
+      )}
+
+      <LeadsBulkFooter
+        onSendEmail={() => setToast('Compose flow not yet wired')}
+        onAddToList={() => setToast('Lists not yet available')}
+        onRunWorkflow={() => setToast('Workflows not yet available')}
+        onDelete={async (ids) => {
+          try {
+            await Promise.all(ids.map((id) => leadsApi.delete(id)));
+            setToast(`Deleted ${ids.length} lead${ids.length === 1 ? '' : 's'}`);
+            reload();
+          } catch {
+            setToast('Delete failed');
+          }
+        }}
+      />
+
+      <ImportLeadsModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImported={(n) => {
+          setToast(`Imported ${n} leads`);
+          reload();
+        }}
+      />
+
+      <CreateLeadModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={() => {
+          setToast('Lead created');
+          reload();
+        }}
+      />
+
+      {toast && <PageToast message={toast} onClose={() => setToast(null)} />}
+    </>
+  );
+}
+
+/* ----------------------------- helpers ----------------------------- */
+
+function sortLeads(leads: Lead[], q: LeadsQuery): Lead[] {
+  const dir = q.sortDir === 'desc' ? -1 : 1;
+  const sorted = [...leads];
+  sorted.sort((a, b) => {
+    switch (q.sortField) {
+      case 'score':
+        return (a.score - b.score) * dir;
+      case 'createdAt':
+        return (
+          (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * dir
+        );
+      case 'name': {
+        const an = `${a.firstName} ${a.lastName}`.toLowerCase();
+        const bn = `${b.firstName} ${b.lastName}`.toLowerCase();
+        return an.localeCompare(bn) * dir;
+      }
+      default:
+        return 0;
     }
+  });
+  return sorted;
+}
+
+/* ----------------------------- Bulk footer bridge ----------------------------- */
+
+function LeadsBulkFooter({
+  onSendEmail,
+  onAddToList,
+  onRunWorkflow,
+  onDelete,
+}: {
+  onSendEmail: () => void;
+  onAddToList: () => void;
+  onRunWorkflow: () => void;
+  onDelete: (ids: string[]) => Promise<void> | void;
+}) {
+  const { selected, count, clear } = useSelection();
+  return (
+    <BulkActionFooter
+      count={count}
+      onClose={clear}
+      actions={[
+        {
+          icon: <Plus size={14} strokeWidth={1.75} />,
+          label: 'Add to list',
+          onClick: onAddToList,
+        },
+        {
+          icon: <Mail size={14} strokeWidth={1.75} />,
+          label: 'Send email',
+          onClick: onSendEmail,
+        },
+        {
+          label: 'Run workflow',
+          onClick: onRunWorkflow,
+        },
+        {
+          label: 'Delete',
+          separator: true,
+          danger: true,
+          onClick: async () => {
+            const ids = Array.from(selected);
+            await onDelete(ids);
+            clear();
+          },
+        },
+      ]}
+    />
+  );
+}
+
+/* ----------------------------- Topbar actions ----------------------------- */
+
+function TopbarActions() {
+  return (
+    <div className="flex items-center gap-1.5">
+      <Button size="sm" variant="secondary">
+        <Plus size={14} strokeWidth={1.75} />
+        Add to campaign
+      </Button>
+      <Button size="sm">
+        <Mail size={14} strokeWidth={1.75} />
+        Compose email
+      </Button>
+    </div>
+  );
+}
+
+/* ----------------------------- Import modal ----------------------------- */
+
+function ImportLeadsModal({
+  open,
+  onClose,
+  onImported,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onImported: (count: number) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [result, setResult] = useState<{ imported: number; skipped: number } | null>(null);
+
+  const reset = () => {
+    setBusy(false);
+    setError(null);
+    setFileName(null);
+    setResult(null);
+    if (inputRef.current) inputRef.current.value = '';
   };
 
-  const handleEnrich = async (lead: Lead) => {
+  const handleFile = async (file: File) => {
+    setBusy(true);
+    setError(null);
+    setResult(null);
+    setFileName(file.name);
     try {
-      const updated = await leadsApi.enrich(lead.id);
-      setLeads((prev) => prev.map((l) => (l.id === updated.id ? updated : l)));
-    } catch (err) {
-      console.error('Failed to enrich lead:', err);
+      const text = await file.text();
+      const res = await api.post<{ imported: number; skipped: number }>(
+        '/leads/import',
+        { csvContent: text },
+      );
+      setResult(res.data);
+      onImported(res.data.imported);
+    } catch (err: any) {
+      setError(err?.response?.data?.error ?? 'Import failed');
+    } finally {
+      setBusy(false);
     }
   };
 
   return (
-    <>
-      <Topbar title="Leads" />
-      <main className="flex-1 p-6 overflow-y-auto">
-        {/* Filters */}
-        <Card className="mb-6" padding="md">
-          <div className="flex flex-wrap gap-3">
-            <div className="flex-1 min-w-48">
-              <Input
-                placeholder="Search by name, company, email..."
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              />
-            </div>
-            <select
-              className="rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/70"
-              value={status}
-              onChange={(e) => { setStatus(e.target.value); setPage(1); }}
-            >
-              <option value="">All statuses</option>
-              {STATUS_OPTIONS.map((s) => (
-                <option key={s} value={s}>{s.charAt(0) + s.slice(1).toLowerCase()}</option>
-              ))}
-            </select>
-            <Input
-              placeholder="Country"
-              value={country}
-              onChange={(e) => { setCountry(e.target.value); setPage(1); }}
-              className="w-36"
-            />
-            <Input
-              placeholder="Industry"
-              value={industry}
-              onChange={(e) => { setIndustry(e.target.value); setPage(1); }}
-              className="w-40"
-            />
-            <Button variant="secondary" onClick={fetchLeads}>Refresh</Button>
-            <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleCSVImport} />
-            <Button onClick={() => fileInputRef.current?.click()} loading={importing}>
-              {importing ? 'Importing...' : '↑ Import CSV'}
-            </Button>
-          </div>
-          {importResult && (
-            <div className="mt-3 p-3 bg-green-900/20 border border-green-800 rounded-lg text-sm text-green-400">
-              ✓ Imported {importResult.imported} leads{importResult.skipped > 0 ? `, ${importResult.skipped} skipped (duplicates/errors)` : ''}
-            </div>
-          )}
-        </Card>
+    <Modal
+      open={open}
+      onClose={() => {
+        reset();
+        onClose();
+      }}
+      title="Import leads from CSV"
+      size="lg"
+    >
+      <div className="space-y-4">
+        <p className="text-[13.5px] text-[var(--text-muted)] leading-5">
+          Upload a CSV file. Common headers like{' '}
+          <code className="px-1 py-0.5 rounded bg-[var(--surface-2)] text-[12px]">
+            firstName
+          </code>
+          ,{' '}
+          <code className="px-1 py-0.5 rounded bg-[var(--surface-2)] text-[12px]">
+            email
+          </code>
+          ,{' '}
+          <code className="px-1 py-0.5 rounded bg-[var(--surface-2)] text-[12px]">
+            company
+          </code>{' '}
+          are detected automatically.
+        </p>
 
-        {/* Table */}
-        <Card padding="md">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-white">
-              {total} lead{total !== 1 ? 's' : ''}
-            </h2>
-          </div>
+        <label
+          className={[
+            'flex flex-col items-center justify-center gap-2 h-32 rounded-lg border-2 border-dashed cursor-pointer transition-colors',
+            busy
+              ? 'border-[var(--border-strong)] bg-[var(--surface-2)] cursor-wait'
+              : 'border-[var(--border)] bg-[var(--surface-2)] hover:border-[var(--border-strong)]',
+          ].join(' ')}
+        >
+          <Upload size={20} strokeWidth={1.75} className="text-[var(--text-subtle)]" />
+          <span className="text-[13.5px] text-[var(--text)] font-medium">
+            {fileName ?? 'Click to select a CSV file'}
+          </span>
+          <span className="text-[12px] text-[var(--text-subtle)]">
+            Max ~10MB. UTF-8 recommended.
+          </span>
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".csv,text/csv"
+            disabled={busy}
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleFile(f);
+            }}
+          />
+        </label>
 
-          {loading ? (
-            <div className="py-12 text-center text-gray-400">Loading...</div>
-          ) : (
-            <>
-              <LeadsTable
-                leads={leads}
-                onGenerateOutreach={handleGenerateOutreach}
-                onView={(lead) => window.open(`/leads/${lead.id}`, '_blank')}
-              />
-
-              {/* Pagination */}
-              {pages > 1 && (
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-800">
-                  <p className="text-sm text-gray-500">
-                    Page {page} of {pages}
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={page <= 1}
-                      onClick={() => setPage((p) => p - 1)}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={page >= pages}
-                      onClick={() => setPage((p) => p + 1)}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </Card>
-      </main>
-
-      {/* AI Outreach Modal */}
-      <Modal
-        open={!!outreachLead}
-        onClose={() => setOutreachLead(null)}
-        title={`AI Outreach — ${outreachLead?.firstName} ${outreachLead?.lastName}`}
-        size="xl"
-      >
-        {generatingOutreach ? (
-          <div className="py-8 text-center">
-            <div className="animate-spin w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full mx-auto mb-3" />
-            <p className="text-gray-500">Generating personalized message with Claude AI...</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {outreachSubject && (
-              <div>
-                <label className="text-xs font-medium text-gray-400 uppercase tracking-wide">Subject</label>
-                <div className="mt-1.5 p-3 bg-gray-800/60 border border-gray-700/60 rounded-lg text-sm text-gray-200">{outreachSubject}</div>
-              </div>
-            )}
-            <div>
-              <label className="text-xs font-medium text-gray-400 uppercase tracking-wide">Message</label>
-              <textarea
-                className="mt-1.5 w-full border border-gray-700 bg-gray-900 rounded-lg p-3 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/70 resize-none"
-                rows={12}
-                value={outreachText}
-                onChange={(e) => setOutreachText(e.target.value)}
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={() => {
-                  navigator.clipboard.writeText(outreachText);
-                }}
-              >
-                Copy to clipboard
-              </Button>
-              {outreachLead && (
-                <Button
-                  variant="secondary"
-                  onClick={() => handleGenerateOutreach(outreachLead)}
-                >
-                  Regenerate
-                </Button>
-              )}
-            </div>
+        {result && (
+          <div
+            className="text-[13.5px] text-[var(--success)] bg-[var(--success-soft)] rounded-md px-3 py-2"
+          >
+            Imported {result.imported} leads
+            {result.skipped > 0 ? `, ${result.skipped} skipped (duplicates or errors)` : ''}.
           </div>
         )}
-      </Modal>
-    </>
+
+        {error && (
+          <div
+            className="text-[13.5px] text-[var(--danger)] bg-[var(--danger-soft)] rounded-md px-3 py-2"
+          >
+            {error}
+          </div>
+        )}
+
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border)] -mx-5 px-5">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              reset();
+              onClose();
+            }}
+          >
+            Close
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => inputRef.current?.click()}
+            loading={busy}
+          >
+            {result ? 'Import another' : 'Choose file'}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/* ----------------------------- Create lead modal ----------------------------- */
+
+interface CreateForm {
+  firstName: string;
+  lastName: string;
+  email: string;
+  company: string;
+  title: string;
+  industry: string;
+  country: string;
+  city: string;
+}
+
+const EMPTY_CREATE: CreateForm = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  company: '',
+  title: '',
+  industry: '',
+  country: '',
+  city: '',
+};
+
+function CreateLeadModal({
+  open,
+  onClose,
+  onCreated,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [form, setForm] = useState<CreateForm>(EMPTY_CREATE);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async () => {
+    if (!form.firstName.trim() || !form.lastName.trim()) {
+      setError('First and last name are required.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await leadsApi.create({
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        email: form.email.trim() || undefined,
+        company: form.company.trim() || undefined,
+        title: form.title.trim() || undefined,
+        industry: form.industry.trim() || undefined,
+        country: form.country.trim() || undefined,
+      });
+      setForm(EMPTY_CREATE);
+      onCreated();
+      onClose();
+    } catch (err: any) {
+      setError(err?.response?.data?.error ?? 'Failed to create lead');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const close = () => {
+    setForm(EMPTY_CREATE);
+    setError(null);
+    onClose();
+  };
+
+  return (
+    <Modal open={open} onClose={close} title="New lead" size="lg">
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <FormField
+            label="First name"
+            value={form.firstName}
+            onChange={(v) => setForm({ ...form, firstName: v })}
+            autoFocus
+          />
+          <FormField
+            label="Last name"
+            value={form.lastName}
+            onChange={(v) => setForm({ ...form, lastName: v })}
+          />
+        </div>
+        <FormField
+          label="Email"
+          type="email"
+          value={form.email}
+          onChange={(v) => setForm({ ...form, email: v })}
+        />
+        <div className="grid grid-cols-2 gap-3">
+          <FormField
+            label="Company"
+            value={form.company}
+            onChange={(v) => setForm({ ...form, company: v })}
+          />
+          <FormField
+            label="Title"
+            value={form.title}
+            onChange={(v) => setForm({ ...form, title: v })}
+          />
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <FormField
+            label="Industry"
+            value={form.industry}
+            onChange={(v) => setForm({ ...form, industry: v })}
+          />
+          <FormField
+            label="Country"
+            value={form.country}
+            onChange={(v) => setForm({ ...form, country: v })}
+          />
+          <FormField
+            label="City"
+            value={form.city}
+            onChange={(v) => setForm({ ...form, city: v })}
+          />
+        </div>
+
+        {error && (
+          <div className="text-[13px] text-[var(--danger)] bg-[var(--danger-soft)] rounded-md px-3 py-2">
+            {error}
+          </div>
+        )}
+
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border)] -mx-5 px-5">
+          <Button variant="secondary" size="sm" onClick={close}>
+            Cancel
+          </Button>
+          <Button size="sm" onClick={submit} loading={busy}>
+            Create lead
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function FormField({
+  label,
+  value,
+  onChange,
+  type = 'text',
+  autoFocus,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  autoFocus?: boolean;
+}) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+        {label}
+      </span>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        autoFocus={autoFocus}
+        className="h-8 px-2.5 text-[13.5px] text-[var(--text)] bg-[var(--surface)] border border-[var(--border)] rounded-md focus:outline-none focus:border-[var(--brand)] focus:shadow-[0_0_0_3px_rgba(79,70,229,0.15)] transition-shadow duration-100"
+      />
+    </label>
+  );
+}
+
+/* ----------------------------- Toast ----------------------------- */
+
+function PageToast({ message, onClose }: { message: string; onClose: () => void }) {
+  return (
+    <div
+      className="fixed bottom-6 right-6 z-50 flex items-center gap-2 h-10 px-3 rounded-lg bg-[var(--surface)] border border-[var(--border)]"
+      style={{ boxShadow: 'var(--shadow-popover)' }}
+      role="status"
+    >
+      <span className="text-[13px] text-[var(--text)]">{message}</span>
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Dismiss"
+        className="w-6 h-6 inline-flex items-center justify-center rounded-md text-[var(--text-subtle)] hover:text-[var(--text)] hover:bg-[var(--surface-2)] transition-colors duration-100"
+      >
+        <X size={12} strokeWidth={1.75} />
+      </button>
+    </div>
   );
 }
