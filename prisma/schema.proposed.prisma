@@ -1,0 +1,1362 @@
+generator client {
+provider = "prisma-client-js"
+}
+
+datasource db {
+provider = "postgresql"
+url = env("DATABASE_URL")
+}
+
+// Users & Auth
+
+model User {
+id String @id @default(cuid())
+email String @unique
+passwordHash String
+name String
+role Role @default(MEMBER)
+orgId String?
+org Organization? @relation(fields: [orgId], references: [id])
+
+createdObjects CrmObject[] @relation("ObjectCreatedBy")
+createdRecords CrmRecord[] @relation("RecordCreatedBy")
+updatedRecords CrmRecord[] @relation("RecordUpdatedBy")
+createdViews CrmView[] @relation("ViewCreatedBy")
+createdLists CrmList[] @relation("ListCreatedBy")
+addedListEntries ListEntry[] @relation("ListEntryAddedBy")
+assignedTasks Task[] @relation("TaskAssignee")
+createdTasks Task[] @relation("TaskCreatedBy")
+notes Note[] @relation("NoteAuthor")
+activities Activity[] @relation("ActivityActor")
+sentEmails Email[] @relation("EmailSenderUser")
+sequenceEnrollments SequenceEnrollment[] @relation("SequenceEnrollmentUser")
+workflowRuns WorkflowRun[] @relation("WorkflowRunActor")
+campaigns Campaign[]
+
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+}
+
+model Organization {
+id String @id @default(cuid())
+name String
+plan Plan @default(STARTER)
+stripeCustomerId String?
+stripeSubId String?
+leadsLimit Int @default(500)
+
+users User[]
+apiKeys ApiKey[]
+
+objects CrmObject[]
+attributes Attribute[]
+attributeOptions AttributeOption[]
+records CrmRecord[]
+values AttributeValue[]
+relationshipDefs RelationshipDefinition[]
+relationshipVals RelationshipValue[]
+views CrmView[]
+lists CrmList[]
+listEntries ListEntry[]
+activities Activity[]
+notes Note[]
+tasks Task[]
+emails Email[]
+imports ImportJob[]
+legacyMappings LegacyMapping[]
+sequences Sequence[]
+workflows Workflow[]
+reports Report[]
+dashboards Dashboard[]
+
+leads Lead[]
+campaigns Campaign[]
+
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+}
+
+model ApiKey {
+id String @id @default(cuid())
+orgId String
+org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+service String
+keyValue String
+createdAt DateTime @default(now())
+
+@@index([orgId])
+}
+
+// Flexible CRM metadata
+
+model CrmObject {
+id String @id @default(cuid())
+orgId String
+org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+key String
+singularName String
+pluralName String
+description String?
+icon String?
+color String?
+isSystem Boolean @default(false)
+isHidden Boolean @default(false)
+primaryAttributeId String?
+primaryAttribute Attribute? @relation("ObjectPrimaryAttribute", fields: [primaryAttributeId], references: [id])
+
+createdById String?
+createdBy User? @relation("ObjectCreatedBy", fields: [createdById], references: [id])
+attributes Attribute[] @relation("ObjectAttributes")
+records CrmRecord[]
+views CrmView[]
+lists CrmList[]
+sourceRelations RelationshipDefinition[] @relation("RelationshipSourceObject")
+targetRelations RelationshipDefinition[] @relation("RelationshipTargetObject")
+
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+archivedAt DateTime?
+
+@@unique([orgId, key])
+@@index([orgId])
+}
+
+model Attribute {
+id String @id @default(cuid())
+orgId String
+org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+objectId String
+object CrmObject @relation("ObjectAttributes", fields: [objectId], references: [id], onDelete: Cascade)
+
+key String
+name String
+description String?
+type AttributeType
+isSystem Boolean @default(false)
+isRequired Boolean @default(false)
+isUnique Boolean @default(false)
+isPrimary Boolean @default(false)
+isArchived Boolean @default(false)
+order Int @default(0)
+
+config Json?
+
+primaryForObjects CrmObject[] @relation("ObjectPrimaryAttribute")
+options AttributeOption[]
+values AttributeValue[]
+sourceRelationshipDefinitions RelationshipDefinition[] @relation("RelationshipSourceAttribute")
+reverseRelationshipDefinitions RelationshipDefinition[] @relation("RelationshipReverseAttribute")
+relationshipValues RelationshipValue[] @relation("RelationshipSourceAttributeValue")
+viewColumns ViewColumn[]
+viewFilters ViewFilter[]
+viewSorts ViewSort[]
+groupedViews CrmView[] @relation("ViewGroupByAttribute")
+reportMetrics ReportMetric[]
+reportDimensions ReportDimension[]
+
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+archivedAt DateTime?
+
+@@unique([objectId, key])
+@@index([orgId])
+@@index([objectId])
+@@index([type])
+}
+
+model AttributeOption {
+id String @id @default(cuid())
+orgId String
+org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+attributeId String
+attribute Attribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+
+value String
+label String
+color String?
+order Int @default(0)
+isArchived Boolean @default(false)
+
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+
+@@unique([attributeId, value])
+@@index([orgId])
+@@index([attributeId])
+}
+
+model RelationshipDefinition {
+id String @id @default(cuid())
+orgId String
+org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+sourceObjectId String
+sourceObject CrmObject @relation("RelationshipSourceObject", fields: [sourceObjectId], references: [id], onDelete: Cascade)
+
+sourceAttributeId String
+sourceAttribute Attribute @relation("RelationshipSourceAttribute", fields: [sourceAttributeId], references: [id], onDelete: Cascade)
+
+targetObjectId String
+targetObject CrmObject @relation("RelationshipTargetObject", fields: [targetObjectId], references: [id], onDelete: Cascade)
+
+reverseAttributeId String?
+reverseAttribute Attribute? @relation("RelationshipReverseAttribute", fields: [reverseAttributeId], references: [id])
+
+cardinality RelationshipCardinality @default(MANY_TO_MANY)
+isBidirectional Boolean @default(true)
+config Json?
+
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+archivedAt DateTime?
+
+@@unique([sourceAttributeId])
+@@index([orgId])
+@@index([sourceObjectId])
+@@index([targetObjectId])
+}
+
+model CrmRecord {
+id String @id @default(cuid())
+orgId String
+org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+objectId String
+object CrmObject @relation(fields: [objectId], references: [id], onDelete: Cascade)
+
+displayName String?
+searchText String?
+createdById String?
+createdBy User? @relation("RecordCreatedBy", fields: [createdById], references: [id])
+updatedById String?
+updatedBy User? @relation("RecordUpdatedBy", fields: [updatedById], references: [id])
+
+values AttributeValue[]
+sourceRelationships RelationshipValue[] @relation("RelationshipSourceRecord")
+targetRelationships RelationshipValue[] @relation("RelationshipTargetRecord")
+listEntries ListEntry[]
+activities Activity[]
+notes Note[]
+tasks Task[]
+emails Email[]
+sequenceEnrollments SequenceEnrollment[]
+
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+archivedAt DateTime?
+
+@@index([orgId, objectId])
+@@index([objectId, createdAt])
+@@index([orgId, displayName])
+}
+
+model AttributeValue {
+id String @id @default(cuid())
+orgId String
+org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+recordId String
+record CrmRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+
+attributeId String
+attribute Attribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+
+textValue String?
+longTextValue String? @db.Text
+numberValue Decimal? @db.Decimal(18, 6)
+booleanValue Boolean?
+dateValue DateTime?
+jsonValue Json?
+userValueId String?
+userValue User? @relation(fields: [userValueId], references: [id])
+currencyAmount Decimal? @db.Decimal(18, 2)
+currencyCode String?
+
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+
+@@unique([recordId, attributeId])
+@@index([orgId])
+@@index([attributeId])
+@@index([attributeId, textValue])
+@@index([attributeId, numberValue])
+@@index([attributeId, dateValue])
+@@index([userValueId])
+}
+
+model RelationshipValue {
+id String @id @default(cuid())
+orgId String
+org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+sourceRecordId String
+sourceRecord CrmRecord @relation("RelationshipSourceRecord", fields: [sourceRecordId], references: [id], onDelete: Cascade)
+
+sourceAttributeId String
+sourceAttribute Attribute @relation("RelationshipSourceAttributeValue", fields: [sourceAttributeId], references: [id], onDelete: Cascade)
+
+targetRecordId String
+targetRecord CrmRecord @relation("RelationshipTargetRecord", fields: [targetRecordId], references: [id], onDelete: Cascade)
+
+createdAt DateTime @default(now())
+
+@@unique([sourceRecordId, sourceAttributeId, targetRecordId])
+@@index([orgId])
+@@index([sourceRecordId])
+@@index([targetRecordId])
+@@index([sourceAttributeId])
+}
+
+// Views
+
+model CrmView {
+id String @id @default(cuid())
+orgId String
+org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+objectId String?
+object CrmObject? @relation(fields: [objectId], references: [id], onDelete: Cascade)
+
+listId String?
+list CrmList? @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+name String
+type ViewType @default(TABLE)
+isDefault Boolean @default(false)
+order Int @default(0)
+
+groupByAttributeId String?
+groupByAttribute Attribute? @relation("ViewGroupByAttribute", fields: [groupByAttributeId], references: [id])
+
+config Json?
+
+createdById String?
+createdBy User? @relation("ViewCreatedBy", fields: [createdById], references: [id])
+
+columns ViewColumn[]
+filters ViewFilter[]
+sorts ViewSort[]
+
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+archivedAt DateTime?
+
+@@index([orgId])
+@@index([objectId])
+@@index([listId])
+}
+
+model ViewColumn {
+id String @id @default(cuid())
+viewId String
+view CrmView @relation(fields: [viewId], references: [id], onDelete: Cascade)
+
+attributeId String
+attribute Attribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+
+order Int @default(0)
+width Int?
+isVisible Boolean @default(true)
+config Json?
+
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+
+@@unique([viewId, attributeId])
+@@index([viewId])
+@@index([attributeId])
+}
+
+model ViewFilter {
+id String @id @default(cuid())
+viewId String
+view CrmView @relation(fields: [viewId], references: [id], onDelete: Cascade)
+
+attributeId String?
+attribute Attribute? @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+
+field SystemField?
+operator FilterOperator
+value Json?
+group Int @default(0)
+order Int @default(0)
+
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+
+@@index([viewId])
+@@index([attributeId])
+}
+
+model ViewSort {
+id String @id @default(cuid())
+viewId String
+view CrmView @relation(fields: [viewId], references: [id], onDelete: Cascade)
+
+attributeId String?
+attribute Attribute? @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+
+field SystemField?
+direction SortDirection @default(ASC)
+order Int @default(0)
+
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+
+@@index([viewId])
+@@index([attributeId])
+}
+
+// Lists
+
+model CrmList {
+id String @id @default(cuid())
+orgId String
+org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+name String
+description String?
+icon String?
+color String?
+
+primaryObjectId String
+primaryObject CrmObject @relation(fields: [primaryObjectId], references: [id], onDelete: Cascade)
+
+type ListType @default(STATIC)
+isSystem Boolean @default(false)
+config Json?
+
+createdById String?
+createdBy User? @relation("ListCreatedBy", fields: [createdById], references: [id])
+
+entries ListEntry[]
+views CrmView[]
+
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+archivedAt DateTime?
+
+@@index([orgId])
+@@index([primaryObjectId])
+}
+
+model ListEntry {
+id String @id @default(cuid())
+orgId String
+org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+listId String
+list CrmList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+recordId String
+record CrmRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+
+stage String?
+position Int @default(0)
+metadata Json?
+
+addedById String?
+addedBy User? @relation("ListEntryAddedBy", fields: [addedById], references: [id])
+
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+archivedAt DateTime?
+
+@@unique([listId, recordId])
+@@index([orgId])
+@@index([listId])
+@@index([recordId])
+@@index([stage])
+}
+
+// Activity, notes, tasks, emails
+
+model Activity {
+id String @id @default(cuid())
+orgId String
+org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+recordId String?
+record CrmRecord? @relation(fields: [recordId], references: [id], onDelete: Cascade)
+
+actorId String?
+actor User? @relation("ActivityActor", fields: [actorId], references: [id])
+
+type ActivityType
+title String?
+body String? @db.Text
+payload Json?
+
+emailId String?
+email Email? @relation(fields: [emailId], references: [id])
+
+noteId String?
+note Note? @relation(fields: [noteId], references: [id])
+
+taskId String?
+task Task? @relation(fields: [taskId], references: [id])
+
+createdAt DateTime @default(now())
+
+@@index([orgId])
+@@index([recordId, createdAt])
+@@index([type])
+@@index([emailId])
+@@index([noteId])
+@@index([taskId])
+}
+
+model Note {
+id String @id @default(cuid())
+orgId String
+org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+recordId String?
+record CrmRecord? @relation(fields: [recordId], references: [id], onDelete: Cascade)
+
+authorId String?
+author User? @relation("NoteAuthor", fields: [authorId], references: [id])
+
+body String @db.Text
+activities Activity[]
+
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+archivedAt DateTime?
+
+@@index([orgId])
+@@index([recordId])
+@@index([authorId])
+}
+
+model Task {
+id String @id @default(cuid())
+orgId String
+org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+recordId String?
+record CrmRecord? @relation(fields: [recordId], references: [id], onDelete: Cascade)
+
+title String
+description String? @db.Text
+status TaskStatus @default(OPEN)
+priority TaskPriority @default(NORMAL)
+dueAt DateTime?
+
+assigneeId String?
+assignee User? @relation("TaskAssignee", fields: [assigneeId], references: [id])
+
+createdById String?
+createdBy User? @relation("TaskCreatedBy", fields: [createdById], references: [id])
+
+activities Activity[]
+
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+completedAt DateTime?
+archivedAt DateTime?
+
+@@index([orgId])
+@@index([recordId])
+@@index([assigneeId])
+@@index([status])
+@@index([dueAt])
+}
+
+model Email {
+id String @id @default(cuid())
+orgId String
+org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+recordId String?
+record CrmRecord? @relation(fields: [recordId], references: [id], onDelete: SetNull)
+
+senderUserId String?
+senderUser User? @relation("EmailSenderUser", fields: [senderUserId], references: [id])
+
+direction Direction
+channel Channel @default(EMAIL)
+status EmailStatus @default(DRAFT)
+
+fromEmail String?
+fromName String?
+toEmails Json
+ccEmails Json?
+bccEmails Json?
+
+subject String?
+bodyText String? @db.Text
+bodyHtml String? @db.Text
+
+provider String?
+providerMessageId String?
+threadId String?
+
+aiGenerated Boolean @default(false)
+demo Boolean @default(false)
+replyClass ReplyClass?
+
+sequenceEnrollmentId String?
+sequenceEnrollment SequenceEnrollment? @relation(fields: [sequenceEnrollmentId], references: [id], onDelete: SetNull)
+
+sequenceStepRunId String?
+sequenceStepRun SequenceStepRun? @relation(fields: [sequenceStepRunId], references: [id], onDelete: SetNull)
+
+activities Activity[]
+
+sentAt DateTime?
+openedAt DateTime?
+clickedAt DateTime?
+repliedAt DateTime?
+bouncedAt DateTime?
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+archivedAt DateTime?
+
+@@index([orgId])
+@@index([recordId])
+@@index([senderUserId])
+@@index([status])
+@@index([sentAt])
+@@index([providerMessageId])
+@@index([sequenceEnrollmentId])
+}
+
+// Imports
+
+model ImportJob {
+id String @id @default(cuid())
+orgId String
+org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+objectId String?
+object CrmObject? @relation(fields: [objectId], references: [id], onDelete: SetNull)
+
+status ImportStatus @default(DRAFT)
+fileName String?
+source String?
+mapping Json?
+totalRows Int @default(0)
+processedRows Int @default(0)
+successRows Int @default(0)
+failedRows Int @default(0)
+errorSummary Json?
+
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+completedAt DateTime?
+
+@@index([orgId])
+@@index([objectId])
+@@index([status])
+}
+
+// Sequences
+
+model Sequence {
+id String @id @default(cuid())
+orgId String
+org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+campaignId String?
+campaign Campaign? @relation(fields: [campaignId], references: [id])
+
+name String
+description String?
+status SequenceStatus @default(DRAFT)
+channel Channel @default(EMAIL)
+
+timezone String?
+sendingWindowStart String?
+sendingWindowEnd String?
+businessDaysOnly Boolean @default(true)
+includeUnsubscribe Boolean @default(true)
+threadEmails Boolean @default(true)
+includeSignature Boolean @default(true)
+exitOnReply Boolean @default(true)
+
+steps SequenceStep[]
+enrollments SequenceEnrollment[]
+
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+archivedAt DateTime?
+
+@@index([orgId])
+@@index([campaignId])
+@@index([status])
+}
+
+model SequenceStep {
+id String @id @default(cuid())
+sequenceId String
+sequence Sequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+
+order Int
+type SequenceStepType
+delayDays Int @default(0)
+delayBusinessDays Boolean @default(true)
+
+subject String?
+body String? @db.Text
+config Json?
+
+runs SequenceStepRun[]
+
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+
+@@unique([sequenceId, order])
+@@index([sequenceId])
+}
+
+model SequenceEnrollment {
+id String @id @default(cuid())
+sequenceId String
+sequence Sequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+
+orgId String
+org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+recordId String
+record CrmRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+
+enrolledById String?
+enrolledBy User? @relation("SequenceEnrollmentUser", fields: [enrolledById], references: [id])
+
+status SequenceEnrollmentStatus @default(ACTIVE)
+currentStepOrder Int @default(0)
+nextRunAt DateTime?
+exitedAt DateTime?
+exitReason String?
+
+emails Email[]
+stepRuns SequenceStepRun[]
+
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+
+@@unique([sequenceId, recordId])
+@@index([orgId])
+@@index([recordId])
+@@index([status])
+@@index([nextRunAt])
+}
+
+model SequenceStepRun {
+id String @id @default(cuid())
+enrollmentId String
+enrollment SequenceEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+stepId String
+step SequenceStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+status StepRunStatus @default(PENDING)
+scheduledAt DateTime?
+startedAt DateTime?
+completedAt DateTime?
+failedAt DateTime?
+error String? @db.Text
+result Json?
+
+emails Email[]
+
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+
+@@index([enrollmentId])
+@@index([stepId])
+@@index([status])
+@@index([scheduledAt])
+}
+
+// Workflows
+
+model Workflow {
+id String @id @default(cuid())
+orgId String
+org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+name String
+description String?
+status WorkflowStatus @default(DRAFT)
+triggerType WorkflowTriggerType
+triggerConfig Json?
+
+steps WorkflowStep[]
+runs WorkflowRun[]
+
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+archivedAt DateTime?
+
+@@index([orgId])
+@@index([status])
+@@index([triggerType])
+}
+
+model WorkflowStep {
+id String @id @default(cuid())
+workflowId String
+workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+key String
+name String
+type WorkflowStepType
+order Int @default(0)
+config Json?
+nextStepKey String?
+
+runs WorkflowStepRun[]
+
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+
+@@unique([workflowId, key])
+@@index([workflowId])
+}
+
+model WorkflowRun {
+id String @id @default(cuid())
+orgId String
+org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+workflowId String
+workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+actorId String?
+actor User? @relation("WorkflowRunActor", fields: [actorId], references: [id])
+
+status WorkflowRunStatus @default(PENDING)
+triggerPayload Json?
+context Json?
+error String? @db.Text
+
+stepRuns WorkflowStepRun[]
+
+startedAt DateTime?
+completedAt DateTime?
+failedAt DateTime?
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+
+@@index([orgId])
+@@index([workflowId])
+@@index([status])
+@@index([createdAt])
+}
+
+model WorkflowStepRun {
+id String @id @default(cuid())
+workflowRunId String
+workflowRun WorkflowRun @relation(fields: [workflowRunId], references: [id], onDelete: Cascade)
+
+stepId String
+step WorkflowStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+status WorkflowRunStatus @default(PENDING)
+input Json?
+output Json?
+error String? @db.Text
+
+startedAt DateTime?
+completedAt DateTime?
+failedAt DateTime?
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+
+@@index([workflowRunId])
+@@index([stepId])
+@@index([status])
+}
+
+// Reports
+
+model Report {
+id String @id @default(cuid())
+orgId String
+org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+name String
+description String?
+type ReportType
+sourceType ReportSourceType
+sourceObjectId String?
+sourceObject CrmObject? @relation(fields: [sourceObjectId], references: [id], onDelete: SetNull)
+sourceListId String?
+sourceList CrmList? @relation(fields: [sourceListId], references: [id], onDelete: SetNull)
+
+config Json?
+metrics ReportMetric[]
+dimensions ReportDimension[]
+dashboardItems DashboardItem[]
+
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+archivedAt DateTime?
+
+@@index([orgId])
+@@index([sourceObjectId])
+@@index([sourceListId])
+}
+
+model ReportMetric {
+id String @id @default(cuid())
+reportId String
+report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+attributeId String?
+attribute Attribute? @relation(fields: [attributeId], references: [id], onDelete: SetNull)
+
+aggregation ReportAggregation
+label String?
+config Json?
+
+createdAt DateTime @default(now())
+
+@@index([reportId])
+@@index([attributeId])
+}
+
+model ReportDimension {
+id String @id @default(cuid())
+reportId String
+report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+attributeId String?
+attribute Attribute? @relation(fields: [attributeId], references: [id], onDelete: SetNull)
+
+field SystemField?
+bucket String?
+label String?
+config Json?
+
+createdAt DateTime @default(now())
+
+@@index([reportId])
+@@index([attributeId])
+}
+
+model Dashboard {
+id String @id @default(cuid())
+orgId String
+org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+name String
+description String?
+isDefault Boolean @default(false)
+
+items DashboardItem[]
+
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+archivedAt DateTime?
+
+@@index([orgId])
+}
+
+model DashboardItem {
+id String @id @default(cuid())
+dashboardId String
+dashboard Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+
+reportId String
+report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+x Int @default(0)
+y Int @default(0)
+width Int @default(6)
+height Int @default(4)
+config Json?
+
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+
+@@index([dashboardId])
+@@index([reportId])
+}
+
+// Legacy migration support
+
+model LegacyMapping {
+id String @id @default(cuid())
+orgId String
+org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+legacyModel String
+legacyId String
+targetModel String
+targetId String
+metadata Json?
+
+createdAt DateTime @default(now())
+
+@@unique([orgId, legacyModel, legacyId, targetModel])
+@@index([orgId])
+@@index([targetModel, targetId])
+}
+
+// Legacy models. Эти модели временно сохраняются для безопасной миграции старых данных.
+
+model Lead {
+id String @id @default(cuid())
+orgId String
+org Organization @relation(fields: [orgId], references: [id])
+firstName String
+lastName String
+email String?
+linkedinUrl String?
+title String?
+company String?
+companySize String?
+industry String?
+country String?
+city String?
+website String?
+score Int @default(0)
+status LeadStatus @default(NEW)
+source String?
+apolloId String?
+enriched Boolean @default(false)
+notes String?
+messages Message[]
+campaignLeads CampaignLead[]
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+
+@@index([orgId])
+@@index([email])
+}
+
+model Campaign {
+id String @id @default(cuid())
+orgId String
+org Organization @relation(fields: [orgId], references: [id])
+userId String
+user User @relation(fields: [userId], references: [id])
+name String
+status CampaignStatus @default(DRAFT)
+channel Channel @default(EMAIL)
+targetIndustry String?
+targetCountry String?
+targetSize String?
+dailyLimit Int @default(50)
+sequences Sequence[]
+campaignLeads CampaignLead[]
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+
+@@index([orgId])
+@@index([userId])
+}
+
+model CampaignLead {
+id String @id @default(cuid())
+campaignId String
+campaign Campaign @relation(fields: [campaignId], references: [id])
+leadId String
+lead Lead @relation(fields: [leadId], references: [id])
+currentStep Int @default(0)
+status LeadStatus @default(NEW)
+nextSendAt DateTime?
+createdAt DateTime @default(now())
+
+@@unique([campaignId, leadId])
+@@index([leadId])
+@@index([nextSendAt])
+}
+
+model Message {
+id String @id @default(cuid())
+leadId String
+lead Lead @relation(fields: [leadId], references: [id])
+direction Direction
+channel Channel
+subject String?
+body String @db.Text
+aiGenerated Boolean @default(false)
+replyClass ReplyClass?
+sentAt DateTime?
+openedAt DateTime?
+repliedAt DateTime?
+createdAt DateTime @default(now())
+
+@@index([leadId])
+@@index([sentAt])
+}
+
+enum Role {
+OWNER
+ADMIN
+MEMBER
+}
+
+enum Plan {
+STARTER
+GROWTH
+AGENCY
+}
+
+enum AttributeType {
+TEXT
+LONG_TEXT
+NUMBER
+BOOLEAN
+DATE
+DATETIME
+SELECT
+MULTI_SELECT
+CURRENCY
+EMAIL
+PHONE
+URL
+USER
+RELATIONSHIP
+JSON
+}
+
+enum RelationshipCardinality {
+ONE_TO_ONE
+ONE_TO_MANY
+MANY_TO_ONE
+MANY_TO_MANY
+}
+
+enum ViewType {
+TABLE
+BOARD
+}
+
+enum FilterOperator {
+EQUALS
+NOT_EQUALS
+CONTAINS
+NOT_CONTAINS
+STARTS_WITH
+ENDS_WITH
+IS_EMPTY
+IS_NOT_EMPTY
+GREATER_THAN
+GREATER_THAN_OR_EQUAL
+LESS_THAN
+LESS_THAN_OR_EQUAL
+BEFORE
+AFTER
+IN
+NOT_IN
+}
+
+enum SortDirection {
+ASC
+DESC
+}
+
+enum SystemField {
+ID
+DISPLAY_NAME
+CREATED_AT
+UPDATED_AT
+ARCHIVED_AT
+}
+
+enum ListType {
+STATIC
+DYNAMIC
+PIPELINE
+}
+
+enum ActivityType {
+RECORD_CREATED
+RECORD_UPDATED
+RECORD_ARCHIVED
+VALUE_UPDATED
+RELATIONSHIP_CREATED
+RELATIONSHIP_REMOVED
+RECORD_ADDED_TO_LIST
+RECORD_REMOVED_FROM_LIST
+LIST_STAGE_CHANGED
+NOTE_CREATED
+NOTE_UPDATED
+TASK_CREATED
+TASK_COMPLETED
+EMAIL_DRAFTED
+EMAIL_SENT
+EMAIL_OPENED
+EMAIL_REPLIED
+SEQUENCE_ENROLLED
+SEQUENCE_EXITED
+WORKFLOW_STARTED
+WORKFLOW_COMPLETED
+IMPORT_COMPLETED
+}
+
+enum TaskStatus {
+OPEN
+IN_PROGRESS
+COMPLETED
+CANCELED
+}
+
+enum TaskPriority {
+LOW
+NORMAL
+HIGH
+URGENT
+}
+
+enum EmailStatus {
+DRAFT
+QUEUED
+SENDING
+SENT
+DELIVERED
+OPENED
+CLICKED
+REPLIED
+BOUNCED
+FAILED
+CANCELED
+}
+
+enum ImportStatus {
+DRAFT
+MAPPING
+QUEUED
+RUNNING
+COMPLETED
+FAILED
+CANCELED
+}
+
+enum SequenceStatus {
+DRAFT
+ACTIVE
+PAUSED
+COMPLETED
+ARCHIVED
+}
+
+enum SequenceStepType {
+WAIT
+AUTOMATED_EMAIL
+MANUAL_EMAIL
+TASK
+}
+
+enum SequenceEnrollmentStatus {
+ACTIVE
+PAUSED
+COMPLETED
+EXITED
+FAILED
+}
+
+enum StepRunStatus {
+PENDING
+RUNNING
+COMPLETED
+FAILED
+SKIPPED
+CANCELED
+}
+
+enum WorkflowStatus {
+DRAFT
+LIVE
+PAUSED
+ARCHIVED
+}
+
+enum WorkflowTriggerType {
+RECORD_CREATED
+RECORD_UPDATED
+RECORD_ADDED_TO_LIST
+LIST_STAGE_CHANGED
+EMAIL_REPLIED
+TASK_COMPLETED
+MANUAL
+}
+
+enum WorkflowStepType {
+UPDATE_RECORD
+ADD_TO_LIST
+UPDATE_LIST_ENTRY
+CREATE_TASK
+SEND_EMAIL
+ENROLL_IN_SEQUENCE
+WAIT
+WEBHOOK
+}
+
+enum WorkflowRunStatus {
+PENDING
+RUNNING
+COMPLETED
+FAILED
+CANCELED
+}
+
+enum ReportType {
+INSIGHT
+FUNNEL
+TIME_IN_STAGE
+STAGE_CHANGED
+BAR
+LINE
+PIE
+TABLE
+}
+
+enum ReportSourceType {
+OBJECT
+LIST
+SEQUENCE
+WORKFLOW
+EMAIL
+}
+
+enum ReportAggregation {
+COUNT
+COUNT_DISTINCT
+SUM
+AVG
+MIN
+MAX
+}
+
+enum LeadStatus {
+NEW
+CONTACTED
+REPLIED
+HOT
+CONVERTED
+LOST
+UNSUBSCRIBED
+}
+
+enum CampaignStatus {
+DRAFT
+ACTIVE
+PAUSED
+COMPLETED
+}
+
+enum Channel {
+EMAIL
+LINKEDIN
+}
+
+enum Direction {
+OUTBOUND
+INBOUND
+}
+
+enum ReplyClass {
+INTERESTED
+NOT_INTERESTED
+FOLLOW_UP
+UNSUBSCRIBE
+}
