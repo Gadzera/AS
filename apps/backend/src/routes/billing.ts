@@ -11,6 +11,10 @@ import {
   getPlanFromPriceId,
   getSubscription,
 } from '../services/stripe';
+import { reconcileBalance } from '../services/billing/ledger';
+import { processStripeEvent } from '../services/billing/stripeSync';
+import { getUsage } from '../services/billing/usage';
+import { getOrCreateBalance, PLAN_MONTHLY_CREDITS } from '../services/ai/credits';
 import { config } from '../config';
 
 const router = Router();
@@ -29,6 +33,13 @@ router.post(
     try {
       const orgId = req.user!.orgId!;
       const { plan } = checkoutSchema.parse(req.body);
+
+      // ЧЕСТНЫЙ DEMO-GATE: без ключа Stripe реальной оплаты нет. Не подделываем успех,
+      // не меняем план/баланс — возвращаем явный demo-ответ для UI.
+      if (!config.stripe.secretKey) {
+        res.json({ demo: true, message: 'Billing runs in demo mode — connect Stripe to enable real upgrades. No charge was made and your plan is unchanged.' });
+        return;
+      }
 
       const [org, user] = await Promise.all([
         prisma.organization.findUnique({ where: { id: orgId } }),
@@ -113,27 +124,108 @@ router.get(
       }
 
       if (!org.stripeSubId) {
+        // Тариф назначен (GROWTH и т.п.), но реальной оплаты Stripe нет → честный demo-статус (не «free»).
         res.json({
           plan: org.plan,
-          status: 'free',
+          status: org.subscriptionStatus ?? 'demo',
+          demo: true,
           subscription: null,
+          currentPeriodEnd: org.currentPeriodEnd?.toISOString() ?? null,
+          cancelAtPeriodEnd: org.cancelAtPeriodEnd,
         });
         return;
       }
 
-      const sub = await getSubscription(org.stripeSubId);
-
-      res.json({
-        plan: org.plan,
-        status: sub.status,
-        currentPeriodEnd: new Date((sub as { current_period_end: number }).current_period_end * 1000),
-        cancelAtPeriodEnd: sub.cancel_at_period_end,
-      });
+      // M16-3: Stripe может быть не настроен/недоступен — НЕ роняем эндпоинт (иначе 401/500 разлогинивает UI).
+      // Деградируем к синхронизированному из webhook статусу на org (источник истины и так webhook).
+      try {
+        const sub = await getSubscription(org.stripeSubId);
+        res.json({
+          plan: org.plan,
+          status: sub.status,
+          currentPeriodEnd: new Date((sub as { current_period_end: number }).current_period_end * 1000).toISOString(),
+          cancelAtPeriodEnd: sub.cancel_at_period_end,
+        });
+      } catch {
+        res.json({
+          plan: org.plan,
+          status: org.subscriptionStatus ?? 'active',
+          subscription: null,
+          degraded: true,
+          currentPeriodEnd: org.currentPeriodEnd?.toISOString() ?? null,
+          cancelAtPeriodEnd: org.cancelAtPeriodEnd,
+        });
+      }
     } catch (err) {
       next(err);
     }
   }
 );
+
+// M16-3: GET /api/billing/overview — всё для Settings → Billing & Credits (plan/status/period + credits + ledger).
+router.get('/overview', authenticate, requireOrg, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId = req.user!.orgId!;
+    await getOrCreateBalance(orgId); // гарантируем строку баланса
+    const [org, bal, ledger, usage] = await Promise.all([
+      prisma.organization.findUnique({ where: { id: orgId }, select: { plan: true, subscriptionStatus: true, currentPeriodEnd: true, cancelAtPeriodEnd: true, stripeSubId: true } }),
+      prisma.creditBalance.findUnique({ where: { orgId }, select: { monthlyCredits: true, purchasedCredits: true, usedCredits: true, remainingCredits: true, periodStart: true, periodEnd: true } }),
+      prisma.creditTransaction.findMany({ where: { orgId }, orderBy: { createdAt: 'desc' }, take: 20, select: { id: true, source: true, type: true, amount: true, reason: true, balanceAfter: true, aiRunId: true, bulkRunId: true, replyDraftId: true, createdAt: true } }),
+      getUsage(orgId), // M16-5: единый источник usage/audit-тоталов
+    ]);
+    res.json({
+      plan: org?.plan ?? 'STARTER',
+      subscriptionStatus: org?.subscriptionStatus ?? (org?.stripeSubId ? 'active' : 'demo'),
+      hasSubscription: !!org?.stripeSubId,
+      currentPeriodEnd: org?.currentPeriodEnd?.toISOString() ?? null,
+      cancelAtPeriodEnd: !!org?.cancelAtPeriodEnd,
+      planMonthly: PLAN_MONTHLY_CREDITS[org?.plan ?? ''] ?? 1500,
+      credits: bal ? { monthly: bal.monthlyCredits, purchased: bal.purchasedCredits, used: bal.usedCredits, remaining: bal.remainingCredits, periodStart: bal.periodStart?.toISOString() ?? null, periodEnd: bal.periodEnd?.toISOString() ?? null } : null,
+      ledger: ledger.map((t) => ({ id: t.id, source: t.source, type: t.type, amount: t.amount, reason: t.reason, balanceAfter: t.balanceAfter, link: t.aiRunId ? `ai-run:${t.aiRunId}` : t.bulkRunId ? `bulk:${t.bulkRunId}` : t.replyDraftId ? `reply-draft:${t.replyDraftId}` : null, createdAt: t.createdAt.toISOString() })),
+      usage, // M16-5: breakdown by module + grants + adjustments (из CreditTransaction; spend=DEBIT)
+    });
+  } catch (err) { next(err); }
+});
+
+// M16-5: GET /api/billing/ledger/export?format=csv|json — полный ledger (date/type/source/amount/reason/balanceAfter/link/idempotencyKey).
+router.get('/ledger/export', authenticate, requireOrg, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId = req.user!.orgId!;
+    const format = req.query.format === 'json' ? 'json' : 'csv';
+    const rows = await prisma.creditTransaction.findMany({ where: { orgId }, orderBy: { createdAt: 'desc' }, take: 5000, select: { createdAt: true, type: true, source: true, amount: true, reason: true, balanceAfter: true, aiRunId: true, bulkRunId: true, replyDraftId: true, idempotencyKey: true } });
+    const link = (t: typeof rows[number]) => t.aiRunId ? `ai-run:${t.aiRunId}` : t.bulkRunId ? `bulk:${t.bulkRunId}` : t.replyDraftId ? `reply-draft:${t.replyDraftId}` : '';
+    if (format === 'json') {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', 'attachment; filename="credit_ledger.json"');
+      res.send(JSON.stringify(rows.map((t) => ({ date: t.createdAt.toISOString(), type: t.type, source: t.source, amount: t.amount, reason: t.reason, balanceAfter: t.balanceAfter, link: link(t) || null, idempotencyKey: t.idempotencyKey })), null, 2));
+      return;
+    }
+    const esc = (v: unknown) => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+    const header = ['date', 'type', 'source', 'amount', 'reason', 'balanceAfter', 'link', 'idempotencyKey'];
+    const lines = [header.join(','), ...rows.map((t) => [t.createdAt.toISOString(), t.type, t.source, t.amount, t.reason ?? '', t.balanceAfter, link(t), t.idempotencyKey ?? ''].map(esc).join(','))];
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="credit_ledger.csv"');
+    res.send(lines.join('\n'));
+  } catch (err) { next(err); }
+});
+
+// M16-5: GET /api/billing/webhook-events — Stripe webhook audit (eventId/type/status/attempts/processedAt/error). ТОЛЬКО менеджер.
+router.get('/webhook-events', authenticate, requireOrg, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (req.user!.role === 'MEMBER') { res.status(403).json({ error: 'Only the owner or an admin can view webhook audit' }); return; }
+    const events = await prisma.stripeEvent.findMany({ orderBy: { createdAt: 'desc' }, take: 30, select: { eventId: true, type: true, status: true, attempts: true, processedAt: true, error: true, createdAt: true } });
+    res.json({ events: events.map((e) => ({ ...e, processedAt: e.processedAt?.toISOString() ?? null, createdAt: e.createdAt.toISOString() })) });
+  } catch (err) { next(err); }
+});
+
+// M16-1/M16-3: POST /api/billing/reconcile — period-aware сверка (расхождение → ADJUSTMENT). ТОЛЬКО менеджер.
+router.post('/reconcile', authenticate, requireOrg, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (req.user!.role === 'MEMBER') { res.status(403).json({ error: 'Only the owner or an admin can reconcile billing' }); return; }
+    const r = await reconcileBalance(req.user!.orgId!);
+    res.json(r);
+  } catch (err) { next(err); }
+});
 
 // POST /api/billing/webhook — Stripe webhook handler
 router.post(
@@ -155,91 +247,15 @@ router.post(
       return;
     }
 
+    // M16-2: идемпотентная обработка (StripeEvent dedup со статусом) + ledger business-keys. Падение → 500,
+    // эффекты НЕ применены частично (FAILED) → Stripe ретраит → повтор применяет ровно раз.
     try {
-      switch (event.type) {
-        case 'checkout.session.completed': {
-          const session = event.data.object as {
-            metadata?: { orgId?: string; plan?: string };
-            customer?: string;
-            subscription?: string;
-          };
-          const orgId = session.metadata?.orgId;
-          const plan = session.metadata?.plan;
-          const customerId = session.customer;
-          const subscriptionId = session.subscription;
-
-          if (orgId && plan && subscriptionId) {
-            const planLimits: Record<string, number> = {
-              STARTER: 500,
-              GROWTH: 2000,
-              AGENCY: 10000,
-            };
-
-            await prisma.organization.update({
-              where: { id: orgId },
-              data: {
-                plan: plan as 'STARTER' | 'GROWTH' | 'AGENCY',
-                stripeCustomerId: customerId as string,
-                stripeSubId: subscriptionId as string,
-                leadsLimit: planLimits[plan] ?? 500,
-              },
-            });
-          }
-          break;
-        }
-
-        case 'customer.subscription.updated': {
-          const sub = event.data.object as {
-            id: string;
-            status: string;
-            items: { data: Array<{ price: { id: string } }> };
-          };
-          const priceId = sub.items.data[0]?.price?.id;
-          const plan = getPlanFromPriceId(priceId);
-
-          const org = await prisma.organization.findFirst({
-            where: { stripeSubId: sub.id },
-          });
-
-          if (org) {
-            const planLimits: Record<string, number> = {
-              STARTER: 500,
-              GROWTH: 2000,
-              AGENCY: 10000,
-            };
-
-            await prisma.organization.update({
-              where: { id: org.id },
-              data: {
-                plan: plan as 'STARTER' | 'GROWTH' | 'AGENCY',
-                leadsLimit: planLimits[plan] ?? 500,
-              },
-            });
-          }
-          break;
-        }
-
-        case 'customer.subscription.deleted': {
-          const sub = event.data.object as { id: string };
-          await prisma.organization.updateMany({
-            where: { stripeSubId: sub.id },
-            data: {
-              plan: 'STARTER',
-              stripeSubId: null,
-              leadsLimit: 500,
-            },
-          });
-          break;
-        }
-
-        default:
-          // Unhandled event type — ignore
-          break;
-      }
-
-      res.json({ received: true });
+      const r = await processStripeEvent({ id: event.id, type: event.type, data: { object: event.data.object as unknown as Record<string, unknown> } });
+      res.json({ received: true, status: r.status });
     } catch (err) {
-      next(err);
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn('[stripe:webhook] processing failed (will retry):', msg);
+      res.status(500).json({ error: 'webhook processing failed' });
     }
   }
 );

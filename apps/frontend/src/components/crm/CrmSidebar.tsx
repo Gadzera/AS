@@ -20,6 +20,7 @@ import {
   Phone,
   Receipt,
   Search,
+  Settings,
   Sparkles,
   SquareKanban,
   UsersRound,
@@ -82,13 +83,13 @@ function SidebarItem({
     <Link
       href={href}
       className={[
-        'group flex h-8 items-center gap-2 rounded-md px-2 text-[13px] leading-none transition-colors',
+        'group relative flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium transition-all duration-200 ease-out',
         active
-          ? 'bg-gray-200/80 text-gray-950'
-          : 'text-gray-700 hover:bg-gray-100 hover:text-gray-950',
+          ? 'sidebar-active-gradient text-ink shadow-xs ring-1 ring-brand-100 before:absolute before:left-0 before:top-2 before:h-5 before:w-0.5 before:rounded-full before:bg-brand-600'
+          : 'text-ink-muted hover:bg-surface-2 hover:text-ink',
       ].join(' ')}
     >
-      <Icon className="h-4 w-4 shrink-0 text-gray-500 group-hover:text-gray-700" />
+      <Icon className={['h-4 w-4 shrink-0 transition-colors', active ? 'text-brand-600' : 'text-ink-subtle group-hover:text-brand-600'].join(' ')} />
       <span className="min-w-0 flex-1 truncate">{label}</span>
       {children}
     </Link>
@@ -124,19 +125,19 @@ export default function CrmSidebar() {
   }, []);
 
   return (
-    <aside className="flex h-screen w-[220px] shrink-0 flex-col border-r border-gray-200 bg-[#fbfbfa] text-gray-800">
-      <div className="flex h-12 items-center justify-between border-b border-gray-200 px-3">
-        <Link href="/crm" className="flex min-w-0 items-center gap-2">
-          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-gray-950 text-[11px] font-semibold text-white">
-            AI
+    <aside className="flex h-screen w-[240px] shrink-0 flex-col border-r border-line/80 bg-[var(--sidebar)] text-ink">
+      <div className="flex h-14 items-center justify-between border-b border-line/80 px-3">
+        <Link href="/crm" className="flex min-w-0 items-center gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg brand-gradient text-[12px] font-bold text-white shadow-md ring-1 ring-white/60">
+            A
           </div>
-          <span className="truncate text-[14px] font-medium text-gray-900">Basepoint</span>
-          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-gray-500" />
+          <span className="truncate text-sm font-semibold tracking-[-0.01em] text-ink">Basepoint</span>
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ink-subtle" />
         </Link>
 
         <button
           type="button"
-          className="rounded-md border border-gray-200 bg-white p-1 text-gray-500 shadow-sm hover:bg-gray-50"
+          className="rounded-lg border border-line bg-surface p-1.5 text-ink-subtle shadow-xs transition-colors hover:bg-surface-2 hover:text-ink"
           aria-label="Toggle sidebar"
         >
           <LayoutGrid className="h-3.5 w-3.5" />
@@ -147,18 +148,18 @@ export default function CrmSidebar() {
         <div className="mb-2 flex items-center gap-1.5">
           <Link
             href="#"
-            className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md border border-gray-200 bg-white px-2 text-[13px] text-gray-800 shadow-sm hover:bg-gray-50"
+            className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border border-line bg-surface px-2.5 text-sm text-ink-muted shadow-xs transition-all hover:bg-surface-2 hover:text-ink hover:border-line-strong"
           >
-            <Sparkles className="h-3.5 w-3.5 text-gray-500" />
+            <Sparkles className="h-4 w-4 text-brand-500" />
             <span className="truncate">Quick actions</span>
-            <kbd className="ml-auto rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-500">
+            <kbd className="ml-auto rounded border border-line bg-surface-2 px-1.5 py-0.5 text-[10px] text-ink-subtle">
               ⌘K
             </kbd>
           </Link>
 
           <Link
             href="#"
-            className="flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 shadow-sm hover:bg-gray-50"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-ink-subtle shadow-xs transition-all hover:bg-surface-2 hover:text-ink hover:border-line-strong"
             aria-label="Search"
           >
             <Search className="h-3.5 w-3.5" />
@@ -172,14 +173,14 @@ export default function CrmSidebar() {
         </nav>
 
         <div className="mt-5">
-          <div className="mb-1.5 flex items-center gap-1 px-2 text-[11px] font-medium uppercase tracking-wide text-gray-500">
+          <div className="mb-2 flex items-center gap-1 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-subtle">
             <ChevronDown className="h-3 w-3" />
             <span>Favorites</span>
           </div>
         </div>
 
         <div className="mt-4">
-          <div className="mb-1.5 flex items-center gap-1 px-2 text-[11px] font-medium uppercase tracking-wide text-gray-500">
+          <div className="mb-2 flex items-center gap-1 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-subtle">
             <ChevronDown className="h-3 w-3" />
             <span>Records</span>
           </div>
@@ -204,7 +205,7 @@ export default function CrmSidebar() {
         </div>
 
         <div className="mt-4">
-          <div className="mb-1.5 flex items-center gap-1 px-2 text-[11px] font-medium uppercase tracking-wide text-gray-500">
+          <div className="mb-2 flex items-center gap-1 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-subtle">
             <ChevronDown className="h-3 w-3" />
             <span>Lists</span>
           </div>
@@ -219,12 +220,20 @@ export default function CrmSidebar() {
         </div>
       </div>
 
-      <div className="border-t border-gray-200 px-3 py-2">
-        <div className="flex items-center gap-2 rounded-md px-1 py-1">
-          <div className="h-6 w-6 rounded-full bg-gradient-to-br from-gray-200 to-gray-300" />
+      <div className="border-t border-line/80 px-2 py-2">
+        <SidebarItem
+          href="/crm/settings/data/objects"
+          icon={Settings}
+          label="Settings / Data"
+          active={pathname.startsWith('/crm/settings')}
+        />
+        <div className="mt-2 flex items-center gap-2.5 rounded-xl border border-line bg-white/70 px-2.5 py-2 shadow-xs">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg brand-gradient text-[11px] font-bold text-white shadow-sm ring-1 ring-white/60">
+            AI
+          </div>
           <div className="min-w-0">
-            <p className="truncate text-[12px] font-medium text-gray-900">AISDR workspace</p>
-            <p className="truncate text-[11px] text-gray-500">Flexible CRM</p>
+            <p className="truncate text-[12px] font-semibold text-ink">AISDR workspace</p>
+            <p className="truncate text-[11px] text-ink-muted">Flexible CRM</p>
           </div>
         </div>
       </div>

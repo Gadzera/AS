@@ -4,7 +4,11 @@
       "PowerShell(gh repo view gadzera/as)",
       "PowerShell(Start-Process \"C:\\\\Program Files\\\\Docker\\\\Docker\\\\Docker Desktop.exe\" -ErrorAction SilentlyContinue)",
       "PowerShell(\"Docker Desktop launch attempted\")",
-      "PowerShell(Get-NetTCPConnection -LocalPort 6379, 5432 -State Listen -ErrorAction SilentlyContinue | Select-Object LocalPort, OwningProcess | ForEach-Object { $p = Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue; \"Port $\\($_.LocalPort\\): PID $\\($_.OwningProcess\\) \\($\\($p.ProcessName\\)\\)\" })"
+      "PowerShell(Get-NetTCPConnection -LocalPort 6379, 5432 -State Listen -ErrorAction SilentlyContinue | Select-Object LocalPort, OwningProcess | ForEach-Object { $p = Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue; \"Port $\\($_.LocalPort\\): PID $\\($_.OwningProcess\\) \\($\\($p.ProcessName\\)\\)\" })",
+      "Bash(cat >> *)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\gadze\\.claude\\projects\\d--AISDR\\memory"
     ]
   }
 }

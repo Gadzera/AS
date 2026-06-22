@@ -1,86 +1,179 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-
+/* ===== Дизайн-токены AISDR — «Bold» светлый SaaS (индиго #4f46e5 + виолет/фуксия) ===== */
 @layer base {
   :root {
     /* Surface */
-    --bg:            #fbfbfa;
+    --bg:            #f5f6fb;
     --surface:       #ffffff;
-    --surface-2:     #f4f4f1;
-    --surface-3:     #ebebe6;
-    --sidebar:       #f8f7f5;
+    --surface-2:     #f2f3fc;
+    --surface-3:     #e9ebf8;
+    --sidebar:       #ffffff;
 
     /* Borders */
-    --border:        #e3e3dd;
-    --border-strong: #cfcfc7;
+    --border:        #e6e8f3;
+    --border-strong: #d2d6ea;
 
     /* Ink */
-    --text:          #1a1a1a;
-    --text-muted:    #5e5e58;
-    --text-subtle:   #8a8a80;
-    --text-disabled: #b0a99a;
+    --text:          #141729;
+    --text-muted:    #586079;
+    --text-subtle:   #99a0b8;
+    --text-disabled: #c0c6d8;
+
+    /* M23-2: rgb-каналы для Tailwind (<alpha-value>) — light */
+    --bg-rgb:            245 246 251;
+    --surface-rgb:       255 255 255;
+    --surface-2-rgb:     242 243 252;
+    --surface-3-rgb:     233 235 248;
+    --sidebar-rgb:       255 255 255;
+    --border-rgb:        230 232 243;
+    --border-strong-rgb: 210 214 234;
+    --text-rgb:          20 23 41;
+    --text-muted-rgb:    88 96 121;
+    --text-subtle-rgb:   153 160 184;
 
     /* Brand & semantic */
     --brand:         #4f46e5;
-    --brand-soft:    #eef2ff;
-    --success:       #2f8a5f;
-    --success-soft:  #e3f2ea;
-    --warning:       #b8782b;
-    --warning-soft:  #fbecd5;
-    --danger:        #b54141;
-    --danger-soft:   #f7e1e1;
-    --info:          #3a6db5;
-    --info-soft:     #e3eaf7;
+    --brand-strong:  #4338ca;
+    --brand-soft:    #eef0ff;
+    --success:       #059669;
+    --success-soft:  #d9fbef;
+    --warning:       #d97706;
+    --warning-soft:  #fff1d6;
+    --danger:        #e11d48;
+    --danger-soft:   #ffe4ea;
+    --info:          #4f46e5;
+    --info-soft:     #eef0ff;
 
-    /* Tag colors */
-    --tag-violet:        #ede9fe;
-    --tag-violet-ink:    #5b21b6;
-    --tag-pink:          #fce7f3;
-    --tag-pink-ink:      #9d174d;
-    --tag-yellow:        #fef3c7;
-    --tag-yellow-ink:    #92400e;
-    --tag-green:         #dcfce7;
-    --tag-green-ink:     #166534;
-    --tag-blue:          #dbeafe;
-    --tag-blue-ink:      #1e40af;
-    --tag-orange:        #fed7aa;
-    --tag-orange-ink:    #9a3412;
-    --tag-gray:          #f1efea;
-    --tag-gray-ink:      #5e5e58;
+    /* Tag colors (насыщенные, под Bold) */
+    --tag-violet:        #efe9ff;
+    --tag-violet-ink:    #6d28d9;
+    --tag-pink:          #ffe6f3;
+    --tag-pink-ink:      #be185d;
+    --tag-yellow:        #fff2cc;
+    --tag-yellow-ink:    #a16207;
+    --tag-green:         #d9fbe8;
+    --tag-green-ink:     #047857;
+    --tag-blue:          #e0e7ff;
+    --tag-blue-ink:      #4338ca;
+    --tag-orange:        #ffe6d2;
+    --tag-orange-ink:    #c2410c;
+    --tag-gray:          #eceef6;
+    --tag-gray-ink:      #475569;
 
     /* Shadows */
-    --shadow-xs:      0 1px 1px rgba(15,15,14,0.04);
-    --shadow-sm:      0 1px 2px rgba(15,15,14,0.05), 0 1px 1px rgba(15,15,14,0.04);
-    --shadow-md:      0 4px 12px rgba(15,15,14,0.07), 0 1px 2px rgba(15,15,14,0.04);
-    --shadow-lg:      0 16px 40px rgba(15,15,14,0.10), 0 2px 6px rgba(15,15,14,0.04);
-    --shadow-popover: 0 8px 24px rgba(15,15,14,0.12), 0 2px 4px rgba(15,15,14,0.06);
+    --shadow-xs:      0 1px 2px rgba(20,23,41,0.06), 0 1px 1px rgba(20,23,41,0.04);
+    --shadow-sm:      0 8px 20px rgba(20,23,41,0.08), 0 2px 6px rgba(20,23,41,0.05);
+    --shadow-md:      0 16px 40px rgba(20,23,41,0.12), 0 6px 14px rgba(79,70,229,0.10);
+    --shadow-lg:      0 30px 80px rgba(20,23,41,0.16), 0 12px 30px rgba(79,70,229,0.14);
+    --shadow-brand:   0 12px 26px rgba(79,70,229,0.32), 0 4px 10px rgba(79,70,229,0.22);
+    --shadow-popover: 0 26px 70px rgba(20,23,41,0.18), 0 10px 26px rgba(79,70,229,0.12), 0 0 0 1px rgba(210,214,234,0.7);
+
+    /* Gradients & glass */
+    --brand-gradient:        linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%);
+    --brand-gradient-strong: linear-gradient(135deg, #4f46e5 0%, #6d28d9 52%, #c026d3 100%);
+    --grad-hero:             radial-gradient(circle at 14% 16%, rgba(99,102,241,0.20), transparent 34%),
+                             radial-gradient(circle at 86% 12%, rgba(217,70,239,0.16), transparent 30%),
+                             radial-gradient(circle at 70% 88%, rgba(139,92,246,0.14), transparent 32%),
+                             linear-gradient(180deg, #f6f5ff 0%, #f3f3fd 48%, #ffffff 100%);
+    --grad-surface:          linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(247,248,255,0.9) 100%);
+    --grad-sidebar-active:   linear-gradient(135deg, rgba(99,102,241,0.16) 0%, rgba(139,92,246,0.12) 100%);
+    --glass-border:          rgba(210,214,234,0.72);
+    --focus-ring:            0 0 0 4px rgba(99,102,241,0.22), 0 0 0 1px rgba(79,70,229,0.45);
+  }
+
+  /* M23-2: Dark theme — переопределяет токены поверхностей/границ/текста (app-shell целиком, не одна карточка). */
+  html.dark {
+    --bg:            #0e1016;
+    --surface:       #181b23;
+    --surface-2:     #20242e;
+    --surface-3:     #2a2f3b;
+    --sidebar:       #14161d;
+    --border:        #2a2f3b;
+    --border-strong: #3a4150;
+    --text:          #eef0f6;
+    --text-muted:    #aab2c5;
+    --text-subtle:   #717a8e;
+    --text-disabled: #4a5160;
+    /* M23-2: rgb-каналы — dark (Tailwind surface/line/ink + opacity) */
+    --bg-rgb:            14 16 22;
+    --surface-rgb:       24 27 35;
+    --surface-2-rgb:     32 36 46;
+    --surface-3-rgb:     42 47 59;
+    --sidebar-rgb:       20 22 29;
+    --border-rgb:        42 47 59;
+    --border-strong-rgb: 58 65 80;
+    --text-rgb:          238 240 246;
+    --text-muted-rgb:    170 178 197;
+    --text-subtle-rgb:   113 122 142;
+    --brand-soft:    #211d44;
+    --success-soft:  #0c2c22;
+    --warning-soft:  #2e2410;
+    --danger-soft:   #2e1620;
+    --info-soft:     #211d44;
+    --tag-gray:      #262b36;
+    --tag-gray-ink:  #aab2c5;
+    --shadow-xs:      0 1px 2px rgba(0,0,0,0.5);
+    --shadow-sm:      0 8px 20px rgba(0,0,0,0.45);
+    --shadow-md:      0 16px 40px rgba(0,0,0,0.5);
+    --shadow-lg:      0 30px 80px rgba(0,0,0,0.6);
+    --shadow-popover: 0 26px 70px rgba(0,0,0,0.6), 0 0 0 1px rgba(58,65,80,0.7);
+    --grad-hero:      radial-gradient(circle at 14% 16%, rgba(99,102,241,0.22), transparent 36%),
+                      radial-gradient(circle at 86% 12%, rgba(217,70,239,0.16), transparent 32%),
+                      linear-gradient(180deg, #0e1016 0%, #14161d 60%, #181b23 100%);
+    --grad-surface:   linear-gradient(180deg, rgba(24,27,35,0.96) 0%, rgba(20,22,29,0.92) 100%);
+    --glass-border:   rgba(58,65,80,0.7);
+    color-scheme: dark;
   }
 
   * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
+  html { scroll-behavior: smooth; min-height: 100%; background: var(--bg); }
   body {
-    background-color: var(--bg);
+    min-height: 100vh;
+    margin: 0;
+    background:
+      radial-gradient(circle at 8% -2%, rgba(99,102,241,0.14), transparent 30rem),
+      radial-gradient(circle at 96% 4%, rgba(217,70,239,0.10), transparent 26rem),
+      linear-gradient(180deg, #f6f6fe 0%, var(--bg) 46%, #ffffff 100%);
+    background-attachment: fixed;
     color: var(--text);
-    font-family: 'Inter', system-ui, sans-serif;
-    font-feature-settings: 'cv11', 'ss01';
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01';
+    font-variant-numeric: tabular-nums;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    letter-spacing: -0.005em;
+    letter-spacing: -0.006em;
   }
-  h1, h2, h3, h4 { letter-spacing: -0.012em; }
+  /* M23-2: в dark-теме body-градиент не должен заканчиваться светлым (иначе полоса по краям) */
+  html.dark body {
+    background:
+      radial-gradient(circle at 8% -2%, rgba(99,102,241,0.16), transparent 30rem),
+      radial-gradient(circle at 96% 4%, rgba(217,70,239,0.10), transparent 26rem),
+      linear-gradient(180deg, #0e1016 0%, var(--bg) 50%, #14161d 100%);
+  }
+  h1, h2, h3, h4 { letter-spacing: -0.018em; }
 
-  ::-webkit-scrollbar { width: 10px; height: 10px; }
-  ::-webkit-scrollbar-track { background: transparent; }
+  button, input, textarea, select { font: inherit; }
+  button { -webkit-tap-highlight-color: transparent; }
+  a { color: inherit; text-decoration: none; }
+
+  :focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+  ::selection { background: rgba(99,102,241,0.22); color: #2c2780; }
+
+  ::-webkit-scrollbar { width: 11px; height: 11px; }
+  ::-webkit-scrollbar-track { background: rgba(242,243,252,0.85); }
   ::-webkit-scrollbar-thumb {
-    background: var(--border-strong);
+    background: linear-gradient(180deg, #cdd0e8 0%, #b3b8d8 100%);
+    border: 3px solid rgba(242,243,252,0.9);
     border-radius: 999px;
-    border: 2px solid var(--bg);
   }
-  ::selection { background: var(--brand-soft); color: var(--text); }
+  ::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #b3b8d8 0%, #969cc4 100%); }
 }
 
 @layer utilities {
@@ -92,22 +185,52 @@
   .shadow-sm      { box-shadow: var(--shadow-sm); }
   .shadow-md      { box-shadow: var(--shadow-md); }
   .shadow-lg      { box-shadow: var(--shadow-lg); }
+  .shadow-brand   { box-shadow: var(--shadow-brand); }
+  .shadow-premium { box-shadow: var(--shadow-md); }
+
+  .text-gradient {
+    background: var(--brand-gradient-strong);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .brand-gradient          { background: var(--brand-gradient); }
+  .brand-gradient-strong   { background: var(--brand-gradient-strong); }
+  .hero-gradient           { background: var(--grad-hero); }
+  .sidebar-active-gradient { background: var(--grad-sidebar-active); }
+  .focus-ring              { box-shadow: var(--focus-ring); }
+
+  .surface-glass {
+    background: rgba(255,255,255,0.78);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--shadow-sm);
+    backdrop-filter: blur(18px) saturate(150%);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+  }
+  .surface-premium {
+    background: var(--grad-surface);
+    border: 1px solid rgba(230,232,243,0.9);
+    box-shadow: var(--shadow-sm);
+  }
 }
 
 @layer components {
   .skeleton {
-    background: linear-gradient(90deg, var(--surface-3) 25%, var(--surface-2) 50%, var(--surface-3) 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.6s infinite;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(90deg, rgba(230,232,243,0.85) 0%, rgba(247,248,255,0.96) 42%, rgba(230,232,243,0.85) 78%);
+    background-size: 220% 100%;
+    animation: shimmer 1.35s ease-in-out infinite;
   }
 }
 
 @keyframes shimmer {
-  0%   { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0%   { background-position: 220% 0; }
+  100% { background-position: -220% 0; }
 }
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(2px); }
+  from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-.animate-fade-in { animation: fadeIn 200ms ease-out; }
+.fade-in,
+.animate-fade-in { animation: fadeIn 200ms ease-out both; }

@@ -1,51 +1,100 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import {
+  Gauge,
+  Bell,
+  Radar,
+  Send,
+  Workflow,
+  Phone,
+  Inbox,
+  CalendarCheck,
+  FlaskConical,
+  BookOpenCheck,
+  GraduationCap,
+  BarChart3,
   LayoutDashboard,
-  Users,
-  Megaphone,
-  Sparkles,
+  Database,
+  ListChecks,
   Settings,
   Search,
-  Slash,
   ChevronDown,
   LogOut,
-  Flame,
-  MessageSquareReply,
-  Snowflake,
-  List,
+  Sparkles,
+  Zap,
+  ArrowUpRight,
+  Mail,
 } from 'lucide-react';
-import { logout } from '@/lib/auth';
-import type { ReactNode } from 'react';
+import { logout, getStoredUser } from '@/lib/auth';
+import { authApi, outreachApi, notificationsApi } from '@/lib/api';
+import { getAiCreditBalance } from '@/lib/crmApi';
+import { paletteStore } from '@/lib/paletteStore';
+import { useEffect, useState, type ReactNode } from 'react';
 
 interface NavItem {
   href: string;
   label: string;
   icon: ReactNode;
+  /** короткий бейдж справа (число входящих/очередь) */
+  badge?: string;
 }
 
-const recordsNav: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={16} strokeWidth={1.75} /> },
-  { href: '/leads',     label: 'Leads',     icon: <Users          size={16} strokeWidth={1.75} /> },
-  { href: '/campaigns', label: 'Campaigns', icon: <Megaphone      size={16} strokeWidth={1.75} /> },
-  { href: '/outreach',  label: 'AI Outreach', icon: <Sparkles     size={16} strokeWidth={1.75} /> },
-  { href: '/settings',  label: 'Settings',  icon: <Settings       size={16} strokeWidth={1.75} /> },
-];
+interface NavGroup {
+  heading: string;
+  items: NavItem[];
+}
 
-const listsNav: { key: string; label: string; icon: ReactNode }[] = [
-  { key: 'hot',     label: 'Hot Leads',     icon: <Flame              size={16} strokeWidth={1.75} /> },
-  { key: 'replied', label: 'Replied',       icon: <MessageSquareReply size={16} strokeWidth={1.75} /> },
-  { key: 'cold',    label: 'Cold Outreach', icon: <Snowflake          size={16} strokeWidth={1.75} /> },
-  { key: 'all',     label: 'All lists',     icon: <List               size={16} strokeWidth={1.75} /> },
+// Навигация построена ВОКРУГ AI-SDR-воркфлоу (не вокруг CRM-таблиц как у Attio).
+// Часть разделов пока ведёт на существующие роуты / заглушки — экраны строятся по очереди.
+const navGroups: NavGroup[] = [
+  {
+    heading: 'Command',
+    items: [
+      { href: '/dashboard', label: 'Agent Cockpit', icon: <Gauge size={16} strokeWidth={1.85} /> },
+      { href: '/ask', label: 'Ask AISDR', icon: <Sparkles size={16} strokeWidth={1.85} /> },
+      { href: '/notifications', label: 'Notifications', icon: <Bell size={16} strokeWidth={1.85} /> },
+    ],
+  },
+  {
+    heading: 'Outbound motion',
+    items: [
+      { href: '/pipeline', label: 'Pipeline Radar', icon: <Radar size={16} strokeWidth={1.85} /> },
+      { href: '/campaigns', label: 'Outreach Studio', icon: <Send size={16} strokeWidth={1.85} /> },
+      { href: '/sequences', label: 'Sequences', icon: <Workflow size={16} strokeWidth={1.85} /> },
+      { href: '/workflows', label: 'Workflows', icon: <Zap size={16} strokeWidth={1.85} /> },
+      { href: '/calls', label: 'Calls', icon: <Phone size={16} strokeWidth={1.85} /> },
+      { href: '/emails', label: 'Emails', icon: <Mail size={16} strokeWidth={1.85} /> },
+      { href: '/replies', label: 'Replies', icon: <Inbox size={16} strokeWidth={1.85} />, badge: '5' },
+      { href: '/meetings', label: 'Meetings', icon: <CalendarCheck size={16} strokeWidth={1.85} /> },
+    ],
+  },
+  {
+    heading: 'Intelligence',
+    items: [
+      { href: '/research', label: 'Research Lab', icon: <FlaskConical size={16} strokeWidth={1.85} /> },
+      { href: '/playbooks', label: 'Playbooks', icon: <BookOpenCheck size={16} strokeWidth={1.85} /> },
+      { href: '/learning', label: 'Learning', icon: <GraduationCap size={16} strokeWidth={1.85} /> },
+      { href: '/reports', label: 'Reports', icon: <BarChart3 size={16} strokeWidth={1.85} /> },
+    ],
+  },
+  {
+    heading: 'Foundation',
+    items: [
+      { href: '/data', label: 'Data Hub', icon: <Database size={16} strokeWidth={1.85} /> },
+      { href: '/dashboards', label: 'Dashboards', icon: <LayoutDashboard size={16} strokeWidth={1.85} /> },
+      { href: '/lists', label: 'Lists', icon: <ListChecks size={16} strokeWidth={1.85} /> },
+      { href: '/settings', label: 'Settings', icon: <Settings size={16} strokeWidth={1.85} /> },
+    ],
+  },
 ];
 
 function SectionHeading({ children }: { children: ReactNode }) {
   return (
-    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8a8a80] px-3 mb-1 mt-4">
+    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-subtle px-3 mb-1.5 mt-5 first:mt-2">
       {children}
     </p>
   );
@@ -53,120 +102,166 @@ function SectionHeading({ children }: { children: ReactNode }) {
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const [planLabel, setPlanLabel] = useState('STARTER PLAN');
+  const [credits, setCredits] = useState<number | null>(null);
+  const [replyCount, setReplyCount] = useState<number | null>(null);
+  const [notifCount, setNotifCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    // Живой счётчик входящих ответов для бейджа Replies.
+    outreachApi
+      .replies()
+      .then((r) => { if (mounted) setReplyCount(r.total ?? 0); })
+      .catch(() => {});
+    // Живой счётчик непрочитанных уведомлений (handoff-очередь). Обновляется по событию.
+    const loadNotif = () => notificationsApi.count().then((r) => { if (mounted) setNotifCount(r.unread); }).catch(() => {});
+    loadNotif();
+    const onNotif = () => loadNotif();
+    window.addEventListener('notifications:refresh', onNotif);
+    // Мгновенно из кеша, затем актуализируем из API — единый источник правды с Settings.
+    const cached = getStoredUser()?.org?.plan;
+    if (cached) setPlanLabel(`${cached} PLAN`);
+    authApi
+      .me()
+      .then((u) => {
+        if (mounted && u?.org?.plan) setPlanLabel(`${u.org.plan} PLAN`);
+      })
+      .catch(() => {});
+    // Реальный баланс AI-кредитов (M2) — тот же источник, что Settings/биллинг.
+    const loadCredits = () =>
+      getAiCreditBalance()
+        .then((b) => { if (mounted) setCredits(b.balance); })
+        .catch(() => {});
+    loadCredits();
+    // Любой AI-прогон (Data Hub, record drawer…) шлёт это событие → обновляем баланс.
+    const onRefresh = () => loadCredits();
+    window.addEventListener('credits:refresh', onRefresh);
+    return () => {
+      mounted = false;
+      window.removeEventListener('credits:refresh', onRefresh);
+      window.removeEventListener('notifications:refresh', onNotif);
+    };
+  }, []);
 
   return (
-    <aside className="sticky top-0 h-screen w-[240px] shrink-0 flex flex-col bg-[#f8f7f5] border-r border-[#e3e3dd]">
-      <div className="px-2 pt-3">
+    <aside className="sticky top-0 h-screen w-[244px] shrink-0 flex flex-col bg-[var(--sidebar)] border-r border-line/80">
+      <div className="px-2.5 pt-3">
         <button
           type="button"
-          className="w-full h-11 flex items-center gap-2.5 px-2 rounded-lg hover:bg-[#ebebe6] transition-colors duration-100"
+          className="w-full h-12 flex items-center gap-2.5 px-2 rounded-xl hover:bg-surface-2 transition-colors duration-150"
         >
-          <span className="w-7 h-7 rounded-md bg-[#0f0f0e] flex items-center justify-center shrink-0">
-            <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
+          <span className="brand-gradient w-8 h-8 rounded-lg flex items-center justify-center shrink-0 shadow-brand ring-1 ring-white/40">
+            <Zap className="w-4 h-4 text-white" strokeWidth={2.5} />
           </span>
-          <span className="text-[14px] font-semibold text-[#1a1a1a] leading-tight truncate flex-1 text-left">
-            AI SDR Agent
+          <span className="text-[14px] font-bold tracking-[-0.01em] text-ink leading-tight truncate flex-1 text-left">
+            AISDR Agent
           </span>
-          <ChevronDown size={14} strokeWidth={2} className="text-[#8a8a80] shrink-0" />
+          <ChevronDown size={14} strokeWidth={2} className="text-ink-subtle shrink-0" />
         </button>
       </div>
 
-      <div className="px-2 mt-2">
-        <div className="h-9 flex items-center gap-1">
+      <div className="px-2.5 mt-2">
+        <div className="h-9 flex items-center gap-1.5">
           <button
             type="button"
-            className="flex-1 h-9 flex items-center gap-2 px-2 rounded-md hover:bg-[#ebebe6] transition-colors duration-100 text-[13.5px] text-[#5e5e58] font-medium"
+            onClick={() => router.push('/ask')}
+            className="flex-1 h-9 flex items-center gap-2 px-2.5 rounded-lg border border-line bg-surface shadow-xs hover:bg-surface-2 hover:border-line-strong transition-all duration-150 text-[13px] text-ink-muted font-medium"
           >
-            <Search size={14} strokeWidth={1.75} className="text-[#8a8a80]" />
-            <span className="flex-1 text-left">Quick actions</span>
-            <span className="text-[11px] bg-[#ebebe6] rounded-md px-1.5 py-0.5 font-medium text-[#5e5e58] tracking-tight">
-              {String.fromCharCode(8984)}K
-            </span>
+            <Sparkles size={14} strokeWidth={1.85} className="text-brand-500" />
+            <span className="flex-1 text-left truncate">Ask the agent</span>
+            <ArrowUpRight size={13} strokeWidth={2} className="text-ink-subtle shrink-0" />
           </button>
           <button
             type="button"
             aria-label="Search"
-            className="w-7 h-7 rounded-md flex items-center justify-center text-[#8a8a80] hover:bg-[#ebebe6] hover:text-[#1a1a1a] transition-colors duration-100"
+            onClick={() => paletteStore.open()}
+            className="w-9 h-9 rounded-lg border border-line bg-surface flex items-center justify-center text-ink-subtle shadow-xs hover:bg-surface-2 hover:text-ink hover:border-line-strong transition-all duration-150"
           >
-            <Search size={14} strokeWidth={1.75} />
-          </button>
-          <button
-            type="button"
-            aria-label="Slash commands"
-            className="w-7 h-7 rounded-md flex items-center justify-center text-[#8a8a80] hover:bg-[#ebebe6] hover:text-[#1a1a1a] transition-colors duration-100"
-          >
-            <Slash size={14} strokeWidth={1.75} />
+            <Search size={14} strokeWidth={1.85} />
           </button>
         </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2 pb-3">
-        <SectionHeading>Records</SectionHeading>
-        <ul className="space-y-0.5">
-          {recordsNav.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-            return (
-              <li key={item.href} className="relative">
-                {isActive && (
-                  <motion.div
-                    layoutId="nav-active"
-                    className="absolute inset-0 rounded-md bg-white shadow-[0_1px_2px_rgba(15,15,14,0.05)]"
-                    transition={{ type: 'spring', stiffness: 500, damping: 38 }}
-                  />
-                )}
-                <Link
-                  href={item.href}
-                  className={clsx(
-                    'relative flex items-center gap-2.5 px-3 h-8 rounded-md text-[13.5px] font-medium transition-colors duration-100',
-                    isActive
-                      ? 'text-[#1a1a1a]'
-                      : 'text-[#5e5e58] hover:text-[#1a1a1a] hover:bg-[#ebebe6]'
-                  )}
-                >
-                  <span className={clsx('shrink-0', isActive ? 'text-[#4f46e5]' : 'text-[#8a8a80]')}>
-                    {item.icon}
-                  </span>
-                  <span className="truncate">{item.label}</span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-
-        <SectionHeading>Lists</SectionHeading>
-        <ul className="space-y-0.5">
-          {listsNav.map((item) => (
-            <li key={item.key}>
-              <button
-                type="button"
-                className="w-full flex items-center gap-2.5 px-3 h-8 rounded-md text-[13.5px] font-medium text-[#5e5e58] hover:text-[#1a1a1a] hover:bg-[#ebebe6] transition-colors duration-100"
-              >
-                <span className="shrink-0 text-[#8a8a80]">{item.icon}</span>
-                <span className="truncate text-left">{item.label}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
+      <nav className="flex-1 overflow-y-auto px-2.5 pb-3">
+        {navGroups.map((group) => (
+          <div key={group.heading}>
+            <SectionHeading>{group.heading}</SectionHeading>
+            <ul className="space-y-0.5">
+              {group.items.map((item) => {
+                const isActive =
+                  pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href + '/'));
+                // Бейджи Replies и Notifications — живые счётчики; остальные — статические.
+                const badge =
+                  item.href === '/replies'
+                    ? replyCount != null
+                      ? replyCount > 0
+                        ? String(replyCount)
+                        : undefined
+                      : item.badge
+                    : item.href === '/notifications'
+                      ? notifCount != null && notifCount > 0
+                        ? String(notifCount)
+                        : undefined
+                      : item.badge;
+                return (
+                  <li key={item.href} className="relative">
+                    {isActive && (
+                      <motion.div
+                        layoutId="nav-active"
+                        className="absolute inset-0 rounded-lg sidebar-active-gradient ring-1 ring-inset ring-brand-100 shadow-xs"
+                        transition={{ type: 'spring', stiffness: 500, damping: 38 }}
+                      />
+                    )}
+                    <Link
+                      href={item.href}
+                      className={clsx(
+                        'group relative flex items-center gap-2.5 px-3 h-9 rounded-lg text-[13.5px] font-medium transition-colors duration-150',
+                        isActive
+                          ? 'text-ink before:absolute before:left-0 before:top-2.5 before:h-4 before:w-0.5 before:rounded-full before:bg-brand-600'
+                          : 'text-ink-muted hover:text-ink hover:bg-surface-2',
+                      )}
+                    >
+                      <span className={clsx('shrink-0 transition-colors', isActive ? 'text-brand-600' : 'text-ink-subtle group-hover:text-brand-600')}>
+                        {item.icon}
+                      </span>
+                      <span className="truncate flex-1">{item.label}</span>
+                      {badge && (
+                        <span className="shrink-0 rounded-full bg-brand-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                          {badge}
+                        </span>
+                      )}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
       </nav>
 
-      <div className="px-2 pb-3 pt-2">
-        <div className="h-14 px-3 flex flex-col justify-center rounded-md border border-[#e3e3dd] bg-white">
-          <p className="text-[11px] font-semibold tracking-[0.06em] text-[#4f46e5] leading-none">
-            STARTER PLAN
-          </p>
-          <p className="text-[12px] text-[#5e5e58] mt-1.5 leading-none">
-            500 leads &middot; 3 campaigns
-          </p>
+      <div className="px-2.5 pb-3 pt-2">
+        <div className="flex items-center gap-2.5 rounded-xl border border-line bg-surface/80 px-3 py-2.5 shadow-xs">
+          <span className="brand-gradient w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-[11px] font-bold text-white shadow-sm ring-1 ring-white/50">
+            AI
+          </span>
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold tracking-[0.04em] text-brand-700 leading-none">
+              {planLabel}
+            </p>
+            <p className="text-[12px] text-ink-muted mt-1 leading-none truncate">
+              {credits === null ? '— credits' : `${credits.toLocaleString('en-US')} credits left`}
+            </p>
+          </div>
         </div>
 
         <button
           type="button"
           onClick={logout}
-          className="mt-1.5 w-full h-10 flex items-center gap-2.5 px-3 rounded-md text-[13.5px] font-medium text-[#5e5e58] hover:text-[#1a1a1a] hover:bg-[#ebebe6] transition-colors duration-100"
+          className="group mt-1.5 w-full h-10 flex items-center gap-2.5 px-3 rounded-lg text-[13.5px] font-medium text-ink-muted hover:text-ink hover:bg-surface-2 transition-colors duration-150"
         >
-          <LogOut size={16} strokeWidth={1.75} className="text-[#8a8a80]" />
+          <LogOut size={16} strokeWidth={1.85} className="text-ink-subtle group-hover:text-rose-500 transition-colors" />
           <span>Sign out</span>
         </button>
       </div>

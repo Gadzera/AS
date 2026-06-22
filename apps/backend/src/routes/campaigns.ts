@@ -2,6 +2,8 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
 import { authenticate, requireOrg } from '../middleware/auth';
+import { pauseCampaign, resumeCampaign } from '../services/enrollment';
+import { assertAccess, buildResolver, meets } from '../services/permissions';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -21,7 +23,7 @@ const createCampaignSchema = z.object({
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orgId = req.user!.orgId!;
-    const campaigns = await prisma.campaign.findMany({
+    const all = await prisma.campaign.findMany({
       where: { orgId },
       include: {
         _count: { select: { campaignLeads: true, sequences: true } },
@@ -29,7 +31,9 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
       },
       orderBy: { createdAt: 'desc' },
     });
-    res.json(campaigns);
+    // RBAC: скрываем sequences с уровнем NONE (S355)
+    const resolver = await buildResolver(orgId, { userId: req.user!.userId, role: req.user!.role }, 'SEQUENCE');
+    res.json(all.filter((c) => meets(resolver(c.id), 'READ')));
   } catch (err) {
     next(err);
   }
@@ -39,6 +43,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orgId = req.user!.orgId!;
+    if (!(await assertAccess(req, res, 'SEQUENCE', 'READ_WRITE'))) return;
     const userId = req.user!.userId;
     const data = createCampaignSchema.parse(req.body);
 
@@ -61,6 +66,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
 router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orgId = req.user!.orgId!;
+    if (!(await assertAccess(req, res, 'SEQUENCE', 'READ', req.params.id))) return;
     const campaign = await prisma.campaign.findFirst({
       where: { id: req.params.id, orgId },
       include: {
@@ -90,6 +96,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orgId = req.user!.orgId!;
+    if (!(await assertAccess(req, res, 'SEQUENCE', 'READ_WRITE', req.params.id))) return;
     const data = createCampaignSchema.partial().parse(req.body);
 
     const existing = await prisma.campaign.findFirst({
@@ -121,6 +128,7 @@ router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
 router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orgId = req.user!.orgId!;
+    if (!(await assertAccess(req, res, 'SEQUENCE', 'FULL', req.params.id))) return;
     const existing = await prisma.campaign.findFirst({
       where: { id: req.params.id, orgId },
     });
@@ -145,6 +153,7 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
 router.post('/:id/start', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orgId = req.user!.orgId!;
+    if (!(await assertAccess(req, res, 'SEQUENCE', 'READ_WRITE', req.params.id))) return;
     const campaign = await prisma.campaign.findFirst({
       where: { id: req.params.id, orgId },
       include: { sequences: { orderBy: { stepNumber: 'asc' } } },
@@ -214,7 +223,7 @@ router.post('/:id/start', async (req: Request, res: Response, next: NextFunction
         campaignId: campaign.id,
         leadId: lead.id,
         currentStep: 0,
-        status: 'NEW',
+        status: 'PENDING' as const,
         nextSendAt,
       })),
       skipDuplicates: true,
@@ -236,25 +245,35 @@ router.post('/:id/start', async (req: Request, res: Response, next: NextFunction
   }
 });
 
-// POST /api/campaigns/:id/pause
+// POST /api/campaigns/:id/pause — M11-4: пауза кампании + всех её активных enrollment'ов (через
+// общий enrollment.ts сервис) + аудит по каждому затронутому. Помечает Campaign.pausedAt (для warmup).
 router.post('/:id/pause', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orgId = req.user!.orgId!;
-    const campaign = await prisma.campaign.findFirst({
-      where: { id: req.params.id, orgId },
-    });
+    if (!(await assertAccess(req, res, 'SEQUENCE', 'READ_WRITE', req.params.id))) return;
+    const campaign = await prisma.campaign.findFirst({ where: { id: req.params.id, orgId }, select: { id: true, status: true } });
+    if (!campaign) { res.status(404).json({ error: 'Campaign not found' }); return; }
+    if (campaign.status !== 'ACTIVE') { res.status(409).json({ error: `Cannot pause a ${campaign.status.toLowerCase()} campaign` }); return; }
+    const { affected } = await pauseCampaign(campaign.id, req.user!.userId);
+    const updated = await prisma.campaign.findUnique({ where: { id: campaign.id } });
+    res.json({ ...updated, enrollmentsPaused: affected });
+  } catch (err) {
+    next(err);
+  }
+});
 
-    if (!campaign) {
-      res.status(404).json({ error: 'Campaign not found' });
-      return;
-    }
-
-    const updated = await prisma.campaign.update({
-      where: { id: req.params.id },
-      data: { status: 'PAUSED' },
-    });
-
-    res.json(updated);
+// POST /api/campaigns/:id/resume — M11-4: возобновление кампании + всех PAUSED enrollment'ов со
+// сдвигом расписания на длительность паузы + clamp к окну + аудит. Простой исключается из warmup age.
+router.post('/:id/resume', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId = req.user!.orgId!;
+    if (!(await assertAccess(req, res, 'SEQUENCE', 'READ_WRITE', req.params.id))) return;
+    const campaign = await prisma.campaign.findFirst({ where: { id: req.params.id, orgId }, select: { id: true, status: true } });
+    if (!campaign) { res.status(404).json({ error: 'Campaign not found' }); return; }
+    if (campaign.status !== 'PAUSED') { res.status(409).json({ error: `Cannot resume a ${campaign.status.toLowerCase()} campaign` }); return; }
+    const { affected } = await resumeCampaign(campaign.id, req.user!.userId);
+    const updated = await prisma.campaign.findUnique({ where: { id: campaign.id } });
+    res.json({ ...updated, enrollmentsResumed: affected });
   } catch (err) {
     next(err);
   }

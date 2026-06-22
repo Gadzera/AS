@@ -1,14 +1,16 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import {
   ChevronDown,
   Download,
   Loader2,
   Plus,
+  Search,
   SlidersHorizontal,
   Table2,
+  X,
 } from 'lucide-react';
 import BoardView from '@/components/crm/BoardView';
 import DataTable from '@/components/crm/DataTable';
@@ -126,6 +128,10 @@ export default function CrmObjectPage() {
   const [createSignal, setCreateSignal] = useState(0);
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [error, setError] = useState<string | null>(null);
+  // Строка поиска (S064)
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const activeView = useMemo(
     () => views.find((view) => view.id === activeViewId) ?? null,
@@ -170,6 +176,7 @@ export default function CrmObjectPage() {
         objectKey,
         page: 1,
         limit: 50,
+        search: searchQuery || undefined,
         filters,
         sorts,
         columns,
@@ -182,7 +189,7 @@ export default function CrmObjectPage() {
     } finally {
       setIsRecordsLoading(false);
     }
-  }, [columns, filters, object, objectKey, sorts]);
+  }, [columns, filters, object, objectKey, searchQuery, sorts]);
 
   useEffect(() => {
     loadPageConfig();
@@ -198,6 +205,19 @@ export default function CrmObjectPage() {
     setViewMode('table');
     setCreateSignal((value) => value + 1);
   }, []);
+
+  // Обработчик поля поиска с debounce (S064)
+  function handleSearchInputChange(value: string) {
+    setSearchInput(value);
+
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+
+    searchDebounceRef.current = setTimeout(() => {
+      setSearchQuery(value);
+    }, 300);
+  }
 
   function applyView(view: CrmView, currentObject = object) {
     if (!currentObject) return;
@@ -339,48 +359,70 @@ export default function CrmObjectPage() {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-white">
-      <header className="shrink-0 border-b border-gray-200 bg-white">
-        <div className="flex h-12 items-center justify-between px-4">
-          <div className="flex min-w-0 items-center gap-2">
-            <div className="flex h-5 w-5 items-center justify-center rounded bg-blue-50 text-blue-700">
-              <Table2 className="h-3.5 w-3.5" />
+    <div className="flex h-full min-h-0 flex-col bg-surface">
+      <header className="shrink-0 border-b border-line bg-surface/80 backdrop-blur">
+        <div className="flex h-16 items-center justify-between px-5">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="brand-gradient flex h-9 w-9 items-center justify-center rounded-xl text-white shadow-brand ring-1 ring-white/40">
+              <Table2 className="h-[18px] w-[18px]" />
             </div>
-            <h1 className="truncate text-[14px] font-semibold text-gray-950">{object.pluralName}</h1>
-            <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-500">
+            <h1 className="truncate text-xl font-bold tracking-[-0.02em] text-ink">{object.pluralName}</h1>
+            <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[12px] font-semibold text-brand-700 ring-1 ring-inset ring-brand-100">
               {recordCount}
             </span>
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Поиск по записям (S064) */}
+            <div className="relative flex items-center">
+              <Search className="pointer-events-none absolute left-3 h-3.5 w-3.5 text-ink-subtle" />
+              <input
+                type="text"
+                value={searchInput}
+                onChange={(e) => handleSearchInputChange(e.target.value)}
+                placeholder="Search..."
+                className="h-9 w-48 rounded-lg border border-line bg-surface pl-9 pr-7 text-[13px] text-ink outline-none placeholder:text-ink-subtle focus:border-brand-400 focus:ring-2 focus:ring-brand-100 focus:w-64 transition-all"
+              />
+              {searchInput ? (
+                <button
+                  type="button"
+                  onClick={() => handleSearchInputChange('')}
+                  className="absolute right-2.5 text-ink-subtle hover:text-ink"
+                  aria-label="Очистить"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              ) : null}
+            </div>
+
             <button
               type="button"
-              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 text-[13px] font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-surface px-3 text-[13px] font-medium text-ink-muted shadow-xs transition-all hover:bg-surface-2 hover:text-ink hover:border-line-strong"
             >
               <Download className="h-3.5 w-3.5" />
               Import / Export
-              <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
+              <ChevronDown className="h-3.5 w-3.5 text-ink-subtle" />
             </button>
 
             <button
               type="button"
-              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 text-[13px] font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-surface px-3 text-[13px] font-medium text-ink-muted shadow-xs transition-all hover:bg-surface-2 hover:text-ink hover:border-line-strong"
             >
               <SlidersHorizontal className="h-3.5 w-3.5" />
               View settings
-              <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
+              <ChevronDown className="h-3.5 w-3.5 text-ink-subtle" />
             </button>
 
-            <div className="inline-flex h-8 items-center rounded-md border border-gray-200 bg-gray-50 p-0.5 shadow-sm">
+            <div className="inline-flex h-9 items-center rounded-lg border border-line bg-surface-2 p-0.5 shadow-xs">
               <button
                 type="button"
                 onClick={() => setViewMode('table')}
                 aria-pressed={viewMode === 'table'}
                 className={[
-                  'inline-flex h-7 items-center gap-1.5 rounded px-2.5 text-[13px] font-medium transition',
+                  'inline-flex h-7 items-center gap-1.5 rounded-md px-3 text-[13px] font-semibold transition-all',
                   viewMode === 'table'
-                    ? 'bg-white text-gray-950 shadow-sm'
-                    : 'text-gray-600 hover:bg-white/70 hover:text-gray-900',
+                    ? 'bg-brand-50 text-brand-700 shadow-xs ring-1 ring-brand-100'
+                    : 'text-ink-muted hover:text-ink',
                 ].join(' ')}
               >
                 Table
@@ -391,10 +433,10 @@ export default function CrmObjectPage() {
                 onClick={() => setViewMode('board')}
                 aria-pressed={viewMode === 'board'}
                 className={[
-                  'inline-flex h-7 items-center gap-1.5 rounded px-2.5 text-[13px] font-medium transition',
+                  'inline-flex h-7 items-center gap-1.5 rounded-md px-3 text-[13px] font-semibold transition-all',
                   viewMode === 'board'
-                    ? 'bg-white text-gray-950 shadow-sm'
-                    : 'text-gray-600 hover:bg-white/70 hover:text-gray-900',
+                    ? 'bg-brand-50 text-brand-700 shadow-xs ring-1 ring-brand-100'
+                    : 'text-ink-muted hover:text-ink',
                 ].join(' ')}
               >
                 Board
@@ -404,9 +446,9 @@ export default function CrmObjectPage() {
             <button
               type="button"
               onClick={handleCreateRecord}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md bg-blue-600 px-3 text-[13px] font-medium text-white shadow-sm hover:bg-blue-700"
+              className="brand-gradient inline-flex h-9 items-center gap-1.5 rounded-lg px-4 text-[13px] font-semibold text-white shadow-brand transition-all hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0"
             >
-              <Plus className="h-3.5 w-3.5" />
+              <Plus className="h-4 w-4" />
               New {object.singularName}
             </button>
           </div>
@@ -453,6 +495,8 @@ export default function CrmObjectPage() {
             isLoading={isLoading}
             newRecordSignal={createSignal}
             columns={columns}
+            searchQuery={searchInput}
+            onSearchChange={handleSearchInputChange}
             onRefresh={loadRecords}
           />
         )}

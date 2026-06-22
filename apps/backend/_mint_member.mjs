@@ -1,0 +1,11 @@
+import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv'; dotenv.config();
+import { writeFileSync } from 'fs';
+const SECRET = process.env.JWT_SECRET || 'change-me-in-production';
+const { PrismaClient } = await import('@prisma/client'); const p = new PrismaClient();
+const m = await p.user.findFirst({ where: { email: 'member@aisdr.dev' }, select: { id: true, orgId: true, email: true, name: true, role: true, tokenVersion: true, org: true } });
+const token = jwt.sign({ userId: m.id, orgId: m.orgId, email: m.email, role: m.role, tv: m.tokenVersion }, SECRET, { expiresIn: '7d' });
+const user = { id: m.id, email: m.email, name: m.name, role: m.role, orgId: m.orgId, org: m.org };
+writeFileSync('D:/AISDR/.bridge/member.json', JSON.stringify({ token, user }));
+console.log('member token+user written. role=', m.role, 'name=', m.name);
+await p.$disconnect();

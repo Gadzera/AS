@@ -1,24 +1,5 @@
-import Anthropic from '@anthropic-ai/sdk';
-
 import { config } from '../config';
-
-const MODEL = 'claude-sonnet-4-6';
-
-let anthropic: Anthropic | null = null;
-
-function hasAnthropicApiKey(): boolean {
-  return config.anthropic.apiKey.trim().length > 0;
-}
-
-function getAnthropicClient(): Anthropic {
-  if (!anthropic) {
-    anthropic = new Anthropic({
-      apiKey: config.anthropic.apiKey,
-    });
-  }
-
-  return anthropic;
-}
+import { llmAvailable, llmComplete, llmJson, parseJsonLoose } from './llm';
 
 interface LeadContext {
   firstName: string;
@@ -317,7 +298,7 @@ export async function generateOutreach(
   campaign: CampaignContext,
   context: OutreachContext = {}
 ): Promise<GeneratedOutreach> {
-  if (!hasAnthropicApiKey()) {
+  if (!llmAvailable()) {
     return buildDemoOutreach(lead, campaign, context);
   }
 
@@ -396,32 +377,23 @@ export async function generateOutreach(
     'Only respond with valid JSON, no markdown, no extra text.',
   ].join('\n');
 
-  const response = await getAnthropicClient().messages.create({
-    model: MODEL,
-    max_tokens: 1024,
-    messages: [{ role: 'user', content: prompt }],
-  });
+  const text = await llmComplete({ prompt, maxTokens: 1024, json: true });
+  const parsed = parseJsonLoose<{ subject?: string; body?: string }>(text);
 
-  const content = response.content[0];
-  if (content.type !== 'text') {
-    throw new Error('Unexpected response type from Claude');
-  }
-
-  try {
-    const parsed = JSON.parse(content.text.trim());
+  if (parsed) {
     return {
       subject: parsed.subject ?? '',
       body: parsed.body ?? '',
       channel: campaign.channel,
     };
-  } catch {
-    // Если Claude вернул не JSON, сохраняем текст как тело сообщения.
-    return {
-      subject: 'Reaching out to ' + lead.firstName,
-      body: content.text,
-      channel: campaign.channel,
-    };
   }
+
+  // Если модель вернула не JSON, сохраняем текст как тело сообщения.
+  return {
+    subject: 'Reaching out to ' + lead.firstName,
+    body: text,
+    channel: campaign.channel,
+  };
 }
 
 export type ReplyClass = 'INTERESTED' | 'NOT_INTERESTED' | 'FOLLOW_UP' | 'UNSUBSCRIBE';
@@ -430,7 +402,8 @@ function containsAny(value: string, keywords: string[]): boolean {
   return keywords.some((keyword) => value.includes(keyword));
 }
 
-function classifyReplyDemo(messageBody: string): ReplyClass {
+// M14-1: demo-классификатор intent + confidence (явные сигналы — высокая уверенность; дефолт — низкая).
+function classifyReplyIntentDemo(messageBody: string): { intent: ReplyClass; confidence: number } {
   const text = messageBody.toLowerCase();
 
   const unsubscribeKeywords = [
@@ -495,6 +468,8 @@ function classifyReplyDemo(messageBody: string): ReplyClass {
   const interestedKeywords = [
     'interested',
     'sounds good',
+    'sounds useful',
+    'looks interesting',
     'let us talk',
     "let's talk",
     'book a call',
@@ -502,7 +477,15 @@ function classifyReplyDemo(messageBody: string): ReplyClass {
     'demo',
     'meeting',
     'send more',
+    'send me more',
+    'more details',
     'tell me more',
+    'pricing',
+    'price',
+    'case study',
+    'what does',
+    'curious',
+    'results',
     'yes',
     'interessiert',
     'klingt gut',
@@ -519,22 +502,29 @@ function classifyReplyDemo(messageBody: string): ReplyClass {
   ];
 
   if (containsAny(text, unsubscribeKeywords)) {
-    return 'UNSUBSCRIBE';
+    return { intent: 'UNSUBSCRIBE', confidence: 0.95 };
   }
 
   if (containsAny(text, notInterestedKeywords)) {
-    return 'NOT_INTERESTED';
+    return { intent: 'NOT_INTERESTED', confidence: 0.88 };
+  }
+
+  // Интерес проверяем РАНЬШE follow-up: «interested … next week» = тёплый ответ.
+  if (containsAny(text, interestedKeywords)) {
+    return { intent: 'INTERESTED', confidence: 0.85 };
   }
 
   if (containsAny(text, followUpKeywords)) {
-    return 'FOLLOW_UP';
+    return { intent: 'FOLLOW_UP', confidence: 0.7 };
   }
 
-  if (containsAny(text, interestedKeywords)) {
-    return 'INTERESTED';
-  }
+  // Нет явных сигналов — низкая уверенность (дефолтный нейтральный класс).
+  return { intent: 'FOLLOW_UP', confidence: 0.4 };
+}
 
-  return 'FOLLOW_UP';
+// Backward-compat: только класс (для прежних вызовов classifyReply).
+function classifyReplyDemo(messageBody: string): ReplyClass {
+  return classifyReplyIntentDemo(messageBody).intent;
 }
 
 /**
@@ -542,7 +532,7 @@ function classifyReplyDemo(messageBody: string): ReplyClass {
  * В demo-режиме без ANTHROPIC_API_KEY использует простые keyword-эвристики.
  */
 export async function classifyReply(messageBody: string): Promise<ReplyClass> {
-  if (!hasAnthropicApiKey()) {
+  if (!llmAvailable()) {
     return classifyReplyDemo(messageBody);
   }
 
@@ -562,26 +552,41 @@ export async function classifyReply(messageBody: string): Promise<ReplyClass> {
     'Respond with ONLY one word from this list: INTERESTED, NOT_INTERESTED, FOLLOW_UP, UNSUBSCRIBE',
   ].join('\n');
 
-  const response = await getAnthropicClient().messages.create({
-    model: MODEL,
-    max_tokens: 16,
-    messages: [{ role: 'user', content: prompt }],
-  });
-
-  const content = response.content[0];
-  if (content.type !== 'text') {
-    throw new Error('Unexpected response type from Claude');
-  }
-
-  const result = content.text.trim().toUpperCase() as ReplyClass;
+  const text = await llmComplete({ prompt, maxTokens: 16, temperature: 0 });
   const validClasses: ReplyClass[] = ['INTERESTED', 'NOT_INTERESTED', 'FOLLOW_UP', 'UNSUBSCRIBE'];
-
-  if (validClasses.includes(result)) {
-    return result;
-  }
+  const result = validClasses.find((c) => text.toUpperCase().includes(c));
 
   // Нейтральный fallback, если модель вернула неожиданный класс.
-  return 'FOLLOW_UP';
+  return result ?? 'FOLLOW_UP';
+}
+
+/**
+ * M14-1: intent-классификация ответа С УВЕРЕННОСТЬЮ (0..1). LLM возвращает класс + confidence;
+ * demo-режим — детерминированный класс + эвристический confidence по силе сигналов.
+ */
+export async function classifyReplyIntent(messageBody: string): Promise<{ intent: ReplyClass; confidence: number }> {
+  if (!llmAvailable()) return classifyReplyIntentDemo(messageBody);
+  const prompt = [
+    'You are an expert at analyzing B2B sales email replies. Classify the reply and rate your confidence.',
+    'Categories:',
+    '- INTERESTED: shows interest, asks questions, wants a call, positive',
+    '- NOT_INTERESTED: clearly declines or rejects the offer',
+    '- FOLLOW_UP: busy / later / non-committal',
+    '- UNSUBSCRIBE: asks to be removed, stop emailing, or angry about contact',
+    '',
+    'Reply to classify:',
+    '"""', messageBody, '"""',
+    '',
+    'Respond with ONLY JSON: {"intent":"<one of INTERESTED|NOT_INTERESTED|FOLLOW_UP|UNSUBSCRIBE>","confidence":<number 0..1>}',
+  ].join('\n');
+  const valid: ReplyClass[] = ['INTERESTED', 'NOT_INTERESTED', 'FOLLOW_UP', 'UNSUBSCRIBE'];
+  const res = await llmJson<{ intent?: string; confidence?: number }>({ prompt, maxTokens: 40, temperature: 0 });
+  if (!res) return classifyReplyIntentDemo(messageBody); // деградация на эвристику
+  const intent = valid.find((c) => (res.intent ?? '').toUpperCase().includes(c)) ?? 'FOLLOW_UP';
+  let confidence = typeof res.confidence === 'number' ? res.confidence : 0.6;
+  if (confidence > 1) confidence = confidence / 100; // если модель вернула проценты
+  confidence = Math.max(0, Math.min(1, confidence));
+  return { intent, confidence };
 }
 
 function buildDemoAutoReply(params: {
@@ -649,7 +654,7 @@ export async function generateAutoReply(params: {
   calendlyUrl?: string;
   language?: 'en' | 'ru' | 'de';
 }): Promise<{ subject: string; body: string }> {
-  if (!hasAnthropicApiKey()) {
+  if (!llmAvailable()) {
     return buildDemoAutoReply(params);
   }
 
@@ -682,26 +687,15 @@ export async function generateAutoReply(params: {
     '3. Keep it under 5 sentences — don\'t oversell',
     '4. ' + calendlyLine,
     '5. Sound like a human, not a robot',
+    '6. Write a FINAL, ready-to-send message. Do NOT use placeholders, brackets, or template instructions (no [name], [company], [mention ...], TODO, etc.). If a specific detail is unknown, phrase it generically without brackets.',
     '',
     'Respond with JSON: {"subject": "Re: ...", "body": "full reply text"}',
     'Only valid JSON, no markdown.',
   ].join('\n');
 
-  const response = await getAnthropicClient().messages.create({
-    model: MODEL,
-    max_tokens: 512,
-    messages: [{ role: 'user', content: prompt }],
-  });
-
-  const content = response.content[0];
-
-  if (content.type !== 'text') throw new Error('Unexpected response type from Claude');
-
-  try {
-    return JSON.parse(content.text.trim()) as { subject: string; body: string };
-  } catch {
-    return { subject: 'Re: Following up, ' + leadFirstName, body: content.text };
-  }
+  const text = await llmComplete({ prompt, maxTokens: 512, json: true });
+  const parsed = parseJsonLoose<{ subject: string; body: string }>(text);
+  return parsed ?? { subject: 'Re: Following up, ' + leadFirstName, body: text };
 }
 
 interface LeadProfile {
@@ -806,7 +800,7 @@ function scoreLeadFromProfileDemo(lead: LeadProfile): number {
  * В demo-режиме без ANTHROPIC_API_KEY использует детерминированный скоринг.
  */
 export async function scoreLeadFromProfile(lead: LeadProfile): Promise<number> {
-  if (!hasAnthropicApiKey()) {
+  if (!llmAvailable()) {
     return scoreLeadFromProfileDemo(lead);
   }
 
@@ -843,21 +837,11 @@ export async function scoreLeadFromProfile(lead: LeadProfile): Promise<number> {
     'Respond with ONLY a number between 0 and 100. No text, no explanation.',
   ].join('\n');
 
-  const response = await getAnthropicClient().messages.create({
-    model: MODEL,
-    max_tokens: 8,
-    messages: [{ role: 'user', content: prompt }],
-  });
-
-  const content = response.content[0];
-  if (content.type !== 'text') {
-    throw new Error('Unexpected response type from Claude');
-  }
-
-  const score = parseInt(content.text.trim(), 10);
+  const text = await llmComplete({ prompt, maxTokens: 8, temperature: 0 });
+  const score = parseInt((text.match(/\d+/)?.[0] ?? '').trim(), 10);
   if (isNaN(score) || score < 0 || score > 100) {
     return 50; // Нейтральный fallback, если модель вернула некорректный скор.
   }
 
-  return score;
+  return clampScore(score);
 }

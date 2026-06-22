@@ -4,7 +4,7 @@ import { config } from '../config';
 
 let transporter: nodemailer.Transporter | null = null;
 
-function isSmtpConfigured(): boolean {
+export function isSmtpConfigured(): boolean {
   return config.smtp.user.trim().length > 0 && config.smtp.pass.trim().length > 0;
 }
 
@@ -31,6 +31,9 @@ export interface SendEmailOptions {
   from?: string;
   replyTo?: string;
   html?: boolean;
+  // M14-4: thread-safe send — заголовки треда, чтобы ответ попал в ту же переписку у получателя.
+  inReplyTo?: string; // Message-ID входящего, на который отвечаем (In-Reply-To)
+  references?: string[]; // цепочка References (исходное исходящее + входящее)
 }
 
 /**
@@ -40,7 +43,11 @@ export interface SendEmailOptions {
 export async function sendEmail(options: SendEmailOptions): Promise<{ messageId: string }> {
   if (!isSmtpConfigured()) {
     const messageId = 'demo-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
-    console.log('[email:demo] -> ' + options.to + ' | ' + options.subject);
+    // M12-3: показываем выбранный ящик (from) в demo-логе — видно ротацию.
+    // M14-4: в demo-логе видны thread-заголовки (In-Reply-To/References) — подтверждение, что ответ уходит в тред.
+    const thread = options.inReplyTo ? ' | in-reply-to ' + options.inReplyTo : '';
+    const refs = options.references && options.references.length ? ' | references ' + options.references.join(' ') : '';
+    console.log('[email:demo] ' + (options.from ?? 'default') + ' -> ' + options.to + ' | ' + options.subject + thread + refs);
 
     return { messageId };
   }
@@ -52,6 +59,9 @@ export async function sendEmail(options: SendEmailOptions): Promise<{ messageId:
     to: options.to,
     subject: options.subject,
     replyTo: options.replyTo,
+    // M14-4: thread-заголовки — ответ ложится в тред переписки.
+    inReplyTo: options.inReplyTo,
+    references: options.references && options.references.length ? options.references.join(' ') : undefined,
   };
 
   if (options.html) {

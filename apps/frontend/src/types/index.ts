@@ -75,6 +75,11 @@ export interface Campaign {
     email: string;
   };
   sequences?: Sequence[];
+  campaignLeads?: Array<{
+    id: string;
+    status?: string | null;
+    lead: Lead;
+  }>;
 }
 
 export interface Sequence {

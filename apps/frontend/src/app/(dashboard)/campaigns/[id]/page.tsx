@@ -142,8 +142,8 @@ export default function CampaignDetailPage() {
             </div>
           )}
 
-          {/* Sequence Builder */}
-          <div className="lg:col-span-2">
+          {/* Sequence Builder + Recipients */}
+          <div className="lg:col-span-2 space-y-6">
             <Card padding="md">
               <CardHeader>
                 <CardTitle>Email Sequence</CardTitle>
@@ -156,6 +156,34 @@ export default function CampaignDetailPage() {
                 sequences={campaign.sequences ?? []}
                 onUpdate={fetchData}
               />
+            </Card>
+
+            {/* Recipients — реальные enrolled-лиды (CampaignLead → Lead) */}
+            <Card padding="md">
+              <CardHeader>
+                <CardTitle>Recipients</CardTitle>
+                <span className="text-sm text-ink-muted">{campaign.campaignLeads?.length ?? 0} enrolled</span>
+              </CardHeader>
+              {(campaign.campaignLeads?.length ?? 0) === 0 ? (
+                <p className="py-6 text-center text-sm text-ink-muted">No recipients yet — enroll records from Data Hub.</p>
+              ) : (
+                <div className="divide-y divide-line">
+                  {campaign.campaignLeads!.map((cl) => (
+                    <div key={cl.id} className="flex items-center gap-3 py-2.5">
+                      <span className="brand-gradient flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-bold text-white">
+                        {`${cl.lead.firstName?.[0] ?? ''}${cl.lead.lastName?.[0] ?? ''}`.toUpperCase()}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-ink">{cl.lead.firstName} {cl.lead.lastName}</p>
+                        <p className="truncate text-xs text-ink-muted">{cl.lead.email ?? cl.lead.company ?? '—'}</p>
+                      </div>
+                      <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-semibold text-ink-muted">
+                        {(cl.status ?? cl.lead.status ?? 'NEW').toString().toLowerCase().replace('_', ' ')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </Card>
           </div>
 

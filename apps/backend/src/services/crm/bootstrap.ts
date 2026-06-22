@@ -3,8 +3,10 @@ import {
   Prisma,
   PrismaClient,
   RelationshipCardinality,
+  ViewScope,
   ViewType,
 } from '@prisma/client';
+import { backfillReverseAttributes } from './relationships';
 
 const prisma = new PrismaClient();
 
@@ -86,7 +88,7 @@ const STANDARD_OBJECT_SPECS: ObjectSpec[] = [
     key: 'companies',
     singularName: 'Company',
     pluralName: 'Companies',
-    description: 'Компании и аккаунты, с которыми работает команда.',
+    description: 'Companies and accounts your team works with.',
     icon: 'building-2',
     color: 'blue',
     defaultViewAttributeKeys: [
@@ -164,7 +166,7 @@ const STANDARD_OBJECT_SPECS: ObjectSpec[] = [
     key: 'people',
     singularName: 'Person',
     pluralName: 'People',
-    description: 'Контакты людей внутри компаний.',
+    description: 'People and contacts inside companies.',
     icon: 'users',
     color: 'green',
     defaultViewAttributeKeys: ['name', 'email', 'title', 'company', 'linkedin'],
@@ -213,7 +215,7 @@ const STANDARD_OBJECT_SPECS: ObjectSpec[] = [
     key: 'deals',
     singularName: 'Deal',
     pluralName: 'Deals',
-    description: 'Сделки и возможности в pipeline.',
+    description: 'Deals and opportunities in the pipeline.',
     icon: 'handshake',
     color: 'orange',
     defaultViewAttributeKeys: ['name', 'value', 'stage', 'company', 'owner'],
@@ -263,6 +265,118 @@ const STANDARD_OBJECT_SPECS: ObjectSpec[] = [
         name: 'Owner',
         type: AttributeType.USER,
         order: 4,
+      },
+    ],
+  },
+  // Стандартный объект: рабочие пространства (воркспейсы)
+  {
+    key: 'workspaces',
+    singularName: 'Workspace',
+    pluralName: 'Workspaces',
+    description: 'Workspaces and teams inside the organization.',
+    icon: 'layout-grid',
+    color: 'violet',
+    defaultViewAttributeKeys: ['name', 'slug', 'plan', 'membersCount'],
+    attributes: [
+      {
+        key: 'name',
+        name: 'Name',
+        type: AttributeType.TEXT,
+        isRequired: true,
+        isPrimary: true,
+        order: 0,
+      },
+      {
+        key: 'slug',
+        name: 'Slug',
+        type: AttributeType.TEXT,
+        isUnique: true,
+        order: 1,
+      },
+      {
+        key: 'plan',
+        name: 'Plan',
+        type: AttributeType.SELECT,
+        order: 2,
+        options: [
+          { value: 'free', label: 'Free', color: 'gray', order: 0 },
+          { value: 'starter', label: 'Starter', color: 'blue', order: 1 },
+          { value: 'pro', label: 'Pro', color: 'purple', order: 2 },
+          { value: 'enterprise', label: 'Enterprise', color: 'orange', order: 3 },
+        ],
+      },
+      {
+        key: 'membersCount',
+        name: 'Members count',
+        type: AttributeType.NUMBER,
+        order: 3,
+      },
+      {
+        key: 'website',
+        name: 'Website',
+        type: AttributeType.URL,
+        order: 4,
+      },
+    ],
+  },
+  // Стандартный объект: пользователи (участники CRM)
+  {
+    key: 'users',
+    singularName: 'User',
+    pluralName: 'Users',
+    description: 'Users and members registered in the system.',
+    icon: 'user-round',
+    color: 'teal',
+    defaultViewAttributeKeys: ['name', 'email', 'role', 'status'],
+    attributes: [
+      {
+        key: 'name',
+        name: 'Name',
+        type: AttributeType.TEXT,
+        isRequired: true,
+        isPrimary: true,
+        order: 0,
+      },
+      {
+        key: 'email',
+        name: 'Email',
+        type: AttributeType.EMAIL,
+        isUnique: true,
+        isRequired: true,
+        order: 1,
+      },
+      {
+        key: 'role',
+        name: 'Role',
+        type: AttributeType.SELECT,
+        order: 2,
+        options: [
+          { value: 'admin', label: 'Admin', color: 'red', order: 0 },
+          { value: 'member', label: 'Member', color: 'blue', order: 1 },
+          { value: 'viewer', label: 'Viewer', color: 'gray', order: 2 },
+        ],
+      },
+      {
+        key: 'status',
+        name: 'Status',
+        type: AttributeType.SELECT,
+        order: 3,
+        options: [
+          { value: 'active', label: 'Active', color: 'green', order: 0 },
+          { value: 'invited', label: 'Invited', color: 'yellow', order: 1 },
+          { value: 'suspended', label: 'Suspended', color: 'gray', order: 2 },
+        ],
+      },
+      {
+        key: 'workspace',
+        name: 'Workspace',
+        type: AttributeType.RELATIONSHIP,
+        order: 4,
+        relationship: {
+          targetObjectKey: 'workspaces',
+          cardinality: RelationshipCardinality.MANY_TO_ONE,
+          isBidirectional: true,
+        },
       },
     ],
   },
@@ -414,6 +528,8 @@ async function ensureDefaultView(
         name: viewName,
         type: ViewType.TABLE,
         isDefault: true,
+        // M24-1: системный «All <Object>» виден всему workspace (с READ к объекту), а не приватен.
+        scope: ViewScope.SHARED,
         order: 0,
       },
     });
@@ -424,6 +540,7 @@ async function ensureDefaultView(
       data: {
         type: ViewType.TABLE,
         isDefault: true,
+        scope: ViewScope.SHARED,
         archivedAt: null,
       },
     });
@@ -478,7 +595,7 @@ async function ensureDefaultView(
 }
 
 export async function ensureCrmForOrg(orgId: string): Promise<CrmBootstrapResult> {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     let createdAnything = false;
     const objectsByKey = new Map<string, { id: string; key: string }>();
     const attributesByKey = new Map<string, { id: string; key: string }>();
@@ -701,4 +818,9 @@ export async function ensureCrmForOrg(orgId: string): Promise<CrmBootstrapResult
       objects: objectsResult,
     };
   });
+
+  // REL-1: reverse-атрибуты обеспечиваем ПОСЛЕ коммита bootstrap (отдельные tx) — чтобы возможный P2002
+  // на гонке не отравил единую большую транзакцию ensureCrmForOrg (адверс-ревью MEDIUM-2).
+  await backfillReverseAttributes(orgId).catch(() => { /* maintenance-шаг, не валим bootstrap */ });
+  return result;
 }

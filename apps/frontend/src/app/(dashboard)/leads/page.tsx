@@ -11,9 +11,9 @@ import {
   X,
 } from 'lucide-react';
 
-import { leadsApi } from '@/lib/api';
+import { leadsApi, campaignsApi } from '@/lib/api';
 import api from '@/lib/api';
-import type { Lead } from '@/types';
+import type { Lead, Campaign } from '@/types';
 import { SelectionProvider, useSelection } from '@/lib/selection';
 
 import Topbar from '@/components/layout/Topbar';
@@ -50,6 +50,7 @@ function LeadsPageInner() {
 
   const [importOpen, setImportOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [enrollOpen, setEnrollOpen] = useState(false); // M11-7: модалка bulk-enroll в кампанию
   const [toast, setToast] = useState<string | null>(null);
 
   const fetchLeads = useCallback(async () => {
@@ -90,7 +91,7 @@ function LeadsPageInner() {
       <Topbar
         title="Leads"
         icon={<Users size={16} strokeWidth={1.75} />}
-        actions={<TopbarActions />}
+        actions={<TopbarActions onAddToCampaign={() => setEnrollOpen(true)} />}
       />
 
       <ViewTabsRow
@@ -146,6 +147,7 @@ function LeadsPageInner() {
       )}
 
       <LeadsBulkFooter
+        onAddToCampaign={() => setEnrollOpen(true)}
         onSendEmail={() => setToast('Compose flow not yet wired')}
         onAddToList={() => setToast('Lists not yet available')}
         onRunWorkflow={() => setToast('Workflows not yet available')}
@@ -176,6 +178,12 @@ function LeadsPageInner() {
           setToast('Lead created');
           reload();
         }}
+      />
+
+      <EnrollToCampaignModal
+        open={enrollOpen}
+        onClose={() => setEnrollOpen(false)}
+        onDone={(msg) => { setToast(msg); reload(); }}
       />
 
       {toast && <PageToast message={toast} onClose={() => setToast(null)} />}
@@ -211,11 +219,13 @@ function sortLeads(leads: Lead[], q: LeadsQuery): Lead[] {
 /* ----------------------------- Bulk footer bridge ----------------------------- */
 
 function LeadsBulkFooter({
+  onAddToCampaign,
   onSendEmail,
   onAddToList,
   onRunWorkflow,
   onDelete,
 }: {
+  onAddToCampaign: () => void;
   onSendEmail: () => void;
   onAddToList: () => void;
   onRunWorkflow: () => void;
@@ -227,6 +237,11 @@ function LeadsBulkFooter({
       count={count}
       onClose={clear}
       actions={[
+        {
+          icon: <Plus size={14} strokeWidth={1.75} />,
+          label: 'Add to campaign',
+          onClick: onAddToCampaign,
+        },
         {
           icon: <Plus size={14} strokeWidth={1.75} />,
           label: 'Add to list',
@@ -258,10 +273,10 @@ function LeadsBulkFooter({
 
 /* ----------------------------- Topbar actions ----------------------------- */
 
-function TopbarActions() {
+function TopbarActions({ onAddToCampaign }: { onAddToCampaign: () => void }) {
   return (
     <div className="flex items-center gap-1.5">
-      <Button size="sm" variant="secondary">
+      <Button size="sm" variant="secondary" onClick={onAddToCampaign}>
         <Plus size={14} strokeWidth={1.75} />
         Add to campaign
       </Button>
@@ -270,6 +285,82 @@ function TopbarActions() {
         Compose email
       </Button>
     </div>
+  );
+}
+
+/* ----------------------------- Bulk enroll to campaign (M11-7) ----------------------------- */
+
+function EnrollToCampaignModal({
+  open,
+  onClose,
+  onDone,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onDone: (msg: string) => void;
+}) {
+  const { selected, clear } = useSelection();
+  const ids = Array.from(selected);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [campaignId, setCampaignId] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ enrolled: number; skipped: number } | null>(null);
+
+  useEffect(() => {
+    if (!open) { setResult(null); return; }
+    campaignsApi.list().then((cs) => {
+      setCampaigns(cs);
+      if (cs.length && !campaignId) setCampaignId(cs[0].id);
+    }).catch(() => undefined);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function enroll() {
+    if (!campaignId || ids.length === 0) return;
+    setBusy(true);
+    try {
+      const r = await leadsApi.enrollBulk(campaignId, ids);
+      setResult({ enrolled: r.enrolled, skipped: r.skipped.length });
+      const dup = r.skipped.filter((s) => s.reason === 'already_enrolled').length;
+      onDone(`Enrolled ${r.enrolled} of ${r.requested}${dup ? ` · ${dup} already in campaign` : ''}`);
+      clear();
+    } catch {
+      onDone('Bulk enroll failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title="Add leads to a campaign">
+      <div className="space-y-3">
+        <p className="text-[12.5px] text-ink-muted">
+          {ids.length > 0
+            ? <><b className="text-ink">{ids.length}</b> selected lead{ids.length === 1 ? '' : 's'} will be enrolled. Leads already in the campaign are skipped (no duplicates).</>
+            : 'Select one or more leads first, then choose a campaign.'}
+        </p>
+        <label className="block text-[12px] font-semibold text-ink-muted">Campaign
+          <select
+            value={campaignId}
+            onChange={(e) => setCampaignId(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-line bg-surface px-3 py-2 text-[13px] text-ink focus:border-brand-400 focus:outline-none"
+          >
+            {campaigns.length === 0 && <option value="">No campaigns yet</option>}
+            {campaigns.map((c) => <option key={c.id} value={c.id}>{c.name} · {c.status}</option>)}
+          </select>
+        </label>
+        {result && (
+          <div className="rounded-lg border border-emerald-100 bg-emerald-50/60 px-3 py-2 text-[12.5px] text-emerald-700">
+            Enrolled {result.enrolled}{result.skipped ? ` · skipped ${result.skipped} (already enrolled / invalid)` : ''}.
+          </div>
+        )}
+        <div className="flex justify-end gap-2 pt-1">
+          <Button size="sm" variant="secondary" onClick={onClose}>Close</Button>
+          <Button size="sm" onClick={enroll} disabled={busy || !campaignId || ids.length === 0}>
+            {busy ? 'Enrolling…' : `Enroll ${ids.length || ''} lead${ids.length === 1 ? '' : 's'}`}
+          </Button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 

@@ -29,11 +29,11 @@ const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         id={inputId}
         ref={ref}
         className={clsx(
-          'block w-full h-8 px-2.5 rounded-md bg-white text-[13.5px] text-[var(--text)]',
+          'block w-full h-10 px-3 rounded-lg bg-[var(--surface)] text-[14px] text-[var(--text)]',
           'border border-[var(--border-strong)]',
           'placeholder:text-[var(--text-subtle)]',
           'transition-colors duration-100',
-          'focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand-soft)]',
+          'focus:outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--brand-soft)]',
           error && 'border-[var(--danger)] focus:border-[var(--danger)] focus:ring-[var(--danger-soft)]',
           className,
         )}

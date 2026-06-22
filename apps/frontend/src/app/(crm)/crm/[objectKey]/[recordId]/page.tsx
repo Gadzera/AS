@@ -9,24 +9,34 @@ import {
   ExternalLink,
   FileText,
   Loader2,
-  Mail,
-  MessageSquare,
-  MoreHorizontal,
-  Phone,
-  Plus,
-  SquareCheckBig,
+  LayoutGrid,
+  Lock,
   StickyNote,
+  SquareCheckBig,
+  MessageSquare,
+  Phone,
+  Mail,
+  ArrowRightLeft,
+  Paperclip,
 } from 'lucide-react';
 import {
   getObject,
   getRecord,
+  getRecordActivities,
   updateRecord,
+  type CrmActivity,
   type CrmAttribute,
   type CrmAttributeOption,
   type CrmObjectDetail,
   type CrmRecord,
   type CrmRecordValue,
 } from '@/lib/crmApi';
+import RecordNotes from '@/components/data/RecordNotes';
+import RecordTasks from '@/components/data/RecordTasks';
+import RecordCalls from '@/components/data/RecordCalls';
+import RecordEmails from '@/components/data/RecordEmails';
+import RecordRelationships from '@/components/data/RecordRelationships';
+import CommentThread from '@/components/data/CommentThread';
 
 interface PageProps {
   params: {
@@ -35,16 +45,20 @@ interface PageProps {
   };
 }
 
-type TabKey = 'activity' | 'emails' | 'calls' | 'notes' | 'tasks' | 'comments';
+// M27 (1/2/3): только РЕАЛЬНЫЕ табы (no decorative). Files = honest-stub (storage не подключён — Q2).
+type TabKey = 'overview' | 'activity' | 'notes' | 'tasks' | 'comments' | 'calls' | 'emails' | 'relationships' | 'files';
 type DraftValue = string | string[] | boolean;
 
-const tabs: Array<{ key: TabKey; label: string; count?: number }> = [
+const tabs: Array<{ key: TabKey; label: string }> = [
+  { key: 'overview', label: 'Overview' },
   { key: 'activity', label: 'Activity' },
-  { key: 'emails', label: 'Emails', count: 0 },
-  { key: 'calls', label: 'Calls', count: 0 },
-  { key: 'notes', label: 'Notes', count: 0 },
-  { key: 'tasks', label: 'Tasks', count: 0 },
-  { key: 'comments', label: 'Comments', count: 0 },
+  { key: 'notes', label: 'Notes' },
+  { key: 'tasks', label: 'Tasks' },
+  { key: 'comments', label: 'Comments' },
+  { key: 'calls', label: 'Calls' },
+  { key: 'emails', label: 'Emails' },
+  { key: 'relationships', label: 'Relationships' },
+  { key: 'files', label: 'Files' },
 ];
 
 const tagClasses = [
@@ -95,6 +109,25 @@ function formatScalar(value: unknown): string {
   }
 
   return String(value);
+}
+
+// CURRENCY сериализуется как {amount, amountText, currencyCode} — форматируем по-человечески, не JSON.
+function currencyParts(value: unknown): { amount: number; currency: string } | null {
+  if (isObjectValue(value) && (typeof value.amount === 'number' || typeof value.amount === 'string')) {
+    const amount = Number(value.amount);
+    if (!Number.isFinite(amount)) return null;
+    return { amount, currency: typeof value.currencyCode === 'string' ? value.currencyCode : 'USD' };
+  }
+  return null;
+}
+function formatCurrency(value: unknown): string {
+  const parts = currencyParts(value);
+  if (!parts) return formatScalar(value);
+  try {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: parts.currency, maximumFractionDigits: 0 }).format(parts.amount);
+  } catch {
+    return `${parts.amount}`;
+  }
 }
 
 function formatDate(value: unknown): string {
@@ -257,6 +290,11 @@ function valueToDraftValue(attribute: CrmAttribute, value: CrmRecordValue | unde
     return formatDateInput(value);
   }
 
+  if (attribute.type === 'CURRENCY') {
+    const parts = currencyParts(value);
+    return parts ? String(parts.amount) : formatScalar(value);
+  }
+
   return formatScalar(value);
 }
 
@@ -301,20 +339,25 @@ function getInputType(attribute: CrmAttribute): string {
 
 function renderTabIcon(tab: TabKey) {
   const className = 'h-3.5 w-3.5';
-
   switch (tab) {
+    case 'overview':
+      return <LayoutGrid className={className} />;
     case 'activity':
       return <Activity className={className} />;
-    case 'emails':
-      return <Mail className={className} />;
-    case 'calls':
-      return <Phone className={className} />;
     case 'notes':
       return <StickyNote className={className} />;
     case 'tasks':
       return <SquareCheckBig className={className} />;
     case 'comments':
       return <MessageSquare className={className} />;
+    case 'calls':
+      return <Phone className={className} />;
+    case 'emails':
+      return <Mail className={className} />;
+    case 'relationships':
+      return <ArrowRightLeft className={className} />;
+    case 'files':
+      return <Paperclip className={className} />;
     default:
       return <Activity className={className} />;
   }
@@ -411,7 +454,11 @@ function renderDisplayValue(attribute: CrmAttribute, value: CrmRecordValue | und
       return date ? <span className="truncate text-gray-900">{date}</span> : renderEmptyValue(attribute);
     }
 
-    case 'CURRENCY':
+    case 'CURRENCY': {
+      const text = formatCurrency(value);
+      return text ? <span className="truncate text-gray-900" title={text}>{text}</span> : renderEmptyValue(attribute);
+    }
+
     case 'LOCATION':
     case 'NUMBER':
     case 'RELATIONSHIP':
@@ -436,13 +483,18 @@ export default function RecordPage({ params }: PageProps) {
 
   const [object, setObject] = useState<CrmObjectDetail | null>(null);
   const [record, setRecord] = useState<CrmRecord | null>(null);
-  const [activeTab, setActiveTab] = useState<TabKey>('activity');
+  const [activeTab, setActiveTab] = useState<TabKey>('overview');
+  const [detailsOpen, setDetailsOpen] = useState(true);
+  const [systemOpen, setSystemOpen] = useState(true);
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [draftValue, setDraftValue] = useState<DraftValue>('');
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // Активности записи (S061)
+  const [activities, setActivities] = useState<CrmActivity[]>([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
 
   const attributes = useMemo(() => {
     if (!object) {
@@ -457,6 +509,19 @@ export default function RecordPage({ params }: PageProps) {
   }, [object]);
 
   const displayName = record?.displayName || 'Record';
+
+  // M27-1 Highlights (generic-derived, без hardcode): name уже в шапке → берём первые N видимых, не-AI,
+  // не-primary атрибутов с ЗАПОЛНЕННЫМ значением. Работает для любого объекта (Companies/People/Deals/custom).
+  const highlights = useMemo(() => {
+    if (!record) return [];
+    return attributes
+      .filter((a) => !a.isPrimary && !a.aiEnabled && a.type !== 'RELATIONSHIP')
+      .filter((a) => {
+        const v = record.values?.[a.key];
+        return formatScalar(v) !== '' || (Array.isArray(v) && v.length > 0);
+      })
+      .slice(0, 6);
+  }, [attributes, record]);
 
   async function loadRecord() {
     setIsLoading(true);
@@ -473,9 +538,30 @@ export default function RecordPage({ params }: PageProps) {
     }
   }
 
+  async function loadActivities() {
+    setActivitiesLoading(true);
+
+    try {
+      const result = await getRecordActivities(recordId);
+      setActivities(result.activities);
+    } catch {
+      // Не критично — пустой список
+    } finally {
+      setActivitiesLoading(false);
+    }
+  }
+
   useEffect(() => {
     void loadRecord();
   }, [objectKey, recordId]);
+
+  // Загружаем активности при открытии вкладки Activity (S061)
+  useEffect(() => {
+    if (activeTab === 'activity' && !isLoading && record) {
+      void loadActivities();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, isLoading, recordId]);
 
   function startEdit(attribute: CrmAttribute) {
     if (!record || savingKey) {
@@ -639,17 +725,116 @@ export default function RecordPage({ params }: PageProps) {
     );
   }
 
+  function renderActivityTypeLabel(type: string): string {
+    switch (type) {
+      case 'RECORD_CREATED': return 'Запись создана';
+      case 'RECORD_UPDATED': return 'Запись обновлена';
+      case 'RECORD_ARCHIVED': return 'Запись архивирована';
+      default: return type.replace(/_/g, ' ').toLowerCase();
+    }
+  }
+
   function renderTabContent() {
-    if (activeTab === 'activity') {
+    if (activeTab === 'overview') {
       return (
-        <div className="flex h-full min-h-[360px] items-center justify-center text-[13px] text-gray-500">
-          <div className="text-center">
-            <Activity className="mx-auto mb-2 h-5 w-5 text-gray-300" />
-            <div>История появится здесь</div>
-          </div>
+        <div className="min-h-[360px] px-4 py-4">
+          <h2 className="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-gray-400">Highlights</h2>
+          {highlights.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-[13px] text-gray-500">
+              No highlighted fields yet — fill in details on the right and they’ll surface here.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {highlights.map((attribute) => (
+                <div key={attribute.id} className="min-w-0 rounded-lg border border-gray-200 bg-white px-3 py-2">
+                  <div className="truncate text-[11px] font-medium uppercase tracking-[0.04em] text-gray-400" title={attribute.name}>{attribute.name}</div>
+                  <div className="mt-0.5 min-w-0 text-[13px] text-gray-900">{renderDisplayValue(attribute, record!.values?.[attribute.key])}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="mt-4 text-[12px] text-gray-400">All fields are editable in the Details panel on the right. Activity, notes and more are in their tabs.</p>
         </div>
       );
     }
+
+    if (activeTab === 'activity') {
+      if (activitiesLoading) {
+        return (
+          <div className="flex h-full min-h-[360px] items-center justify-center text-[13px] text-gray-500">
+            <Loader2 className="mr-2 h-4 w-4 animate-spin text-gray-400" />
+            Загрузка истории…
+          </div>
+        );
+      }
+
+      if (!activities.length) {
+        return (
+          <div className="flex h-full min-h-[360px] items-center justify-center text-[13px] text-gray-500">
+            <div className="text-center">
+              <Activity className="mx-auto mb-2 h-5 w-5 text-gray-300" />
+              <div>История активностей пуста</div>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="min-h-[360px] px-4 py-3">
+          <ol className="space-y-3">
+            {activities.map((activity) => (
+              <li key={activity.id} className="flex gap-3">
+                <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${activity.redacted ? 'bg-amber-50 text-amber-600' : 'bg-gray-100 text-gray-500'}`}>
+                  {activity.redacted ? <Lock className="h-3 w-3" /> : <Activity className="h-3 w-3" />}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[13px] font-medium text-gray-900">
+                      {/* M27-1: redacted → не раскрываем title/body, показываем безопасную метку типа + «Restricted» */}
+                      {activity.redacted ? renderActivityTypeLabel(activity.type) : (activity.title ?? renderActivityTypeLabel(activity.type))}
+                    </span>
+                    {activity.redacted ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10.5px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-200"><Lock className="h-2.5 w-2.5" /> Restricted</span>
+                    ) : null}
+                    <span className="text-[12px] text-gray-400">
+                      {new Intl.DateTimeFormat('ru', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(activity.createdAt))}
+                    </span>
+                  </div>
+
+                  {activity.actor ? (
+                    <div className="mt-0.5 text-[12px] text-gray-500">{activity.actor.name ?? activity.actor.email}</div>
+                  ) : null}
+
+                  {activity.redacted ? (
+                    <div className="mt-1 text-[12px] italic text-gray-400">You don’t have access to the related item.</div>
+                  ) : activity.body ? (
+                    <div className="mt-1 text-[13px] text-gray-700">{activity.body}</div>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      );
+    }
+
+    // M27-2/M27-3: лениво монтируем таб — данные грузятся ТОЛЬКО при открытии (не ради бейджа).
+    if (activeTab === 'notes') return <RecordNotes recordId={recordId} />;
+    if (activeTab === 'tasks') return <RecordTasks recordId={recordId} />;
+    if (activeTab === 'comments') return <div className="min-h-[360px] px-4 py-4"><CommentThread recordId={recordId} /></div>;
+    if (activeTab === 'calls') return <RecordCalls recordId={recordId} />;
+    if (activeTab === 'emails') return <RecordEmails recordId={recordId} />;
+    if (activeTab === 'relationships') return <RecordRelationships recordId={recordId} object={object!} record={record!} />;
+    if (activeTab === 'files') return (
+      <div className="min-h-[360px] px-4 py-4">
+        <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-12 text-center">
+          <Paperclip className="mx-auto mb-2 h-5 w-5 text-gray-300" />
+          <p className="text-[13px] font-medium text-gray-600">File storage isn’t connected yet</p>
+          <p className="mt-1 text-[12px] text-gray-400">Attachments will live here once a storage provider is connected. No files are stored on records today.</p>
+        </div>
+      </div>
+    );
 
     return (
       <div className="flex h-full min-h-[360px] items-center justify-center text-[13px] text-gray-500">
@@ -702,24 +887,6 @@ export default function RecordPage({ params }: PageProps) {
 
             <span className="truncate font-medium text-gray-800">{displayName}</span>
           </div>
-
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 text-[13px] font-medium text-gray-700 shadow-sm hover:bg-gray-50"
-            >
-              <Mail className="h-3.5 w-3.5" />
-              Compose email
-            </button>
-
-            <button
-              type="button"
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-900"
-              aria-label="More actions"
-            >
-              <MoreHorizontal className="h-3.5 w-3.5" />
-            </button>
-          </div>
         </div>
 
         <div className="flex h-14 items-center justify-between px-4">
@@ -740,14 +907,6 @@ export default function RecordPage({ params }: PageProps) {
               </div>
             </div>
           </div>
-
-          <button
-            type="button"
-            className="inline-flex h-7 items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 text-[13px] text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Add to list
-          </button>
         </div>
       </header>
 
@@ -771,11 +930,6 @@ export default function RecordPage({ params }: PageProps) {
                 >
                   {renderTabIcon(tab.key)}
                   <span>{tab.label}</span>
-                  {typeof tab.count === 'number' ? (
-                    <span className="ml-0.5 rounded bg-gray-100 px-1 text-[11px] text-gray-500">
-                      {tab.count}
-                    </span>
-                  ) : null}
                 </button>
               );
             })}
@@ -786,35 +940,24 @@ export default function RecordPage({ params }: PageProps) {
 
         <aside className="flex w-[430px] shrink-0 flex-col border-l border-gray-200 bg-white">
           <div className="flex h-10 shrink-0 items-center border-b border-gray-200 px-3">
-            <button
-              type="button"
-              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 text-[13px] font-medium text-gray-950 shadow-sm"
-            >
+            <span className="inline-flex h-8 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 text-[13px] font-medium text-gray-950 shadow-sm">
               <FileText className="h-3.5 w-3.5" />
               Details
-            </button>
-
-            <button
-              type="button"
-              className="ml-1 inline-flex h-8 items-center gap-1.5 rounded-md border border-transparent px-2.5 text-[13px] text-gray-600 hover:bg-gray-50 hover:text-gray-950"
-            >
-              <MessageSquare className="h-3.5 w-3.5" />
-              Comments
-              <span className="rounded bg-gray-100 px-1 text-[11px] text-gray-500">0</span>
-            </button>
+            </span>
           </div>
 
           <div className="min-h-0 flex-1 overflow-auto">
             <section className="border-b border-gray-200">
               <button
                 type="button"
-                className="flex h-10 w-full items-center gap-2 px-4 text-left text-[13px] font-medium text-gray-900"
+                onClick={() => setDetailsOpen((v) => !v)}
+                className="flex h-10 w-full items-center gap-2 px-4 text-left text-[13px] font-medium text-gray-900 hover:bg-gray-50"
               >
-                <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
+                <ChevronDown className={`h-3.5 w-3.5 text-gray-500 transition-transform ${detailsOpen ? '' : '-rotate-90'}`} />
                 Record Details
               </button>
 
-              <div className="pb-2">
+              <div className={`pb-2 ${detailsOpen ? '' : 'hidden'}`}>
                 {attributes.map((attribute) => {
                   const value = record.values?.[attribute.key];
                   const isEditing = editingKey === attribute.key;
@@ -868,13 +1011,14 @@ export default function RecordPage({ params }: PageProps) {
             <section className="border-b border-gray-200">
               <button
                 type="button"
-                className="flex h-10 w-full items-center gap-2 px-4 text-left text-[13px] font-medium text-gray-900"
+                onClick={() => setSystemOpen((v) => !v)}
+                className="flex h-10 w-full items-center gap-2 px-4 text-left text-[13px] font-medium text-gray-900 hover:bg-gray-50"
               >
-                <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
+                <ChevronDown className={`h-3.5 w-3.5 text-gray-500 transition-transform ${systemOpen ? '' : '-rotate-90'}`} />
                 System
               </button>
 
-              <div className="pb-2">
+              <div className={`pb-2 ${systemOpen ? '' : 'hidden'}`}>
                 <div className="grid grid-cols-[128px_minmax(0,1fr)] gap-3 px-4 py-2">
                   <div className="text-[12px] text-gray-500">Record ID</div>
                   <div className="truncate text-[13px] text-gray-900" title={record.id}>

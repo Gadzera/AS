@@ -8,9 +8,11 @@ export async function enqueueDueSends(): Promise<void> {
 
   const dueSends = await prisma.campaignLead.findMany({
     where: {
+      // M11-2: решение об отправке — ПО status enrollment'а (PENDING/ACTIVE отправляемы),
+      // nextSendAt — только расписание (когда наступил срок). PAUSED/REPLIED/COMPLETED/STOPPED не шлём.
       nextSendAt: { lte: now, not: null },
       campaign: { status: 'ACTIVE' },
-      status: { notIn: ['LOST', 'UNSUBSCRIBED', 'CONVERTED'] },
+      status: { in: ['PENDING', 'ACTIVE'] },
     },
     select: { id: true },
     take: 1000,

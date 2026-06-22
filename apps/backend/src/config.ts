@@ -31,6 +31,13 @@ export const config = {
     apiKey: optional('ANTHROPIC_API_KEY', ''),
   },
 
+  // DeepSeek — OpenAI-совместимый провайдер LLM (дешёвый, основной для боевого demo→prod).
+  deepseek: {
+    apiKey: optional('DEEPSEEK_API_KEY', ''),
+    baseUrl: optional('DEEPSEEK_BASE_URL', 'https://api.deepseek.com'),
+    model: optional('DEEPSEEK_MODEL', 'deepseek-chat'),
+  },
+
   apollo: {
     apiKey: optional('APOLLO_API_KEY', ''),
     baseUrl: 'https://api.apollo.io',
@@ -69,5 +76,11 @@ export const config = {
 
   calendly: {
     url: optional('CALENDLY_URL', ''),
+  },
+
+  // M17-4: ключ шифрования workflow-секретов (AES-256-GCM). Нет ключа → secret-операции честно fail
+  // (не падает всё приложение), HTTP-блоки с {{secret.*}} → step FAILED.
+  workflow: {
+    secretEncryptionKey: optional('WORKFLOW_SECRET_ENCRYPTION_KEY', ''),
   },
 };

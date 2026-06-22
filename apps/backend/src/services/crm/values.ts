@@ -1,9 +1,9 @@
-import { AttributeType, Prisma, PrismaClient, RelationshipCardinality } from '@prisma/client';
+import { AttributeType, Prisma, PrismaClient, RelationshipCardinality, ValueSource } from '@prisma/client';
 import type { Attribute, AttributeOption, RelationshipDefinition, Value } from '@prisma/client';
 
 type CrmTransaction = Pick<
   PrismaClient,
-  'attribute' | 'record' | 'relationshipDefinition' | 'relationshipValue' | 'user' | 'value'
+  'attribute' | 'record' | 'relationshipDefinition' | 'relationshipValue' | 'user' | 'value' | 'stageTransition'
 >;
 
 type ValuesByAttribute = { [attributeKeyOrId: string]: unknown };
@@ -17,6 +17,8 @@ type MinimalRecord = {
 type AttributeForWrite = Attribute & {
   options: AttributeOption[];
   sourceRelationshipDefinitions: RelationshipDefinition[];
+  // REL-1: непустой ⇒ это reverse-атрибут (управляется forward-стороной, прямая запись запрещена).
+  reverseRelationshipDefinitions: RelationshipDefinition[];
 };
 
 type ValueStorageData = {
@@ -91,6 +93,8 @@ export type SerializedRecord = {
   displayName: string | null;
   searchText: string | null;
   values: { [attributeKey: string]: unknown };
+  // M29-1: происхождение текущего значения по атрибуту (для значка AI/Manual в UI). Только для скалярных Value (не relationship).
+  valueMeta: { [attributeKey: string]: { source: ValueSource; lastAiRunId: string | null } };
   createdById: string | null;
   updatedById: string | null;
   createdAt: string;
@@ -100,6 +104,11 @@ export type SerializedRecord = {
 
 export type WriteValuesOptions = {
   enforceRequired?: boolean;
+  // M18-2: кто изменил значения — попадёт в StageTransition.changedById (для аудита переходов стадий).
+  actorId?: string | null;
+  // M29-1: происхождение записи. По умолчанию MANUAL (ручная правка). Импорт передаёт IMPORT, воркфлоу/система — SYSTEM.
+  // НЕ AI: AI-значения пишет только services/ai (saveAiValue). Provenance меняется ТОЛЬКО при реальном изменении значения.
+  valueSource?: ValueSource;
 };
 
 export class CrmValueValidationError extends Error {
@@ -784,12 +793,34 @@ async function refreshRecordSearchFields(tx: CrmTransaction, recordId: string, o
   });
 }
 
+// M17-2: сравнение storage с существующим Value по колонкам (для ATTRIBUTE_UPDATED — fire только на РЕАЛЬНОЕ изменение).
+// storage использует Prisma.DbNull/JsonNull-сентинелы для «пусто» — приводим их к null, иначе jsonValue вечно «отличается».
+function nullish(v: unknown): boolean {
+  return v == null || v === Prisma.DbNull || v === Prisma.JsonNull || v === Prisma.AnyNull;
+}
+function valueColEq(col: string, a: unknown, b: unknown): boolean {
+  if (nullish(a) && nullish(b)) return true;
+  if (nullish(a) || nullish(b)) return false;
+  if (col === 'dateValue') return new Date(a as string).getTime() === new Date(b as string).getTime();
+  // Сравнение по масштабу колонки: numberValue Decimal(18,6), currencyAmount Decimal(18,2) — иначе sub-scale
+  // ввод (напр. 1.0000005) даёт ложное «изменение» против округлённого сохранённого значения.
+  if (col === 'numberValue') return Number(String(a)).toFixed(6) === Number(String(b)).toFixed(6);
+  if (col === 'currencyAmount') return Number(String(a)).toFixed(2) === Number(String(b)).toFixed(2);
+  if (col === 'jsonValue') return JSON.stringify(a) === JSON.stringify(b);
+  return String(a) === String(b);
+}
+const VALUE_COLS = ['textValue', 'longTextValue', 'numberValue', 'booleanValue', 'dateValue', 'jsonValue', 'userValueId', 'currencyAmount', 'currencyCode'] as const;
+function valuesDiffer(prev: Record<string, unknown>, storage: Record<string, unknown>): boolean {
+  return VALUE_COLS.some((c) => !valueColEq(c, prev[c], storage[c]));
+}
+
+/** Возвращает id атрибутов, чьё значение РЕАЛЬНО изменилось (для ATTRIBUTE_UPDATED/RECORD_UPDATED триггеров). */
 export async function writeValues(
   tx: CrmTransaction,
   record: MinimalRecord,
   valuesByAttrKeyOrId: ValuesByAttribute,
   options: WriteValuesOptions = {}
-): Promise<void> {
+): Promise<string[]> {
   const attributes = await tx.attribute.findMany({
     where: {
       orgId: record.orgId,
@@ -803,6 +834,10 @@ export async function writeValues(
         orderBy: { order: 'asc' },
       },
       sourceRelationshipDefinitions: {
+        where: { archivedAt: null },
+      },
+      // REL-1: back-relation — определения, где этот атрибут является reverse-стороной
+      reverseRelationshipDefinitions: {
         where: { archivedAt: null },
       },
     },
@@ -824,6 +859,11 @@ export async function writeValues(
       throw new CrmValueValidationError(`Attribute "${keyOrId}" was not found for record object`);
     }
 
+    // REL-1: reverse-атрибут управляется forward-стороной — прямая запись запрещена (без RelationshipValue на reverseAttributeId).
+    if (attribute.reverseRelationshipDefinitions.length > 0) {
+      throw new CrmValueValidationError(`Attribute "${attribute.key}" is a managed reverse relationship and cannot be written directly — edit the relationship from the source record`);
+    }
+
     return { attribute, rawValue };
   });
 
@@ -843,12 +883,29 @@ export async function writeValues(
     }
   }
 
+  // M17-2: снимок существующих значений ДО записи — чтобы вычислить РЕАЛЬНО изменившиеся атрибуты.
+  const existingValues = await tx.value.findMany({
+    where: { orgId: record.orgId, recordId: record.id, attributeId: { in: resolvedEntries.map((e) => e.attribute.id) } },
+  });
+  const existingByAttr = new Map(existingValues.map((v) => [v.attributeId, v as unknown as Record<string, unknown>]));
+  const changedAttributeIds: string[] = [];
+  // M18-2: переходы стадий (только SELECT, только РЕАЛЬНОЕ изменение) — основа Time-in-stage/Stage-change.
+  const pendingTransitions: { attributeId: string; fromValue: string | null; toValue: string | null }[] = [];
+  const asToken = (v: unknown): string | null => (typeof v === 'string' && v ? v : null);
+
   for (const { attribute, rawValue } of resolvedEntries) {
     if (attribute.isRequired && !hasRequiredValue(rawValue)) {
       throw new CrmValueValidationError(`Required attribute "${attribute.key}" cannot be empty`);
     }
 
     if (isClearInput(rawValue)) {
+      if (existingByAttr.has(attribute.id)) {
+        changedAttributeIds.push(attribute.id); // очистка существующего значения = изменение
+        if (attribute.type === AttributeType.SELECT) {
+          pendingTransitions.push({ attributeId: attribute.id, fromValue: asToken(existingByAttr.get(attribute.id)?.textValue), toValue: null });
+        }
+      }
+
       await tx.relationshipValue.deleteMany({
         where: {
           orgId: record.orgId,
@@ -869,6 +926,21 @@ export async function writeValues(
     }
 
     const storage = await buildValueStorage(tx, record, attribute, rawValue);
+    const prev = existingByAttr.get(attribute.id);
+    const didChange = !prev || valuesDiffer(prev, storage as unknown as Record<string, unknown>);
+    if (didChange) {
+      changedAttributeIds.push(attribute.id);
+      // SELECT-переход: записываем ТОЛЬКО при реальной смене токена опции (no-op не доходит сюда).
+      if (attribute.type === AttributeType.SELECT) {
+        const fromToken = asToken(prev?.textValue);
+        const toToken = asToken(storage.textValue);
+        if (fromToken !== toToken) pendingTransitions.push({ attributeId: attribute.id, fromValue: fromToken, toValue: toToken });
+      }
+    }
+
+    // M29-1: происхождение не-AI записи (по умолчанию ручная). Новое значение всегда помечается источником;
+    // существующее — ТОЛЬКО при реальном изменении (no-op upsert не должен флипать AI→MANUAL).
+    const writeSource = options.valueSource ?? ValueSource.MANUAL;
 
     const createData = {
       orgId: record.orgId,
@@ -883,6 +955,8 @@ export async function writeValues(
       userValueId: storage.userValueId,
       currencyAmount: storage.currencyAmount,
       currencyCode: storage.currencyCode,
+      source: writeSource,
+      lastAiRunId: null,
     } as Prisma.ValueUncheckedCreateInput;
 
     const updateData = {
@@ -897,6 +971,12 @@ export async function writeValues(
       currencyCode: storage.currencyCode,
     } as Prisma.ValueUncheckedUpdateInput;
 
+    // provenance обновляем только если значение реально изменилось ручной/импорт-записью
+    if (didChange) {
+      updateData.source = writeSource;
+      updateData.lastAiRunId = null;
+    }
+
     await tx.value.upsert({
       where: {
         recordId_attributeId: {
@@ -910,6 +990,23 @@ export async function writeValues(
   }
 
   await refreshRecordSearchFields(tx, record.id, record.orgId);
+
+  // M18-2: фиксируем переходы стадий (атомарно в той же tx). Пустой массив → запись не идёт.
+  if (pendingTransitions.length) {
+    await tx.stageTransition.createMany({
+      data: pendingTransitions.map((t) => ({
+        orgId: record.orgId,
+        recordId: record.id,
+        objectId: record.objectId,
+        attributeId: t.attributeId,
+        fromValue: t.fromValue,
+        toValue: t.toValue,
+        changedById: options.actorId ?? null,
+      })),
+    });
+  }
+
+  return changedAttributeIds;
 }
 
 function serializeOption(option: AttributeOption): { id: string; value: string; label: string; color: string | null } {
@@ -1008,9 +1105,12 @@ function serializeRelationshipTarget(targetRecord: SerializableRelationshipValue
 
 export function serializeRecord(record: SerializableRecord): SerializedRecord {
   const values: { [attributeKey: string]: unknown } = {};
+  // M29-1: параллельная карта происхождения значений (не меняет форму `values`).
+  const valueMeta: { [attributeKey: string]: { source: ValueSource; lastAiRunId: string | null } } = {};
 
   for (const value of record.values ?? []) {
     values[value.attribute.key] = serializeValue(value);
+    valueMeta[value.attribute.key] = { source: value.source, lastAiRunId: value.lastAiRunId };
   }
 
   const relationshipGroups: {
@@ -1055,6 +1155,7 @@ export function serializeRecord(record: SerializableRecord): SerializedRecord {
     displayName: record.displayName,
     searchText: record.searchText,
     values,
+    valueMeta,
     createdById: record.createdById,
     updatedById: record.updatedById,
     createdAt: record.createdAt.toISOString(),

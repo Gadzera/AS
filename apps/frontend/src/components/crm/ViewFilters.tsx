@@ -279,57 +279,61 @@ export default function ViewFilters({
   }
 
   return (
-    <div className="relative flex h-11 items-center gap-2 border-t border-gray-100 px-4 text-[13px]">
-      <button
-        type="button"
-        onClick={() => togglePanel('views')}
-        className="inline-flex h-8 items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 font-medium text-gray-800 shadow-sm hover:bg-gray-50"
-      >
-        <span className={viewMode === 'board' ? 'h-2 w-2 rounded-sm bg-violet-500' : 'h-2 w-2 rounded-sm bg-emerald-500'} />
-        {activeView?.name ?? `All ${object.pluralName}`}
-        <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
-      </button>
+    <div className="relative flex h-14 items-center gap-2 border-t border-line px-5 text-[13px]">
+      <div className="inline-flex items-center gap-1 rounded-xl border border-line bg-surface/80 p-1 shadow-xs">
+        <button
+          type="button"
+          onClick={() => togglePanel('views')}
+          className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 font-semibold text-ink hover:bg-surface-2"
+        >
+          <span className={viewMode === 'board' ? 'h-2 w-2 rounded-sm bg-accent-violet' : 'h-2 w-2 rounded-sm bg-accent-mint'} />
+          {activeView?.name ?? `All ${object.pluralName}`}
+          <ChevronDown className="h-3.5 w-3.5 text-ink-subtle" />
+        </button>
 
-      <button
-        type="button"
-        onClick={() => togglePanel('filters')}
-        className="inline-flex h-8 items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 text-gray-700 shadow-sm hover:bg-gray-50"
-      >
-        <Filter className="h-3.5 w-3.5" />
-        Filter
-        {filters.length ? (
-          <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-600">{filters.length}</span>
-        ) : null}
-      </button>
+        <span className="h-4 w-px bg-line" />
 
-      <button
-        type="button"
-        onClick={() => togglePanel('sorts')}
-        className="inline-flex h-8 items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 text-gray-700 shadow-sm hover:bg-gray-50"
-      >
-        <SortAsc className="h-3.5 w-3.5" />
-        {sorts.length ? `Sorted by ${attributeByKey.get(sorts[0].attributeKey)?.name ?? sorts[0].attributeKey}` : 'Sort'}
-        {sorts.length > 1 ? (
-          <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-600">+{sorts.length - 1}</span>
-        ) : null}
-      </button>
+        <button
+          type="button"
+          onClick={() => togglePanel('filters')}
+          className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 font-medium text-ink-muted hover:bg-surface-2 hover:text-ink"
+        >
+          <Filter className="h-3.5 w-3.5" />
+          Filter
+          {filters.length ? (
+            <span className="rounded-full bg-brand-50 px-1.5 py-0.5 text-[11px] font-semibold text-brand-700">{filters.length}</span>
+          ) : null}
+        </button>
 
-      <button
-        type="button"
-        onClick={() => togglePanel('columns')}
-        className="inline-flex h-8 items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 text-gray-700 shadow-sm hover:bg-gray-50"
-      >
-        <SlidersHorizontal className="h-3.5 w-3.5" />
-        Columns
-        <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-600">{visibleColumns.length}</span>
-      </button>
+        <button
+          type="button"
+          onClick={() => togglePanel('sorts')}
+          className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 font-medium text-ink-muted hover:bg-surface-2 hover:text-ink"
+        >
+          <SortAsc className="h-3.5 w-3.5" />
+          {sorts.length ? `Sorted by ${attributeByKey.get(sorts[0].attributeKey)?.name ?? sorts[0].attributeKey}` : 'Sort'}
+          {sorts.length > 1 ? (
+            <span className="rounded-full bg-brand-50 px-1.5 py-0.5 text-[11px] font-semibold text-brand-700">+{sorts.length - 1}</span>
+          ) : null}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => togglePanel('columns')}
+          className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 font-medium text-ink-muted hover:bg-surface-2 hover:text-ink"
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          Columns
+          <span className="rounded-full bg-brand-50 px-1.5 py-0.5 text-[11px] font-semibold text-brand-700">{visibleColumns.length}</span>
+        </button>
+      </div>
 
       <div className="ml-auto flex items-center gap-2">
         <button
           type="button"
           onClick={onSaveView}
           disabled={!activeViewId || isSaving}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 text-gray-700 shadow-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-surface px-3 font-medium text-ink-muted shadow-xs hover:bg-surface-2 hover:text-ink hover:border-line-strong disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Save className="h-3.5 w-3.5" />
           Save view
@@ -339,7 +343,7 @@ export default function ViewFilters({
           type="button"
           onClick={onSaveAsNew}
           disabled={isSaving}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md bg-gray-950 px-2.5 font-medium text-white shadow-sm hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+          className="brand-gradient inline-flex h-9 items-center gap-1.5 rounded-lg px-4 font-semibold text-white shadow-brand transition-all hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Save as new
         </button>

@@ -125,7 +125,9 @@ export default function KanbanBoard({
     if (newStatus !== original) {
       try {
         if (newStatus === 'ACTIVE') {
-          await campaignsApi.start(activeIdStr);
+          // M11-4: из PAUSED — возобновление (без повторного enroll), из DRAFT — старт.
+          if (original === 'PAUSED') await campaignsApi.resume(activeIdStr);
+          else await campaignsApi.start(activeIdStr);
         } else if (newStatus === 'PAUSED') {
           await campaignsApi.pause(activeIdStr);
         } else {
