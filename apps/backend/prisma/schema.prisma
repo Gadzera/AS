@@ -10,40 +10,42 @@ datasource db {
 // Users & Auth
 
 model User {
-  id           String        @id @default(cuid())
-  email        String        @unique
-  passwordHash String
-  name         String
-  role         Role          @default(MEMBER)
-  orgId        String?
-  org          Organization? @relation(fields: [orgId], references: [id])
+  id                     String             @id @default(cuid())
+  email                  String             @unique
+  passwordHash           String
+  name                   String
+  role                   Role               @default(MEMBER)
+  orgId                  String?
+  org                    Organization?      @relation(fields: [orgId], references: [id])
   // Безопасность: версия токена (инвалидация JWT после смены роли/удаления/деактивации) + активность.
-  tokenVersion Int           @default(0)
-  isActive     Boolean       @default(true)
+  tokenVersion           Int                @default(0)
+  isActive               Boolean            @default(true)
   // M23-1: 2FA (TOTP). Secret — encrypted (AES-GCM); pending до verify; recovery-коды — отдельная таблица (hash).
-  twoFactorEnabled       Boolean @default(false)
+  twoFactorEnabled       Boolean            @default(false)
   twoFactorSecret        String? // encrypted, активный (после verify)
   twoFactorPendingSecret String? // encrypted, до подтверждения (pending-state)
   themePref              String? // M23-2: 'light' | 'dark' (per-user, серверный source-of-truth)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  campaigns    Campaign[]
-  sessions      UserSession[]
-  recoveryCodes UserRecoveryCode[]
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  campaigns              Campaign[]
+  sessions               UserSession[]
+  recoveryCodes          UserRecoveryCode[]
 
-  createdObjects   Object[]    @relation("ObjectCreatedBy")
-  createdRecords   Record[]    @relation("RecordCreatedBy")
-  updatedRecords   Record[]    @relation("RecordUpdatedBy")
-  createdViews     View[]      @relation("ViewCreatedBy")
-  createdLists     List[]      @relation("ListCreatedBy")
-  addedListEntries ListEntry[] @relation("ListEntryAddedBy")
-  assignedTasks    Task[]      @relation("TaskAssignee")
-  createdTasks     Task[]      @relation("TaskCreatedBy")
-  notes            Note[]      @relation("NoteAuthor")
-  activities       Activity[]  @relation("ActivityActor")
-  sentEmails       Email[]     @relation("EmailSenderUser")
-  createdEmailTemplates EmailTemplate[] @relation("EmailTemplateCreatedBy")
-  values           Value[]     @relation("ValueUser")
+  createdObjects        Object[]         @relation("ObjectCreatedBy")
+  createdRecords        Record[]         @relation("RecordCreatedBy")
+  updatedRecords        Record[]         @relation("RecordUpdatedBy")
+  createdViews          View[]           @relation("ViewCreatedBy")
+  createdLists          List[]           @relation("ListCreatedBy")
+  addedListEntries      ListEntry[]      @relation("ListEntryAddedBy")
+  createdListAttributes ListAttribute[]  @relation("ListAttributeCreatedBy")
+  listEntryValues       ListEntryValue[] @relation("ListEntryValueUser")
+  assignedTasks         Task[]           @relation("TaskAssignee")
+  createdTasks          Task[]           @relation("TaskCreatedBy")
+  notes                 Note[]           @relation("NoteAuthor")
+  activities            Activity[]       @relation("ActivityActor")
+  sentEmails            Email[]          @relation("EmailSenderUser")
+  createdEmailTemplates EmailTemplate[]  @relation("EmailTemplateCreatedBy")
+  values                Value[]          @relation("ValueUser")
 
   requestedAiRuns     AiRun[]             @relation("AiRunRequestedBy")
   requestedAiBulkRuns AiBulkRun[]         @relation("AiBulkRunRequestedBy")
@@ -97,40 +99,40 @@ model UserRecoveryCode {
 }
 
 model Organization {
-  id               String     @id @default(cuid())
-  name             String
-  plan             Plan       @default(STARTER)
-  stripeCustomerId String?
-  stripeSubId      String?
+  id                        String        @id @default(cuid())
+  name                      String
+  plan                      Plan          @default(STARTER)
+  stripeCustomerId          String?
+  stripeSubId               String?
   // M16-2: статус подписки Stripe (синк ТОЛЬКО из webhook) — active|past_due|canceled|incomplete|trialing|demo.
-  subscriptionStatus String?
-  currentPeriodEnd   DateTime?
-  cancelAtPeriodEnd  Boolean   @default(false)
-  leadsLimit       Int        @default(500)
+  subscriptionStatus        String?
+  currentPeriodEnd          DateTime?
+  cancelAtPeriodEnd         Boolean       @default(false)
+  leadsLimit                Int           @default(500)
   // Настройки воркспейса (реальные, редактируемые на /settings → Workspace)
-  timezone         String     @default("Europe/Berlin")
-  sendWindowStart  String     @default("09:00")
-  sendWindowEnd    String     @default("17:00")
-  sendDays         String     @default("1,2,3,4,5") // дни недели через запятую (1=Пн .. 7=Вс)
-  dailySendLimit   Int        @default(200)
+  timezone                  String        @default("Europe/Berlin")
+  sendWindowStart           String        @default("09:00")
+  sendWindowEnd             String        @default("17:00")
+  sendDays                  String        @default("1,2,3,4,5") // дни недели через запятую (1=Пн .. 7=Вс)
+  dailySendLimit            Int           @default(200)
   // M14-5: авто-ответ (autopilot). Включён → агент сам отправляет ТОЛЬКО low-risk ответы; остальное → human handoff.
-  autoResponseEnabled       Boolean @default(false)
-  autoResponseMinConfidence Float   @default(0.8) // порог уверенности intent для автопилота (поверх canAutopilot)
+  autoResponseEnabled       Boolean       @default(false)
+  autoResponseMinConfidence Float         @default(0.8) // порог уверенности intent для автопилота (поверх canAutopilot)
   // Календарная интеграция (реальная модель; фактический OAuth — демо до подключения провайдера)
-  calendarProvider    String? // GOOGLE | OUTLOOK | null = не подключён
-  calendarConnectedAt DateTime?
-  onboardingCompletedAt DateTime? // M22-2: онбординг-визард завершён (идемпотентно, без дублей)
-  logoUrl          String? // M23-2: логотип воркспейса (URL; без upload)
-  companyDomain    String? // M23-2: домен компании (не auth/email домен)
-  themeDefault     String? // M23-2: дефолтная тема воркспейса (необяз.)
-  users            User[]
-  mailboxes        Mailbox[]
-  workflows        Workflow[]
-  workflowRuns     WorkflowRun[]
-  leads            Lead[]
-  campaigns        Campaign[]
-  apiKeys          ApiKey[]
-  createdAt        DateTime   @default(now())
+  calendarProvider          String? // GOOGLE | OUTLOOK | null = не подключён
+  calendarConnectedAt       DateTime?
+  onboardingCompletedAt     DateTime? // M22-2: онбординг-визард завершён (идемпотентно, без дублей)
+  logoUrl                   String? // M23-2: логотип воркспейса (URL; без upload)
+  companyDomain             String? // M23-2: домен компании (не auth/email домен)
+  themeDefault              String? // M23-2: дефолтная тема воркспейса (необяз.)
+  users                     User[]
+  mailboxes                 Mailbox[]
+  workflows                 Workflow[]
+  workflowRuns              WorkflowRun[]
+  leads                     Lead[]
+  campaigns                 Campaign[]
+  apiKeys                   ApiKey[]
+  createdAt                 DateTime      @default(now())
 
   objects                 Object[]
   attributes              Attribute[]
@@ -145,6 +147,8 @@ model Organization {
   viewSorts               ViewSort[]
   lists                   List[]
   listEntries             ListEntry[]
+  listAttributes          ListAttribute[]
+  listEntryValues         ListEntryValue[]
   activities              Activity[]
   emails                  Email[]
   emailTemplates          EmailTemplate[]
@@ -212,25 +216,25 @@ enum MailboxStatus {
 // Workflow — правило автоматизации поверх sequence-движка: ТРИГГЕР → УСЛОВИЕ → ДЕЙСТВИЯ.
 // Исполняется реально в путях триажа ответов и бронирования встреч (см. services/workflows.ts).
 model Workflow {
-  id             String          @id @default(cuid())
-  orgId          String
-  org            Organization    @relation(fields: [orgId], references: [id])
-  name           String
-  description    String?
-  trigger        WorkflowTrigger
-  conditionClass ReplyClass? // для REPLY_RECEIVED: конкретный класс ответа или null = любой
-  actions        String[] // M17-5: ЧЕРНОВИК (editable draft); исполняется published-снапшот версии, не это поле
-  isActive       Boolean         @default(true)
-  isSystem       Boolean         @default(false)
-  runCount       Int             @default(0)
-  lastRunAt      DateTime?
+  id               String            @id @default(cuid())
+  orgId            String
+  org              Organization      @relation(fields: [orgId], references: [id])
+  name             String
+  description      String?
+  trigger          WorkflowTrigger
+  conditionClass   ReplyClass? // для REPLY_RECEIVED: конкретный класс ответа или null = любой
+  actions          String[] // M17-5: ЧЕРНОВИК (editable draft); исполняется published-снапшот версии, не это поле
+  isActive         Boolean           @default(true)
+  isSystem         Boolean           @default(false)
+  runCount         Int               @default(0)
+  lastRunAt        DateTime?
   // M17-5 draft/published lifecycle:
   publishedVersion Int? // номер текущей опубликованной WorkflowVersion (null = не опубликован, не runnable)
   draftUpdatedAt   DateTime? // когда последний раз менялся draft (для UI «unpublished changes»)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  runs            WorkflowRun[]
-  versions        WorkflowVersion[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  runs             WorkflowRun[]
+  versions         WorkflowVersion[]
   automationGrants AutomationGrant[]
 
   @@index([orgId])
@@ -261,11 +265,11 @@ model WorkflowVersion {
 // Универсальная идемпотентность: NON-NULL idempotencyKey + @@unique([workflowId, idempotencyKey]) —
 // защищены ВСЕ пути (не только событийные с eventId). Дубль → existing run {deduped:true}, без второй строки.
 model WorkflowRun {
-  id              String             @id @default(cuid())
+  id              String            @id @default(cuid())
   orgId           String
-  org             Organization       @relation(fields: [orgId], references: [id])
+  org             Organization      @relation(fields: [orgId], references: [id])
   workflowId      String
-  workflow        Workflow           @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  workflow        Workflow          @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   leadId          String?
   recordId        String? // M17-2: subject-запись для record/list-триггеров (записи — не лиды)
   objectId        String? // M17-2: объект записи (companies/people/deals)
@@ -275,19 +279,19 @@ model WorkflowRun {
   eventId         String? // M13-4: id MessageEvent-источника (вторичный guard поверх idempotencyKey)
   // M17-1 run-ledger:
   idempotencyKey  String // NON-NULL детерминированный ключ дедупа (legacy:<runId> для старых строк)
-  status          WorkflowRunStatus  @default(PENDING)
+  status          WorkflowRunStatus @default(PENDING)
   error           String? // raw backend-ошибка терминального run (никогда в UI)
   startedAt       DateTime?
   completedAt     DateTime?
   durationMs      Int?
-  attemptCount    Int                @default(0)
-  dedupeCount     Int                @default(0) // сколько дублей пришло на этот run (счётчик, не вторая строка)
+  attemptCount    Int               @default(0)
+  dedupeCount     Int               @default(0) // сколько дублей пришло на этот run (счётчик, не вторая строка)
   claimedAt       DateTime? // для восстановления зависших RUNNING (sweeper)
   resumeAt        DateTime? // M17-3: DELAY/DELAY_UNTIL — когда scheduler возобновит WAITING-прогон (не setTimeout)
   campaignId      String? // контекст (раньше жил только в summary-тексте)
   attributionMode String? // M13-4: способ атрибуции (degraded fallback виден)
   batchId         String? // M17-2: общий id пачки bulk manual-run (N независимых run)
-  createdAt       DateTime           @default(now())
+  createdAt       DateTime          @default(now())
   steps           WorkflowRunStep[]
 
   @@unique([workflowId, idempotencyKey]) // M17-1: универсальный дедуп (все пути)
@@ -482,26 +486,26 @@ model Lead {
 // Campaigns
 
 model Campaign {
-  id             String         @id @default(cuid())
-  orgId          String
-  org            Organization   @relation(fields: [orgId], references: [id])
-  userId         String
-  user           User           @relation(fields: [userId], references: [id])
-  name           String
-  status         CampaignStatus @default(DRAFT)
-  channel        Channel        @default(EMAIL)
-  targetIndustry String?
-  targetCountry  String?
-  targetSize     String?
-  dailyLimit     Int            @default(50)
+  id              String         @id @default(cuid())
+  orgId           String
+  org             Organization   @relation(fields: [orgId], references: [id])
+  userId          String
+  user            User           @relation(fields: [userId], references: [id])
+  name            String
+  status          CampaignStatus @default(DRAFT)
+  channel         Channel        @default(EMAIL)
+  targetIndustry  String?
+  targetCountry   String?
+  targetSize      String?
+  dailyLimit      Int            @default(50)
   // M11-4: учёт паузы кампании для warmup. pausedAt — когда сейчас на паузе (null = активна);
   // pausedDaysAccum — накопленные дни простоя (исключаются из возраста кампании при расчёте warmup).
-  pausedAt       DateTime?
-  pausedDaysAccum Float         @default(0)
-  sequences      Sequence[]
-  campaignLeads  CampaignLead[]
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  pausedAt        DateTime?
+  pausedDaysAccum Float          @default(0)
+  sequences       Sequence[]
+  campaignLeads   CampaignLead[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 }
 
 model Sequence {
@@ -547,40 +551,40 @@ enum EnrollmentStatus {
 }
 
 model Message {
-  id          String      @id @default(cuid())
-  leadId      String
-  lead        Lead        @relation(fields: [leadId], references: [id])
-  campaignId  String?     // M11-1: какой кампании принадлежит исходящее (для scope стопов и резолва ответа→кампания)
+  id                 String             @id @default(cuid())
+  leadId             String
+  lead               Lead               @relation(fields: [leadId], references: [id])
+  campaignId         String? // M11-1: какой кампании принадлежит исходящее (для scope стопов и резолва ответа→кампания)
   // M12-1/M12-2: идемпотентность отправки шага + жизненный цикл сообщения.
-  campaignLeadId String?  // enrollment, которому принадлежит исходящее (часть idempotency-ключа)
-  sequenceId     String?  // какой шаг (строка Sequence) отправлен (стабильная identity, reorder-safe)
-  mailboxId      String?  // M12-3: с какого ящика ушло (provider identity, per-mailbox capacity, Reports/M12-5)
-  replyToMessageId String? // M13-3: для INBOUND — id outbound Message, на который пришёл ответ (точная атрибуция)
-  attributionMode  String? // M13-3: как атрибутирован INBOUND (header_in_reply_to|header_references|thread_id|fallback_last_outbound|none)
+  campaignLeadId     String? // enrollment, которому принадлежит исходящее (часть idempotency-ключа)
+  sequenceId         String? // какой шаг (строка Sequence) отправлен (стабильная identity, reorder-safe)
+  mailboxId          String? // M12-3: с какого ящика ушло (provider identity, per-mailbox capacity, Reports/M12-5)
+  replyToMessageId   String? // M13-3: для INBOUND — id outbound Message, на который пришёл ответ (точная атрибуция)
+  attributionMode    String? // M13-3: как атрибутирован INBOUND (header_in_reply_to|header_references|thread_id|fallback_last_outbound|none)
   // M14-1: intent-классификация входящего (intent = replyClass; confidence 0..1; source AUTO|HUMAN).
   intentConfidence   Float?
   intentClassifiedAt DateTime?
   intentSource       ReplyIntentSource?
-  idempotencyKey String?  @unique // M12: `${campaignLeadId}:${sequenceId}` (sequence) / M14-4: `reply-draft:<draftId>` (reply-send); UNIQUE → один OUTBOUND на ключ (двойной клик/ретрай не плодят дубль; NULL допускают много)
-  status      MessageStatus @default(SENT) // существующие строки = SENT (уже отправлены)
-  providerMessageId String? // id у провайдера при SENT (demo: demo-…; real SMTP/Unipile — их id)
-  error       String?     // RAW причина при FAILED (только backend-аудит, не утекает в UI)
-  attemptCount Int        @default(0) // M12-4: число попыток отправки (для backoff и max-retry)
-  sendingAt   DateTime?   // M12-4: когда забрали в SENDING (для recovery зависшего SENDING)
-  permanentFailure Boolean @default(false) // M12-4: терминальный сбой — НЕ переотправляем (claim его исключает)
-  direction   Direction
-  channel     Channel
-  subject     String?
-  body        String      @db.Text
-  aiGenerated Boolean     @default(false)
-  replyClass  ReplyClass? // interested | not_interested | follow_up | unsubscribe
-  sentAt      DateTime?
-  openedAt    DateTime?   // M13-2: denormalized compat-поле (первое human-открытие). Source-of-truth — MessageEvent.
-  repliedAt   DateTime?
-  handledAt   DateTime?   // входящее оттриажировано человеком (ушло из очереди решений Cockpit)
-  events      MessageEvent[] // M13-1: лог событий (OPENED/CLICKED/REPLIED/BOUNCED/DELIVERED)
-  replyDrafts ReplyDraft[] @relation("DraftInbound") // M14-3: AI-черновики ответа на этот inbound
-  createdAt   DateTime    @default(now())
+  idempotencyKey     String?            @unique // M12: `${campaignLeadId}:${sequenceId}` (sequence) / M14-4: `reply-draft:<draftId>` (reply-send); UNIQUE → один OUTBOUND на ключ (двойной клик/ретрай не плодят дубль; NULL допускают много)
+  status             MessageStatus      @default(SENT) // существующие строки = SENT (уже отправлены)
+  providerMessageId  String? // id у провайдера при SENT (demo: demo-…; real SMTP/Unipile — их id)
+  error              String? // RAW причина при FAILED (только backend-аудит, не утекает в UI)
+  attemptCount       Int                @default(0) // M12-4: число попыток отправки (для backoff и max-retry)
+  sendingAt          DateTime? // M12-4: когда забрали в SENDING (для recovery зависшего SENDING)
+  permanentFailure   Boolean            @default(false) // M12-4: терминальный сбой — НЕ переотправляем (claim его исключает)
+  direction          Direction
+  channel            Channel
+  subject            String?
+  body               String             @db.Text
+  aiGenerated        Boolean            @default(false)
+  replyClass         ReplyClass? // interested | not_interested | follow_up | unsubscribe
+  sentAt             DateTime?
+  openedAt           DateTime? // M13-2: denormalized compat-поле (первое human-открытие). Source-of-truth — MessageEvent.
+  repliedAt          DateTime?
+  handledAt          DateTime? // входящее оттриажировано человеком (ушло из очереди решений Cockpit)
+  events             MessageEvent[] // M13-1: лог событий (OPENED/CLICKED/REPLIED/BOUNCED/DELIVERED)
+  replyDrafts        ReplyDraft[]       @relation("DraftInbound") // M14-3: AI-черновики ответа на этот inbound
+  createdAt          DateTime           @default(now())
 
   @@unique([campaignLeadId, sequenceId]) // M12-1: один шаг одного enrollment = одна строка (NULL,NULL допускают много INBOUND)
   @@index([leadId, direction, sentAt])
@@ -688,30 +692,30 @@ enum ReplyRiskLevel {
 // M15-3: пакет передачи человеку/AE — собирается из реальных источников и ПЕРСИСТИТСЯ (не UI-текст).
 // Один пакет на reply (идемпотентность по replyMessageId).
 model HandoffPackage {
-  id              String          @id @default(cuid())
-  orgId           String
-  org             Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  replyMessageId  String          @unique // входящий ответ, к которому привязан handoff (идемпотентность)
-  leadId          String
-  campaignId      String?
-  sourceMessageId String? // исходное OUTBOUND треда
-  replyDraftId    String?
-  meetingId       String? // встреча, если уже назначена
-  intent          ReplyClass?
-  intentConfidence Float?
-  attributionMode String? // качество атрибуции
-  riskFlags       String[]
-  riskLevel       ReplyRiskLevel?
-  summary         String          @db.Text // собранное резюме (grounded)
+  id                  String          @id @default(cuid())
+  orgId               String
+  org                 Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  replyMessageId      String          @unique // входящий ответ, к которому привязан handoff (идемпотентность)
+  leadId              String
+  campaignId          String?
+  sourceMessageId     String? // исходное OUTBOUND треда
+  replyDraftId        String?
+  meetingId           String? // встреча, если уже назначена
+  intent              ReplyClass?
+  intentConfidence    Float?
+  attributionMode     String? // качество атрибуции
+  riskFlags           String[]
+  riskLevel           ReplyRiskLevel?
+  summary             String          @db.Text // собранное резюме (grounded)
   recommendedNextStep String
-  threadSnapshot  Json // снимок треда на момент сборки (массив сообщений)
-  status          HandoffStatus   @default(OPEN)
-  assigneeId      String? // реальный AE/owner (User) — null = Unassigned
-  createdById     String?
-  viewedAt        DateTime?
-  handedOffAt     DateTime?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  threadSnapshot      Json // снимок треда на момент сборки (массив сообщений)
+  status              HandoffStatus   @default(OPEN)
+  assigneeId          String? // реальный AE/owner (User) — null = Unassigned
+  createdById         String?
+  viewedAt            DateTime?
+  handedOffAt         DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
 
   @@index([orgId])
   @@index([leadId])
@@ -1131,8 +1135,9 @@ model List {
   createdById String?
   createdBy   User?   @relation("ListCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
-  entries ListEntry[]
-  views   View[]
+  entries        ListEntry[]
+  views          View[]
+  listAttributes ListAttribute[] // M30: list-specific атрибуты (process-layer на ListEntry)
 
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
@@ -1162,6 +1167,8 @@ model ListEntry {
   addedById String?
   addedBy   User?   @relation("ListEntryAddedBy", fields: [addedById], references: [id], onDelete: SetNull)
 
+  values ListEntryValue[] // M30: значения list-specific атрибутов на этой записи-в-списке
+
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   archivedAt DateTime?
@@ -1173,6 +1180,75 @@ model ListEntry {
   @@index([stage])
   @@index([addedById])
   @@map("crm_list_entries")
+}
+
+// M30 — list-specific атрибут («process list»): колонка, живущая на записи-в-списке (ListEntry),
+// отдельно от атрибутов объекта. Тип-система переиспользует AttributeType (RELATIONSHIP/JSON — вне M30).
+// Опции SELECT/MULTI_SELECT хранятся в config.options [{value,label,color,order}] (без отдельной таблицы).
+model ListAttribute {
+  id    String       @id @default(cuid())
+  orgId String
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  listId String
+  list   List   @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  key         String
+  name        String
+  description String?
+  type        AttributeType
+  isRequired  Boolean       @default(false)
+  isArchived  Boolean       @default(false)
+  order       Int           @default(0)
+  config      Json? // options для SELECT/MULTI_SELECT + прочие настройки рендера
+
+  createdById String?
+  createdBy   User?   @relation("ListAttributeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  values ListEntryValue[]
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  archivedAt DateTime?
+
+  @@unique([listId, key])
+  @@index([orgId])
+  @@index([listId])
+  @@map("crm_list_attributes")
+}
+
+// M30 — значение list-specific атрибута на записи-в-списке. Typed-column как у Value (без AI/provenance —
+// это ручной process-слой). @@unique([listEntryId, listAttributeId]) — одно значение на пару.
+model ListEntryValue {
+  id    String       @id @default(cuid())
+  orgId String
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  listEntryId String
+  listEntry   ListEntry @relation(fields: [listEntryId], references: [id], onDelete: Cascade)
+
+  listAttributeId String
+  listAttribute   ListAttribute @relation(fields: [listAttributeId], references: [id], onDelete: Cascade)
+
+  textValue      String?
+  longTextValue  String?   @db.Text
+  numberValue    Decimal?  @db.Decimal(18, 6)
+  booleanValue   Boolean?
+  dateValue      DateTime?
+  jsonValue      Json?
+  userValueId    String?
+  userValue      User?     @relation("ListEntryValueUser", fields: [userValueId], references: [id], onDelete: SetNull)
+  currencyAmount Decimal?  @db.Decimal(18, 2)
+  currencyCode   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([listEntryId, listAttributeId])
+  @@index([orgId])
+  @@index([listEntryId])
+  @@index([listAttributeId])
+  @@map("crm_list_entry_values")
 }
 
 // Meetings (ручной трекинг; календарь-синхронизация — внешняя, позже)
@@ -1194,18 +1270,18 @@ enum MeetingOutcome {
 }
 
 model Meeting {
-  id          String        @id @default(cuid())
-  orgId       String
-  leadId      String?
-  title       String
-  company     String?
-  scheduledAt DateTime?
-  durationMin Int           @default(30)
-  status      MeetingStatus @default(REQUESTED)
-  outcome     String? // (legacy/free-note; типизированный исход — outcomeType)
-  outcomeType MeetingOutcome? // M15-4: типизированный исход
-  notes       String?       @db.Text
-  source      String? // reply | manual | call
+  id              String             @id @default(cuid())
+  orgId           String
+  leadId          String?
+  title           String
+  company         String?
+  scheduledAt     DateTime?
+  durationMin     Int                @default(30)
+  status          MeetingStatus      @default(REQUESTED)
+  outcome         String? // (legacy/free-note; типизированный исход — outcomeType)
+  outcomeType     MeetingOutcome? // M15-4: типизированный исход
+  notes           String?            @db.Text
+  source          String? // reply | manual | call
   // M15-1: атрибуция встречи к источнику (reply/message/campaign/draft) + точность.
   campaignId      String?
   campaignLeadId  String?
@@ -1213,16 +1289,16 @@ model Meeting {
   replyMessageId  String? // INBOUND-ответ, приведший к встрече
   replyDraftId    String? // ReplyDraft этого inbound (если встреча из ответа)
   attributionMode String? // header_in_reply_to | header_references | thread_id | fallback_last_outbound | manual | none
-  idempotencyKey  String? @unique // M15-2: `meeting-reply:<replyMessageId>` (reply) — один Meeting на reply; manual = null
+  idempotencyKey  String?            @unique // M15-2: `meeting-reply:<replyMessageId>` (reply) — один Meeting на reply; manual = null
   // Календарная синхронизация
   externalEventId String?
   syncStatus      CalendarSyncStatus @default(PENDING)
   syncError       String?
   syncedAt        DateTime?
-  createdById String?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  archivedAt  DateTime?
+  createdById     String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  archivedAt      DateTime?
 
   @@index([orgId])
   @@index([leadId])
@@ -1243,34 +1319,34 @@ enum CalendarSyncStatus {
 // Звонок. Запись о звонке РЕАЛЬНАЯ (CRUD, статусы, исходы, AI-сводка); сам набор номера —
 // демо до подключения телефонии. По образцу Meeting — без prisma-relation, фильтр по orgId.
 model Call {
-  id          String        @id @default(cuid())
-  orgId       String
-  leadId      String?
-  direction   CallDirection @default(OUTBOUND)
-  status      CallStatus    @default(SCHEDULED)
-  outcome     CallOutcome?
-  scheduledAt DateTime?
-  durationSec Int           @default(0)
-  notes       String?       @db.Text
+  id                     String        @id @default(cuid())
+  orgId                  String
+  leadId                 String?
+  direction              CallDirection @default(OUTBOUND)
+  status                 CallStatus    @default(SCHEDULED)
+  outcome                CallOutcome?
+  scheduledAt            DateTime?
+  durationSec            Int           @default(0)
+  notes                  String?       @db.Text
   // M19-1: транскрипт звонка (demo: upload/paste — реального рекордера нет). Источник: upload|paste|demo.
-  transcript        String? @db.Text
-  transcriptSource  String?
-  recordingProvider String? // демо-метка провайдера записи (honest gap до интеграции)
+  transcript             String?       @db.Text
+  transcriptSource       String?
+  recordingProvider      String? // демо-метка провайдера записи (honest gap до интеграции)
   // M19-2: after-call артефакты. artifactTranscriptHash фиксирует, по какому транскрипту построены
   // chapters/speaker-stats — если транскрипт изменился, артефакты помечаются «outdated».
-  finalizedAt           DateTime?
+  finalizedAt            DateTime?
   artifactTranscriptHash String?
-  speakerLabeled        Boolean   @default(false)
-  callInfo              Json? // {durationSec, provider, participants, date}
-  summary     String?       @db.Text // AI-сводка разговора
-  nextStep    String? // AI-рекомендация следующего шага
-  aiIntent    String? // AI: намерение/готовность прospекта (одна фраза)
-  aiObjections String[] // AI: возражения, прозвучавшие на звонке
-  aiRisk      String? // AI: главный риск / что может сорвать сделку
-  createdById String?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  archivedAt  DateTime?
+  speakerLabeled         Boolean       @default(false)
+  callInfo               Json? // {durationSec, provider, participants, date}
+  summary                String?       @db.Text // AI-сводка разговора
+  nextStep               String? // AI-рекомендация следующего шага
+  aiIntent               String? // AI: намерение/готовность прospекта (одна фраза)
+  aiObjections           String[] // AI: возражения, прозвучавшие на звонке
+  aiRisk                 String? // AI: главный риск / что может сорвать сделку
+  createdById            String?
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+  archivedAt             DateTime?
 
   @@index([orgId])
   @@index([leadId])
@@ -1315,18 +1391,18 @@ enum InsightOutputFormat {
 }
 
 model InsightTemplate {
-  id          String               @id @default(cuid())
+  id          String                   @id @default(cuid())
   orgId       String
   name        String
   description String?
-  scope       InsightTemplateScope @default(PERSONAL)
+  scope       InsightTemplateScope     @default(PERSONAL)
   ownerId     String? // владелец для PERSONAL
-  isSystem    Boolean              @default(false) // seeded, immutable (нельзя удалить/редактировать)
-  version     Int                  @default(1) // ++ на любой правке шаблона/секций → входит в run-idempotency
+  isSystem    Boolean                  @default(false) // seeded, immutable (нельзя удалить/редактировать)
+  version     Int                      @default(1) // ++ на любой правке шаблона/секций → входит в run-idempotency
   createdById String?
   sections    InsightTemplateSection[]
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
   archivedAt  DateTime?
 
   @@index([orgId])
@@ -1374,12 +1450,12 @@ model CallInsightRun {
 // ── M19-2: after-call артефакты + привязка к записям + favorites ─────────────────
 // Главы звонка (тематические). startSec NULL, если транскрипт без таймкодов — НЕ выдумываем точное время.
 model CallChapter {
-  id       String  @id @default(cuid())
+  id       String @id @default(cuid())
   orgId    String
   callId   String
   title    String
   startSec Int? // null = транскрипт без таймкодов (только тематический порядок)
-  order    Int     @default(0)
+  order    Int    @default(0)
 
   @@index([callId])
   @@map("crm_call_chapters")
@@ -1464,35 +1540,35 @@ enum ImportTargetType {
 }
 
 model ImportJob {
-  id            String           @id @default(cuid())
-  orgId         String
-  targetType    ImportTargetType @default(OBJECT)
-  objectId      String?
-  listId        String?
-  fileName      String
-  delimiter     String           @default(",")
-  rowCount      Int              @default(0)
-  headers       Json // [colName]
-  sampleRows    Json // первые N строк (preview)
-  rawRows       Json // все строки CSV (для confirm/rollback; size-capped)
-  mapping       Json // { [csvColumn]: { attributeKey, asRelationship?, requiredStrategy? } }
-  dedupeKey     String?
-  status        ImportStatus     @default(UPLOADED)
-  processedRows Int              @default(0)
-  createdCount  Int              @default(0)
-  updatedCount  Int              @default(0)
-  skippedCount  Int              @default(0)
-  errorCount    Int              @default(0)
-  rowResults    Json? // [{row, action, recordId?, errors[], warnings[]}]
-  fileHash      String?
+  id              String           @id @default(cuid())
+  orgId           String
+  targetType      ImportTargetType @default(OBJECT)
+  objectId        String?
+  listId          String?
+  fileName        String
+  delimiter       String           @default(",")
+  rowCount        Int              @default(0)
+  headers         Json // [colName]
+  sampleRows      Json // первые N строк (preview)
+  rawRows         Json // все строки CSV (для confirm/rollback; size-capped)
+  mapping         Json // { [csvColumn]: { attributeKey, asRelationship?, requiredStrategy? } }
+  dedupeKey       String?
+  status          ImportStatus     @default(UPLOADED)
+  processedRows   Int              @default(0)
+  createdCount    Int              @default(0)
+  updatedCount    Int              @default(0)
+  skippedCount    Int              @default(0)
+  errorCount      Int              @default(0)
+  rowResults      Json? // [{row, action, recordId?, errors[], warnings[]}]
+  fileHash        String?
   clientRequestId String?
-  createdById   String?
+  createdById     String?
   // M20-2: откат импорта (rollback). rollbackStats = {reverted, skippedManual, archived, errors}.
-  rolledBackAt  DateTime?
-  rollbackStats Json?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  completedAt DateTime?
+  rolledBackAt    DateTime?
+  rollbackStats   Json?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  completedAt     DateTime?
 
   @@unique([orgId, clientRequestId])
   @@index([orgId])
@@ -1627,7 +1703,7 @@ model Report {
   metric               Json // { kind: 'count' } | { kind: 'sum'|'avg', attributeId }
   groupByAttributeId   String?
   segmentByAttributeId String?
-  filters              Json    @default("[]") // [{ attributeKey, op, value }] — формат фильтров Data Hub
+  filters              Json                @default("[]") // [{ attributeKey, op, value }] — формат фильтров Data Hub
   visualization        ReportVisualization @default(BAR)
   config               Json? // stageOrder (funnel) / dateRange / cadence (M18-2)
 
@@ -1650,16 +1726,16 @@ model Report {
 // Дашборд = холст с виджетами-отчётами. Виджет ссылается на Report скаляр-FK: удаление
 // виджета НЕ удаляет Report (требование GPT). Report archived → виджет рисует placeholder.
 model Dashboard {
-  id          String            @id @default(cuid())
-  orgId       String
-  name        String
-  description String?
-  createdById String?
-  widgets     DashboardWidget[]
+  id              String            @id @default(cuid())
+  orgId           String
+  name            String
+  description     String?
+  createdById     String?
+  widgets         DashboardWidget[]
   clientRequestId String? // DSH-1: идемпотентность POST /dashboards (duplicate-safe)
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  archivedAt  DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  archivedAt      DateTime?
 
   @@unique([orgId, clientRequestId])
   @@index([orgId])
@@ -1667,20 +1743,20 @@ model Dashboard {
 }
 
 model DashboardWidget {
-  id          String    @id @default(cuid())
-  orgId       String
-  dashboardId String
-  dashboard   Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  id              String    @id @default(cuid())
+  orgId           String
+  dashboardId     String
+  dashboard       Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
   // DSH-2: виджет = ЛИБО linked (reportId, live-трекинг отчёта) ЛИБО inline (inlineConfig — immutable снимок). Ровно один.
-  reportId    String? // скаляр-FK Report — remove widget НЕ трогает Report; null у inline-виджета
-  inlineConfig Json?  // immutable снимок report-config (валидируется тем же контрактом); null у linked-виджета
-  x           Int       @default(0)
-  y           Int       @default(0)
-  w           Int       @default(6)
-  h           Int       @default(4)
-  order       Int       @default(0)
+  reportId        String? // скаляр-FK Report — remove widget НЕ трогает Report; null у inline-виджета
+  inlineConfig    Json? // immutable снимок report-config (валидируется тем же контрактом); null у linked-виджета
+  x               Int       @default(0)
+  y               Int       @default(0)
+  w               Int       @default(6)
+  h               Int       @default(4)
+  order           Int       @default(0)
   clientRequestId String? // DSH-1: идемпотентность POST /dashboards/:id/widgets (dedup в пределах дашборда)
-  createdAt   DateTime  @default(now())
+  createdAt       DateTime  @default(now())
 
   @@unique([dashboardId, clientRequestId])
   @@index([orgId])
@@ -1788,7 +1864,7 @@ model NotificationRecipient {
 
 // M22-1: комментарий на записи + 1-уровневые ответы (parentId). Soft-delete (deletedAt/deletedById).
 model Comment {
-  id          String           @id @default(cuid())
+  id          String    @id @default(cuid())
   orgId       String
   recordId    String
   authorId    String
@@ -1797,10 +1873,10 @@ model Comment {
   editedAt    DateTime?
   deletedAt   DateTime?
   deletedById String?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  mentions    CommentMention[]
+  mentions CommentMention[]
 
   @@index([orgId, recordId])
   @@index([parentId])
@@ -2028,9 +2104,9 @@ model Note {
   activities Activity[]
 
   // M27-2: soft-delete заметки (body скрывается плейсхолдером, Activity сохраняется).
-  editedAt     DateTime?
-  deletedAt    DateTime?
-  deletedById  String?
+  editedAt    DateTime?
+  deletedAt   DateTime?
+  deletedById String?
 
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
@@ -2056,11 +2132,11 @@ model Task {
   priority    TaskPriority @default(NORMAL)
   dueAt       DateTime?
 
-  assigneeId String?
-  assignee   User?   @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  assigneeId        String?
+  assignee          User?   @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   // M27-2: версия назначения — растёт при КАЖДОЙ смене assignee; дедуп-ключ TASK_ASSIGNED включает её,
   // чтобы reassign A→B→A слал уведомление повторно, а ретрай той же мутации — нет.
-  assignmentVersion Int @default(0)
+  assignmentVersion Int     @default(0)
 
   createdById String?
   createdBy   User?   @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
@@ -2188,14 +2264,14 @@ enum AskActionStatus {
 
 // M26-1: чат-тред ассистента. Per-user (org-scoped), без шаринга. Recent chat на homepage/sidebar — из чатов владельца.
 model AssistantChat {
-  id         String   @id @default(cuid())
+  id         String             @id @default(cuid())
   orgId      String
-  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org        Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
   userId     String
-  user       User     @relation("AssistantChatUser", fields: [userId], references: [id], onDelete: Cascade)
-  title      String   @default("New chat")
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  user       User               @relation("AssistantChatUser", fields: [userId], references: [id], onDelete: Cascade)
+  title      String             @default("New chat")
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
   archivedAt DateTime?
   messages   AssistantMessage[]
   actions    AskAction[]
@@ -2206,16 +2282,16 @@ model AssistantChat {
 
 // M26-1: сообщение треда. citations — RBAC-aware снимок на момент генерации (deep-link re-check на открытии).
 model AssistantMessage {
-  id          String       @id @default(cuid())
+  id          String               @id @default(cuid())
   orgId       String
-  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org         Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
   chatId      String
-  chat        AssistantChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  chat        AssistantChat        @relation(fields: [chatId], references: [id], onDelete: Cascade)
   role        AssistantMessageRole
-  content     String       @db.Text
+  content     String               @db.Text
   citations   Json?
   generatedBy String? // deepseek | anthropic | demo
-  createdAt   DateTime     @default(now())
+  createdAt   DateTime             @default(now())
   actions     AskAction[]
 
   @@index([chatId, createdAt])
@@ -2224,21 +2300,21 @@ model AssistantMessage {
 
 // M26-1/M26-2: сохранённое pending-действие (канонический JSON, НЕ пересборка из текста). Apply-эндпоинт — M26-2.
 model AskAction {
-  id             String   @id @default(cuid())
+  id             String           @id @default(cuid())
   orgId          String
-  org            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org            Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
   chatId         String
-  chat           AssistantChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  chat           AssistantChat    @relation(fields: [chatId], references: [id], onDelete: Cascade)
   messageId      String
   message        AssistantMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
   userId         String // для кого действие (RBAC на apply)
   kind           AskActionKind
-  payload        Json   // канонический JSON (task/diff/draft/href)
-  status         AskActionStatus @default(PENDING)
+  payload        Json // канонический JSON (task/diff/draft/href)
+  status         AskActionStatus  @default(PENDING)
   idempotencyKey String?
   appliedAt      DateTime?
   appliedResult  Json?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime         @default(now())
 
   @@unique([orgId, idempotencyKey])
   @@index([chatId])
@@ -2253,16 +2329,16 @@ enum SavedPromptScope {
 }
 
 model SavedPrompt {
-  id         String   @id @default(cuid())
+  id         String           @id @default(cuid())
   orgId      String
-  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org        Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
   userId     String // владелец/создатель
-  user       User     @relation("SavedPromptUser", fields: [userId], references: [id], onDelete: Cascade)
+  user       User             @relation("SavedPromptUser", fields: [userId], references: [id], onDelete: Cascade)
   scope      SavedPromptScope @default(PERSONAL)
   title      String
-  body       String   @db.Text
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  body       String           @db.Text
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
   archivedAt DateTime?
 
   @@index([orgId, scope, archivedAt])
@@ -2278,21 +2354,21 @@ enum AskEmailDraftStatus {
 }
 
 model AskEmailDraft {
-  id             String   @id @default(cuid())
+  id             String              @id @default(cuid())
   orgId          String
-  org            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org            Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
   userId         String
-  user           User     @relation("AskEmailDraftUser", fields: [userId], references: [id], onDelete: Cascade)
+  user           User                @relation("AskEmailDraftUser", fields: [userId], references: [id], onDelete: Cascade)
   leadId         String?
   recordId       String?
   toName         String?
   toEmail        String?
   subject        String
-  body           String   @db.Text
+  body           String              @db.Text
   status         AskEmailDraftStatus @default(DRAFT)
   sourceActionId String? // AskAction.id, из которого создан
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
 
   @@index([orgId, userId])
   @@map("assistant_email_drafts")
@@ -2481,8 +2557,8 @@ model AiRun {
   requestedBy   User?   @relation("AiRunRequestedBy", fields: [requestedById], references: [id], onDelete: SetNull)
 
   aiType      AttributeAiType
-  status      AiRunStatus @default(PENDING)
-  creditsCost Int         @default(0)
+  status      AiRunStatus     @default(PENDING)
+  creditsCost Int             @default(0)
 
   input      Json?
   output     Json?
@@ -2564,24 +2640,24 @@ model AiBulkRun {
 // Решение ревью по конкретному AI-значению (M9.3): approve / reject / edit низкоуверенных
 // AI-значений. Standalone (без relation-полей) — связи по recordId/attributeId логические.
 model ValueReview {
-  id          String         @id @default(cuid())
-  orgId       String
-  recordId    String
-  attributeId String
-  status      AiReviewStatus
-  confidence  Int?           // снимок confidence на момент решения (confidenceSnapshot, M9.8)
+  id               String         @id @default(cuid())
+  orgId            String
+  recordId         String
+  attributeId      String
+  status           AiReviewStatus
+  confidence       Int? // снимок confidence на момент решения (confidenceSnapshot, M9.8)
   // снимки значения на момент решения (M9.8 audit): чтобы после reject/edit provenance показывал,
   // ЧТО именно было решено. approve: before==after; reject: after=null; edit: after=ручное значение.
-  valueBefore String?        @db.Text
-  valueAfter  String?        @db.Text
+  valueBefore      String?        @db.Text
+  valueAfter       String?        @db.Text
   // версия решения: чтобы новый AI re-run того же поля не скрывался старым решением (M9.3).
   // valueFingerprint = `${aiRunId|∅}|${valueAfter|∅}|${confidence|∅}`; aiRunId — если значение из AI-run.
   aiRunId          String?
   valueFingerprint String?
-  note        String?        @db.Text
-  decidedById String?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  note             String?        @db.Text
+  decidedById      String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
   @@unique([recordId, attributeId, valueFingerprint])
   @@index([orgId])

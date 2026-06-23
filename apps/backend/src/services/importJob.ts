@@ -10,9 +10,30 @@
 
 import { ActivityType, AttributeType, ImportStatus, ImportTargetType, Prisma, PrismaClient, ValueSource } from '@prisma/client';
 import { recordSerializationInclude, serializeRecord, writeValues } from './crm/values';
+import { coerceListEntryValue, readListAttrOptions, type ListAttrOption } from './crm/listValues';
 import { audit } from './audit';
 
 const prisma = new PrismaClient();
+
+// M30-4: list-импорт. Колонки CSV можно маппить в list-поля ключом `list:<key>` (namespace как в M30-2/3).
+// Импортируемые типы list-полей — скаляр + SELECT (USER требует резолв id, MULTI_SELECT/RELATIONSHIP/JSON — вне scope).
+export const LIST_FIELD_PREFIX = 'list:';
+export const IMPORTABLE_LIST_TYPES = new Set<AttributeType>([
+  AttributeType.TEXT, AttributeType.LONG_TEXT, AttributeType.NUMBER, AttributeType.CURRENCY,
+  AttributeType.SELECT, AttributeType.DATE, AttributeType.DATETIME, AttributeType.BOOLEAN,
+  AttributeType.EMAIL, AttributeType.PHONE, AttributeType.URL,
+]);
+type ListAttrInfo = { id: string; key: string; type: AttributeType; options: ListAttrOption[] };
+const stripListPrefix = (k: string): string | null => (k.startsWith(LIST_FIELD_PREFIX) ? k.slice(LIST_FIELD_PREFIX.length) : null);
+
+// Загрузить импортируемые list-атрибуты списка (key→info). Пусто, если listId нет.
+async function loadImportableListAttrs(orgId: string, listId: string | null | undefined): Promise<Map<string, ListAttrInfo>> {
+  const out = new Map<string, ListAttrInfo>();
+  if (!listId) return out;
+  const attrs = await prisma.listAttribute.findMany({ where: { orgId, listId, isArchived: false }, select: { id: true, key: true, type: true, config: true } });
+  for (const a of attrs) if (IMPORTABLE_LIST_TYPES.has(a.type)) out.set(a.key, { id: a.id, key: a.key, type: a.type, options: readListAttrOptions(a.config) });
+  return out;
+}
 
 export const MAX_IMPORT_ROWS = 5000;
 export const MAX_CELL_LEN = 10000;
@@ -41,6 +62,9 @@ export type RowPlan = {
   action: RowAction;
   recordId: string | null; // существующая запись для update
   values: Record<string, unknown>;
+  // M30-4: сырые значения list-полей (key без префикса → raw CSV), которые запишутся в ListEntryValue,
+  // НО только если membership создаёт ЭТОТ импорт (entry 'created'). Для уже бывших в списке — пропуск+warning.
+  listValues?: Record<string, string>;
   errors: string[];
   warnings: string[];
 };
@@ -137,6 +161,8 @@ type AttrInfo = { key: string; type: AttributeType; isRequired: boolean; isUniqu
 type JobForPlan = {
   orgId: string; objectId: string | null; headers: string[]; rows: Record<string, string>[];
   mapping: ImportMapping; dedupeKey: string | null;
+  // M30-4: для list-импорта — список (определяет list-поля + existing membership для preview-disposition).
+  listId?: string | null;
 };
 
 // ── ЕДИНЫЙ ПЛАНИРОВЩИК (preview == confirm) ──
@@ -147,6 +173,22 @@ export async function planImportRows(job: JobForPlan): Promise<{ plan: ImportPla
   const warnings: string[] = [];
 
   const mapEntries = Object.entries(job.mapping).filter(([, m]) => attrs.has(m.attributeKey));
+
+  // M30-4: list-поля списка + колонки, замапленные в `list:<key>`. existingEntryRecordIds — для preview-disposition
+  // (update-строка, чья запись уже в списке → list-поля при импорте пропустятся, как на execute).
+  const listAttrs = await loadImportableListAttrs(job.orgId, job.listId);
+  const listMapEntries = job.listId
+    ? Object.entries(job.mapping).filter(([, m]) => { const k = stripListPrefix(m.attributeKey); return k !== null && listAttrs.has(k); })
+    : [];
+  if (job.listId) for (const [col, m] of Object.entries(job.mapping)) {
+    const k = stripListPrefix(m.attributeKey);
+    if (k !== null && !listAttrs.has(k)) warnings.push(`Column "${col}" → list field "${k}" is not importable (unknown or unsupported type) — skipped.`);
+  }
+  const existingEntryRecordIds = new Set<string>();
+  if (listMapEntries.length) {
+    const entries = await prisma.listEntry.findMany({ where: { orgId: job.orgId, listId: job.listId!, archivedAt: null }, select: { recordId: true } });
+    for (const e of entries) existingEntryRecordIds.add(e.recordId);
+  }
 
   // required-атрибуты, которые НЕ замаплены → файл-warning (каждая строка без них будет error на required)
   const mappedAttrKeys = new Set(mapEntries.map(([, m]) => m.attributeKey));
@@ -231,6 +273,28 @@ export async function planImportRows(job: JobForPlan): Promise<{ plan: ImportPla
     return rp;
   });
 
+  // M30-4: list-значения для строк, создающих/обновляющих запись (skip/error — не пишем). Валидируем коэрцией
+  // (невалидное → per-row warning, поле не пишется). disposition: update + уже в списке → list-поля пропустятся.
+  if (listMapEntries.length) {
+    for (const rp of rows) {
+      if (rp.action !== 'create' && rp.action !== 'update') continue;
+      const srcRow = job.rows[rp.row - 1];
+      const lv: Record<string, string> = {};
+      for (const [col, m] of listMapEntries) {
+        const key = stripListPrefix(m.attributeKey)!;
+        const info = listAttrs.get(key)!;
+        const rawV = (srcRow[col] ?? '').trim();
+        if (!rawV) continue;
+        try { coerceListEntryValue(info.type, rawV, info.options); lv[key] = rawV; }
+        catch (e) { rp.warnings.push(`List field "${key}": ${(e as Error).message}`); }
+      }
+      if (Object.keys(lv).length) {
+        rp.listValues = lv;
+        if (rp.action === 'update' && rp.recordId && existingEntryRecordIds.has(rp.recordId)) rp.warnings.push('Already in list — list fields skipped');
+      }
+    }
+  }
+
   const estimate = { created: 0, updated: 0, skipped: 0, errors: 0 };
   for (const r of rows) { if (r.action === 'create') estimate.created++; else if (r.action === 'update') estimate.updated++; else if (r.action === 'error') estimate.errors++; else estimate.skipped++; }
 
@@ -245,24 +309,54 @@ export type RowResult = { row: number; action: RowAction; recordId?: string | nu
  * запись уже в списке → updateExisting (no-op, дубль НЕ создаём); иначе создаём entry + журнал ImportCreatedListEntry.
  * Возвращает 'created' | 'exists'. Вне per-row tx — P2002 (гонка) не абортит чужую транзакцию.
  */
-async function ensureListEntry(orgId: string, listId: string, recordId: string, jobId: string, userId: string): Promise<'created' | 'exists'> {
+async function ensureListEntry(orgId: string, listId: string, recordId: string, jobId: string, userId: string): Promise<{ status: 'created' | 'exists'; entryId: string }> {
   const existing = await prisma.listEntry.findFirst({ where: { orgId, listId, recordId }, select: { id: true } });
-  if (existing) return 'exists';
+  if (existing) return { status: 'exists', entryId: existing.id };
   try {
     // адверс-ревью #7: entry + журнал в ОДНОЙ транзакции — иначе сбой между ними оставит
     // ListEntry без журнальной записи (rollback его не удалит = orphan).
     return await prisma.$transaction(async (tx) => {
       const entry = await tx.listEntry.create({ data: { orgId, listId, recordId, addedById: userId } });
       await tx.importCreatedListEntry.create({ data: { orgId, importJobId: jobId, listEntryId: entry.id, recordId } });
-      return 'created' as const;
+      return { status: 'created' as const, entryId: entry.id };
     });
   } catch (e) {
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') return 'exists'; // гонка: уже добавлена
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') { // гонка: уже добавлена
+      const ex = await prisma.listEntry.findFirst({ where: { orgId, listId, recordId }, select: { id: true } });
+      return { status: 'exists', entryId: ex?.id ?? '' };
+    }
     throw e;
   }
 }
 
-export async function executeImport(orgId: string, jobId: string, userId: string): Promise<{ created: number; updated: number; skipped: number; errorCount: number; status: ImportStatus }> {
+// M30-4: записать значения list-полей на СВЕЖЕ-созданную entry (coerce как ручная запись, без AI/provenance).
+// Возвращает число записанных полей. Невалидное (вопреки plan) — тихо пропускаем, не валим строку.
+async function writeImportedListValues(orgId: string, entryId: string, listValues: Record<string, string>, listAttrs: Map<string, ListAttrInfo>): Promise<number> {
+  let written = 0;
+  for (const [key, rawV] of Object.entries(listValues)) {
+    const info = listAttrs.get(key);
+    if (!info) continue;
+    try {
+      const { clear, storage } = coerceListEntryValue(info.type, rawV, info.options);
+      if (clear) continue;
+      const cols = {
+        textValue: storage.textValue, longTextValue: storage.longTextValue, numberValue: storage.numberValue,
+        booleanValue: storage.booleanValue, dateValue: storage.dateValue,
+        jsonValue: Array.isArray(storage.jsonValue) ? (storage.jsonValue as Prisma.InputJsonValue) : Prisma.DbNull,
+        userValueId: storage.userValueId, currencyAmount: storage.currencyAmount, currencyCode: storage.currencyCode,
+      };
+      await prisma.listEntryValue.upsert({
+        where: { listEntryId_listAttributeId: { listEntryId: entryId, listAttributeId: info.id } },
+        create: { orgId, listEntryId: entryId, listAttributeId: info.id, ...cols },
+        update: cols,
+      });
+      written++;
+    } catch { /* невалидно — пропускаем (валидация была в plan) */ }
+  }
+  return written;
+}
+
+export async function executeImport(orgId: string, jobId: string, userId: string): Promise<{ created: number; updated: number; skipped: number; errorCount: number; status: ImportStatus; entriesCreated?: number; entriesExisting?: number; listValuesWritten?: number }> {
   const job = await prisma.importJob.findFirst({ where: { id: jobId, orgId } });
   if (!job) throw new ImportError('IMPORT_NOT_FOUND', 'Import not found', 404);
   if (!job.objectId) throw new ImportError('NO_TARGET', 'Import has no target object');
@@ -270,7 +364,9 @@ export async function executeImport(orgId: string, jobId: string, userId: string
   const headers = (job.headers as string[]) ?? [];
   const rows = (job.rawRows as Record<string, string>[]) ?? [];
   const mapping = (job.mapping as ImportMapping) ?? {};
-  const { plan, attrs } = await planImportRows({ orgId, objectId: job.objectId, headers, rows, mapping, dedupeKey: job.dedupeKey });
+  const isListImport = job.targetType === ImportTargetType.LIST && !!job.listId;
+  const listAttrs = isListImport ? await loadImportableListAttrs(orgId, job.listId) : new Map<string, ListAttrInfo>();
+  const { plan, attrs } = await planImportRows({ orgId, objectId: job.objectId, headers, rows, mapping, dedupeKey: job.dedupeKey, listId: job.listId });
   // адверс-ревью M1: previousValue в журнал — в write-совместимой форме (relationship → id[], иначе сериализованное round-trips)
   const toJournalValue = (attrKey: string, v: unknown): unknown => {
     if (v == null) return null;
@@ -279,7 +375,19 @@ export async function executeImport(orgId: string, jobId: string, userId: string
   };
 
   let created = 0, updated = 0, skipped = 0, errorCount = 0, processed = 0;
+  // M30-4: агрегаты list-импорта для summary (entriesCreated/entriesExisting/listValuesWritten).
+  let entriesCreated = 0, entriesExisting = 0, listValuesWritten = 0;
   const rowResults: RowResult[] = [];
+
+  // M30-4: добавить запись в список + (для СОЗДАННЫХ entry) записать list-значения; existing → warning.
+  async function attachToList(recordId: string, rp: RowPlan, baseWarnings: string[]): Promise<string[]> {
+    if (!isListImport) return baseWarnings;
+    const le = await ensureListEntry(orgId, job!.listId!, recordId, jobId, userId);
+    const w = [...baseWarnings];
+    if (le.status === 'created') { entriesCreated++; listValuesWritten += await writeImportedListValues(orgId, le.entryId, rp.listValues ?? {}, listAttrs); }
+    else { entriesExisting++; if (rp.listValues && Object.keys(rp.listValues).length && !w.includes('Already in list — list fields skipped')) w.push('Already in list — list fields skipped'); }
+    return w;
+  }
 
   for (const rp of plan.rows) {
     processed++;
@@ -306,8 +414,8 @@ export async function executeImport(orgId: string, jobId: string, userId: string
               await tx.importUpdatedValue.create({ data: { orgId, importJobId: jobId, recordId: rid, attributeKey: attrKey, hadPreviousValue: had, previousValue: had ? (prevForJournal as Prisma.InputJsonValue) : Prisma.DbNull, importedValue: (afterVals[attrKey] ?? null) as Prisma.InputJsonValue } });
             }
           });
-          if (job.targetType === ImportTargetType.LIST && job.listId) await ensureListEntry(orgId, job.listId, rid, jobId, userId);
-          updated++; rowResults.push({ row: rp.row, action: 'update', recordId: rid, warnings: rp.warnings });
+          const uw = await attachToList(rid, rp, rp.warnings);
+          updated++; rowResults.push({ row: rp.row, action: 'update', recordId: rid, warnings: uw });
         } else {
           const newId = await prisma.$transaction(async (tx) => {
             const rec = await tx.record.create({ data: { orgId, objectId: job.objectId!, createdById: userId, updatedById: userId } });
@@ -316,8 +424,8 @@ export async function executeImport(orgId: string, jobId: string, userId: string
             await tx.importCreatedRecord.create({ data: { orgId, importJobId: jobId, recordId: rec.id } });
             return rec.id;
           });
-          if (job.targetType === ImportTargetType.LIST && job.listId) await ensureListEntry(orgId, job.listId, newId, jobId, userId);
-          created++; rowResults.push({ row: rp.row, action: 'create', recordId: newId, warnings: rp.warnings });
+          const cw = await attachToList(newId, rp, rp.warnings);
+          created++; rowResults.push({ row: rp.row, action: 'create', recordId: newId, warnings: cw });
         }
       } catch (e) {
         errorCount++; rowResults.push({ row: rp.row, action: 'error', errors: [(e instanceof Error ? e.message : 'failed').slice(0, 160)] });
@@ -328,8 +436,8 @@ export async function executeImport(orgId: string, jobId: string, userId: string
 
   const status: ImportStatus = errorCount > 0 ? ImportStatus.COMPLETED_WITH_ERRORS : ImportStatus.COMPLETED;
   await prisma.importJob.update({ where: { id: jobId }, data: { status, processedRows: plan.rows.length, createdCount: created, updatedCount: updated, skippedCount: skipped, errorCount, rowResults: rowResults as unknown as Prisma.InputJsonValue, completedAt: new Date() } });
-  await audit({ orgId, actorId: userId, action: 'IMPORT_COMPLETED', targetType: 'import', targetId: jobId, summary: `${created} created · ${updated} updated · ${skipped} skipped · ${errorCount} errors` });
-  return { created, updated, skipped, errorCount, status };
+  await audit({ orgId, actorId: userId, action: 'IMPORT_COMPLETED', targetType: 'import', targetId: jobId, summary: `${created} created · ${updated} updated · ${skipped} skipped · ${errorCount} errors${isListImport ? ` · entries +${entriesCreated}/${entriesExisting} exist · list-values ${listValuesWritten}` : ''}` });
+  return { created, updated, skipped, errorCount, status, ...(isListImport ? { entriesCreated, entriesExisting, listValuesWritten } : {}) };
 }
 
 // Откат частичного импорта при FAILED (адверс-ревью C2): hard-delete созданных записей + чистка журнала,

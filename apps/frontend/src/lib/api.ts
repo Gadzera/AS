@@ -1193,7 +1193,7 @@ export interface RollbackPreview {
 }
 export interface ImportMappingEntry { attributeKey: string; asRelationship?: boolean; requiredStrategy?: 'error' | 'skip' | 'leave' }
 export type ImportMapping = Record<string, ImportMappingEntry>;
-export interface ImportRowPlan { row: number; action: 'create' | 'update' | 'skip' | 'error'; recordId: string | null; values: Record<string, unknown>; errors: string[]; warnings: string[] }
+export interface ImportRowPlan { row: number; action: 'create' | 'update' | 'skip' | 'error'; recordId: string | null; values: Record<string, unknown>; listValues?: Record<string, unknown>; errors: string[]; warnings: string[] }
 export interface ImportPreview { estimate: { created: number; updated: number; skipped: number; errors: number }; detectedTypes: Record<string, string>; warnings: string[]; rows: ImportRowPlan[]; totalRows?: number }
 export interface ImportRowResult { row: number; action: string; recordId?: string | null; errors?: string[]; warnings?: string[] }
 export interface ImportCreateResponse { job: ImportJobSummary; headers: string[]; sampleRows: Record<string, string>[]; mapping: ImportMapping; deduped?: boolean }
@@ -1206,7 +1206,7 @@ export const importsApi = {
   get: (id: string) => api.get<ImportDetail>(`/imports/${id}`).then((r) => r.data),
   saveMapping: (id: string, mapping: ImportMapping, dedupeKey?: string | null) => api.patch<{ job: ImportJobSummary; mapping: ImportMapping }>(`/imports/${id}/mapping`, { mapping, dedupeKey }).then((r) => r.data),
   preview: (id: string, body: { mapping?: ImportMapping; dedupeKey?: string | null }) => api.post<ImportPreview>(`/imports/${id}/preview`, body).then((r) => r.data),
-  confirm: (id: string) => api.post<{ result: { created: number; updated: number; skipped: number; errorCount: number; status: ImportJobStatus } }>(`/imports/${id}/confirm`, {}).then((r) => r.data.result),
+  confirm: (id: string) => api.post<{ result: { created: number; updated: number; skipped: number; errorCount: number; status: ImportJobStatus; entriesCreated?: number; entriesExisting?: number; listValuesWritten?: number } }>(`/imports/${id}/confirm`, {}).then((r) => r.data.result),
   cancel: (id: string) => api.post<{ ok: boolean }>(`/imports/${id}/cancel`, {}).then((r) => r.data),
   rollbackPreview: (id: string, force = false) => api.post<{ preview: RollbackPreview }>(`/imports/${id}/rollback/preview`, { force }).then((r) => r.data.preview),
   rollback: (id: string, force = false) => api.post<{ stats: RollbackStats }>(`/imports/${id}/rollback`, { force }).then((r) => r.data.stats),

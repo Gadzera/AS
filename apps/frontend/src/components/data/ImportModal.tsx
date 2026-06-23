@@ -13,9 +13,14 @@ import { Upload, X, FileSpreadsheet, Loader2, CheckCircle2, AlertTriangle, Arrow
 import {
   importsApi, type ImportJobSummary, type ImportMapping, type ImportPreview,
 } from '@/lib/api';
-import type { CrmAttribute, ImportResult } from '@/lib/crmApi';
+import type { CrmAttribute, CrmListAttribute, ImportResult } from '@/lib/crmApi';
 
 const SKIP = '__skip__';
+// M30-4: префикс цели импорта в list-поле (namespace как в M30-2/3) + типы list-полей, допустимые
+// как цель импорта (зеркало backend IMPORTABLE_LIST_TYPES; без USER/MULTI_SELECT/RELATIONSHIP/JSON).
+const LIST_FIELD_PREFIX = 'list:';
+const IMPORTABLE_LIST_TYPES = new Set<CrmAttribute['type']>(['TEXT', 'LONG_TEXT', 'NUMBER', 'CURRENCY', 'SELECT', 'DATE', 'DATETIME', 'BOOLEAN', 'EMAIL', 'PHONE', 'URL']);
+const fmtCell = (v: unknown) => (typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v));
 
 function parseCsv(text: string): { headers: string[]; rows: Record<string, string>[] } {
   const rows: string[][] = [];
@@ -36,11 +41,16 @@ function parseCsv(text: string): { headers: string[]; rows: Record<string, strin
   return { headers, rows: dataRows };
 }
 
-interface ImportModalProps { objectKey: string; objectLabel: string; attrs: CrmAttribute[]; onClose: () => void; onImported: (result: ImportResult) => void }
+// M30-4: цель-список. Когда задан listTarget — импорт идёт в список (targetType=LIST): создаём/обновляем
+// записи primary-объекта по object-маппингу, добавляем их в список и пишем list-поля (◇) ТОЛЬКО на
+// import-созданные записи-в-списке (existing → skip + warning). objectKey/objectLabel/attrs остаются
+// атрибутами primary-объекта списка (для object-маппинга).
+interface ListTarget { listId: string; listLabel: string; listFields: CrmListAttribute[] }
+interface ImportModalProps { objectKey: string; objectLabel: string; attrs: CrmAttribute[]; listTarget?: ListTarget; onClose: () => void; onImported: (result: ImportResult) => void }
 
 const TYPE_TONE: Record<string, string> = { create: 'bg-emerald-100 text-emerald-700', update: 'bg-sky-100 text-sky-700', skip: 'bg-surface-2 text-ink-muted', error: 'bg-rose-100 text-rose-700' };
 
-export default function ImportModal({ objectKey, objectLabel, attrs, onClose, onImported }: ImportModalProps) {
+export default function ImportModal({ objectKey, objectLabel, attrs, listTarget, onClose, onImported }: ImportModalProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const cidRef = useRef<string>((typeof crypto !== 'undefined' && 'randomUUID' in crypto) ? crypto.randomUUID() : `imp-${Date.now()}`);
   const [step, setStep] = useState<'upload' | 'mapping' | 'preview' | 'result'>('upload');
@@ -52,10 +62,13 @@ export default function ImportModal({ objectKey, objectLabel, attrs, onClose, on
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [result, setResult] = useState<{ created: number; updated: number; skipped: number; errorCount: number } | null>(null);
+  const [result, setResult] = useState<{ created: number; updated: number; skipped: number; errorCount: number; entriesCreated?: number; entriesExisting?: number; listValuesWritten?: number } | null>(null);
 
+  const isList = Boolean(listTarget);
   const mappable = useMemo(() => attrs.filter((a) => a.key !== 'agent_stage'), [attrs]);
   const attrType = useMemo(() => new Map(attrs.map((a) => [a.key, a.type])), [attrs]);
+  // M30-4: list-поля как цели маппинга (ключ list:<key>, маркер ◇), только импортируемых типов.
+  const listFieldOptions = useMemo(() => (listTarget?.listFields ?? []).filter((a) => IMPORTABLE_LIST_TYPES.has(a.type)).map((a) => ({ key: `${LIST_FIELD_PREFIX}${a.key}`, name: a.name })), [listTarget]);
 
   useEffect(() => { const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h); }, [onClose]);
 
@@ -67,7 +80,9 @@ export default function ImportModal({ objectKey, objectLabel, attrs, onClose, on
     setFileName(file.name);
     setBusy(true);
     try {
-      const res = await importsApi.create({ objectKey, fileName: file.name, headers: parsed.headers, rows: parsed.rows, clientRequestId: cidRef.current });
+      const res = await importsApi.create(isList
+        ? { targetType: 'LIST', listId: listTarget!.listId, fileName: file.name, headers: parsed.headers, rows: parsed.rows, clientRequestId: cidRef.current }
+        : { objectKey, fileName: file.name, headers: parsed.headers, rows: parsed.rows, clientRequestId: cidRef.current });
       setJob(res.job); setHeaders(res.headers); setMapping(res.mapping || {});
       const mk = new Set(Object.values(res.mapping || {}).map((m) => m.attributeKey));
       setDedupeKey(['domain', 'email', 'work_email'].find((k) => mk.has(k)) ?? '');
@@ -111,7 +126,7 @@ export default function ImportModal({ objectKey, objectLabel, attrs, onClose, on
             <div className="flex items-center gap-2.5">
               <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-100 text-brand-600"><Upload size={16} /></span>
               <div>
-                <h2 className="text-[15px] font-bold text-ink">Import into {objectLabel}</h2>
+                <h2 className="text-[15px] font-bold text-ink">Import into {isList ? `list · ${listTarget!.listLabel}` : objectLabel}</h2>
                 <p className="text-[12px] text-ink-muted">{step === 'upload' ? 'Upload CSV' : step === 'mapping' ? 'Map columns' : step === 'preview' ? 'Preview & validate' : 'Result'}</p>
               </div>
             </div>
@@ -143,6 +158,7 @@ export default function ImportModal({ objectKey, objectLabel, attrs, onClose, on
                 </div>
                 <div>
                   <p className="mb-1.5 text-[12px] font-semibold uppercase tracking-[0.05em] text-ink-subtle">Map columns → attributes</p>
+                  {isList && <p className="mb-1.5 text-[11px] text-indigo-700">Records are matched/created on <b>{objectLabel}</b>, then added to this list. <span className="font-semibold">◇ list fields</span> are written only on records newly added by this import — rows already in the list keep their list values.</p>}
                   <div className="space-y-1.5">
                     {headers.map((h) => {
                       const m = mapping[h];
@@ -153,7 +169,18 @@ export default function ImportModal({ objectKey, objectLabel, attrs, onClose, on
                           <ArrowRight size={13} className="shrink-0 text-ink-subtle" />
                           <select value={m?.attributeKey ?? SKIP} onChange={(e) => setCol(h, e.target.value)} className="h-8 flex-1 rounded-md border border-line-strong bg-surface px-2 text-[12px] text-ink focus:border-brand-500 focus:outline-none">
                             <option value={SKIP}>— don’t import —</option>
-                            {mappable.map((a) => <option key={a.key} value={a.key}>{a.name} ({a.key}){(a as { isRequired?: boolean }).isRequired ? ' *' : ''}</option>)}
+                            {isList ? (
+                              <optgroup label={`${objectLabel} fields`}>
+                                {mappable.map((a) => <option key={a.key} value={a.key}>{a.name} ({a.key}){(a as { isRequired?: boolean }).isRequired ? ' *' : ''}</option>)}
+                              </optgroup>
+                            ) : (
+                              mappable.map((a) => <option key={a.key} value={a.key}>{a.name} ({a.key}){(a as { isRequired?: boolean }).isRequired ? ' *' : ''}</option>)
+                            )}
+                            {listFieldOptions.length > 0 && (
+                              <optgroup label="◇ List fields (live on the list)">
+                                {listFieldOptions.map((o) => <option key={o.key} value={o.key}>◇ {o.name}</option>)}
+                              </optgroup>
+                            )}
                           </select>
                           {isRel && (
                             <button type="button" onClick={() => toggleRel(h)} title="Match this column to related records by name" className={['inline-flex h-8 items-center gap-1 rounded-md border px-2 text-[10.5px] font-semibold', m?.asRelationship ? 'border-brand-300 bg-brand-50 text-brand-700' : 'border-line text-ink-muted'].join(' ')}>
@@ -169,7 +196,7 @@ export default function ImportModal({ objectKey, objectLabel, attrs, onClose, on
                   <span className="text-[12px] font-semibold uppercase tracking-[0.05em] text-ink-subtle">Dedupe by</span>
                   <select value={dedupeKey} onChange={(e) => setDedupeKey(e.target.value)} className="h-8 rounded-md border border-line-strong bg-surface px-2 text-[12px] text-ink focus:border-brand-500 focus:outline-none">
                     <option value="">— no dedupe (create all) —</option>
-                    {[...new Set(mappedHeaders.map((h) => mapping[h].attributeKey))].map((k) => <option key={k} value={k}>{k}</option>)}
+                    {[...new Set(mappedHeaders.map((h) => mapping[h].attributeKey))].filter((k) => !k.startsWith(LIST_FIELD_PREFIX)).map((k) => <option key={k} value={k}>{k}</option>)}
                   </select>
                   <span className="text-[11px] text-ink-subtle">match → update, otherwise create</span>
                 </div>
@@ -200,7 +227,14 @@ export default function ImportModal({ objectKey, objectLabel, attrs, onClose, on
                         <tr key={r.row} className="border-t border-line">
                           <td className="px-2 py-1 tabular-nums text-ink-subtle">{r.row}</td>
                           <td className="px-2 py-1"><span className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${TYPE_TONE[r.action]}`}>{r.action}</span></td>
-                          <td className="px-2 py-1 text-ink-muted">{r.errors.length ? <span className="text-rose-600">{r.errors.join('; ')}</span> : r.warnings.length ? <span className="text-amber-600">{r.warnings.join('; ')}</span> : Object.entries(r.values).slice(0, 3).map(([k, v]) => `${k}=${typeof v === 'object' ? JSON.stringify(v) : String(v)}`).join(', ')}</td>
+                          <td className="px-2 py-1 text-ink-muted">{r.errors.length ? <span className="text-rose-600">{r.errors.join('; ')}</span> : (
+                            <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                              {r.warnings.length > 0 && <span className="text-amber-600">{r.warnings.join('; ')}</span>}
+                              {Object.entries(r.values).slice(0, 3).map(([k, v]) => <span key={k}>{k}={fmtCell(v)}</span>)}
+                              {/* M30-4: list-значения, которые БУДУТ записаны (◇). Для записей, уже бывших в списке, не показываем — они пропускаются. */}
+                              {r.listValues && !r.warnings.some((w) => /already in list/i.test(w)) && Object.entries(r.listValues).map(([k, v]) => <span key={`l-${k}`} className="font-medium text-indigo-600">◇ {k}={fmtCell(v)}</span>)}
+                            </span>
+                          )}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -216,7 +250,16 @@ export default function ImportModal({ objectKey, objectLabel, attrs, onClose, on
                   <CheckCircle2 size={18} className="text-emerald-600" />
                   <p className="text-[13.5px] font-semibold text-emerald-800">Import complete: created {result.created}, updated {result.updated}, skipped {result.skipped}{result.errorCount ? `, ${result.errorCount} errors` : ''}</p>
                 </div>
-                <p className="text-[11.5px] text-ink-subtle">Tracked in Import History — you can review row results and (next release) roll it back.</p>
+                {/* M30-4: итог по членству в списке + записанным list-полям (◇ — только на новых записях-в-списке). */}
+                {isList && (
+                  <div className="flex flex-wrap items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50/60 px-4 py-2.5 text-[12.5px] text-indigo-800">
+                    <span className="font-semibold">Added to list:</span>
+                    <span>{result.entriesCreated ?? 0} new</span>·
+                    <span>{result.entriesExisting ?? 0} already in list (list fields skipped)</span>·
+                    <span>{result.listValuesWritten ?? 0} ◇ list-field value{(result.listValuesWritten ?? 0) === 1 ? '' : 's'} written</span>
+                  </div>
+                )}
+                <p className="text-[11.5px] text-ink-subtle">Tracked in Import History — review row results or roll it back from there.</p>
               </div>
             )}
 

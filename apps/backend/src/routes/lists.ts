@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { PrismaClient, ListType, Prisma } from '@prisma/client';
+import { PrismaClient, ListType, AttributeType, Prisma } from '@prisma/client';
 import { z } from 'zod';
 
 import { authenticate, requireOrg } from '../middleware/auth';
@@ -10,7 +10,59 @@ import { compileFilterTree, matchesCompiledTree, sortFilterableRecords, type Att
 import { computeCalculations, CALC_TYPES, type CalcRequest, type CalcType } from '../services/crm/recordAggregate';
 import { compileListRule, computeDynamicMembers, readListRule, hasListRule, type DynamicMember } from '../services/crm/listMembership';
 import { validateStages, readStages, firstStageKey, stageKeySet, LIST_STAGE_DEFAULTS, type PipelineStage } from '../services/crm/listPipeline';
+import {
+  isAllowedListAttrType, readListAttrOptions, coerceListEntryValue,
+  serializeListEntryValue, storageMatchesRow, ListValueError,
+} from '../services/crm/listValues';
 import { audit } from '../services/audit';
+
+// M30 — include для значений list-атрибутов записи-в-списке (с резолвом USER).
+const listEntryValueInclude = {
+  values: { include: { userValue: { select: { id: true, email: true, name: true } } } },
+} as const;
+
+// M30 — list-атрибут наружу (форма, совместимая с CrmAttribute на фронте; options из config).
+type ListAttrRow = {
+  id: string; key: string; name: string; description: string | null; type: AttributeType;
+  isRequired: boolean; order: number; config: unknown;
+};
+function serializeListAttr(a: ListAttrRow) {
+  const options = readListAttrOptions(a.config);
+  return {
+    id: a.id, key: a.key, name: a.name, description: a.description, type: a.type,
+    isRequired: a.isRequired, order: a.order,
+    isListField: true as const, // фронт отличает list-field от object-field
+    options: options.map((o) => ({ value: o.value, label: o.label, color: o.color ?? null, order: o.order ?? 0 })),
+  };
+}
+
+// M30 — карта значений list-атрибутов одной записи-в-списке: { [listAttrKey]: jsValue }.
+function buildListValues(
+  entryValues: Array<{ listAttributeId: string } & Record<string, unknown>>,
+  attrById: Map<string, ListAttrRow>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const v of entryValues) {
+    const attr = attrById.get(v.listAttributeId);
+    if (!attr) continue;
+    out[attr.key] = serializeListEntryValue(attr.type, v as never, readListAttrOptions(attr.config));
+  }
+  return out;
+}
+
+// M30 — slug ключа list-атрибута из имени (a-z0-9_), с гарантией уникальности в пределах списка.
+function slugifyListKey(raw: string): string {
+  const base = raw.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 60);
+  return base || 'field';
+}
+async function uniqueListKey(prismaC: PrismaClient, listId: string, desired: string): Promise<string> {
+  let key = desired;
+  for (let i = 2; ; i++) {
+    const clash = await prismaC.listAttribute.findUnique({ where: { listId_key: { listId, key } }, select: { id: true } });
+    if (!clash) return key;
+    key = `${desired}_${i}`.slice(0, 64);
+  }
+}
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -63,6 +115,31 @@ const moveEntrySchema = z.object({
   stage: z.string().min(1),
   position: z.number().int().min(0).optional(),
 });
+
+// M30 — list-specific атрибуты.
+const listAttrOptionSchema = z.object({
+  value: z.string().min(1).max(120),
+  label: z.string().min(1).max(160),
+  color: z.string().max(40).optional(),
+  order: z.number().int().optional(),
+});
+const createListAttrSchema = z.object({
+  name: z.string().min(1).max(120),
+  type: z.nativeEnum(AttributeType),
+  key: z.string().min(1).max(80).optional(),
+  description: z.string().max(500).optional(),
+  isRequired: z.boolean().optional(),
+  options: z.array(listAttrOptionSchema).max(100).optional(),
+});
+const updateListAttrSchema = z.object({
+  name: z.string().min(1).max(120).optional(),
+  description: z.string().max(500).nullable().optional(),
+  isRequired: z.boolean().optional(),
+  isArchived: z.boolean().optional(),
+  order: z.number().int().optional(),
+  options: z.array(listAttrOptionSchema).max(100).optional(),
+});
+const writeListValuesSchema = z.object({ values: z.record(z.unknown()) });
 
 // ── LST-1 helpers ────────────────────────────────────────────────────────────
 const attrSelectForRule = { where: { isArchived: false }, select: { id: true, key: true, type: true } } as const;
@@ -221,6 +298,11 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
     // RBAC шаг 2 (план Q5): LIST READ есть; теперь нужен OBJECT READ на primaryObject.
     const canReadObject = await objectReadable(req, list.primaryObjectId);
 
+    // M30: list-specific атрибуты (определения отдаём всегда; значения — только у entry-backed строк).
+    const listAttrs = await prisma.listAttribute.findMany({ where: { listId: list.id, orgId, isArchived: false }, orderBy: [{ order: 'asc' }, { createdAt: 'asc' }] });
+    const listAttrById = new Map<string, ListAttrRow>(listAttrs.map((a) => [a.id, a as ListAttrRow]));
+    const listAttributes = listAttrs.map(serializeListAttr);
+
     if (list.type === ListType.DYNAMIC) {
       const attrs = await prisma.attribute.findMany({ where: { objectId: list.primaryObjectId, isArchived: false }, select: { id: true, key: true, type: true } });
       const attrByKey = new Map<string, AttributeLite>(attrs.map((a) => [a.key, a]));
@@ -229,29 +311,30 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
       const matchedCount = computed.records.length;
       if (!canReadObject) {
         // Скрываем записи И само правило (не раскрываем какие условия совпали). Только число.
-        res.json({ list: { ...list, config: null }, records: [], restrictedSource: true, hiddenCount: matchedCount });
+        res.json({ list: { ...list, config: null }, records: [], restrictedSource: true, hiddenCount: matchedCount, listAttributes });
         return;
       }
-      const records = computed.records.map((r) => ({ entryId: null as string | null, stage: null as string | null, ...serializeRecord(r) }));
-      res.json({ list, records, matchedCount, ...(computed.warnings.length ? { warnings: computed.warnings } : {}) });
+      // DYNAMIC: ListEntry нет → list-значений нет (listValues пуст).
+      const records = computed.records.map((r) => ({ entryId: null as string | null, stage: null as string | null, listValues: {} as Record<string, unknown>, ...serializeRecord(r) }));
+      res.json({ list, records, matchedCount, listAttributes, ...(computed.warnings.length ? { warnings: computed.warnings } : {}) });
       return;
     }
 
     // STATIC / PIPELINE — ручное членство через ListEntry.
     if (!canReadObject) {
       const hiddenCount = await prisma.listEntry.count({ where: { listId: list.id, orgId, archivedAt: null, record: { archivedAt: null } } });
-      res.json({ list, records: [], restrictedSource: true, hiddenCount });
+      res.json({ list, records: [], restrictedSource: true, hiddenCount, listAttributes });
       return;
     }
 
     const entries = await prisma.listEntry.findMany({
       where: { listId: list.id, orgId, archivedAt: null, record: { archivedAt: null } },
-      include: { record: { include: recordSerializationInclude } },
+      include: { record: { include: recordSerializationInclude }, ...listEntryValueInclude },
       orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
     });
 
-    const records = entries.map((e) => ({ entryId: e.id, stage: e.stage, ...serializeRecord(e.record) }));
-    res.json({ list, records });
+    const records = entries.map((e) => ({ entryId: e.id, stage: e.stage, listValues: buildListValues(e.values, listAttrById), ...serializeRecord(e.record) }));
+    res.json({ list, records, listAttributes });
   } catch (err) {
     next(err);
   }
@@ -294,12 +377,22 @@ router.get('/:id/records', async (req: Request, res: Response, next: NextFunctio
 
     const attrByKey = new Map<string, AttributeLite>(list.primaryObject.attributes.map((a) => [a.key, a]));
 
+    // M30: list-specific атрибуты списка (колонки на ListEntry).
+    const listAttrs = await prisma.listAttribute.findMany({
+      where: { listId: list.id, orgId, isArchived: false },
+      orderBy: [{ order: 'asc' }, { createdAt: 'asc' }],
+    });
+    const listAttrById = new Map<string, ListAttrRow>(listAttrs.map((a) => [a.id, a as ListAttrRow]));
+
     // RBAC шаг 2: нет OBJECT READ → метаданные без записей (honest hiddenCount, без значений/правила).
     const canReadObject = await objectReadable(req, list.primaryObject.id);
 
     // Кандидаты до view-фильтра: DYNAMIC = computed-by-rule (1-я ступень); STATIC/PIPELINE = ListEntry.
     let records: DynamicMember[];
     let entryByRecordId: Map<string, { id: string; stage: string | null }>;
+    const listValuesByRecordId = new Map<string, Record<string, unknown>>();
+    // M30-2: синтетические value-строки list-полей (attributeId=listAttr.id) — для filter/sort/calc через общий движок.
+    const listRowsByRecordId = new Map<string, Array<{ attributeId: string } & Record<string, unknown>>>();
     let membershipWarnings: string[] = [];
 
     if (list.type === ListType.DYNAMIC) {
@@ -307,59 +400,77 @@ router.get('/:id/records', async (req: Request, res: Response, next: NextFunctio
       const computed = await computeDynamicMembers(prisma, orgId, list.primaryObject.id, rule, (k) => attrByKey.get(k));
       records = computed.records;
       membershipWarnings = computed.warnings;
-      entryByRecordId = new Map(); // DYNAMIC: ListEntry не используется
+      entryByRecordId = new Map(); // DYNAMIC: ListEntry не используется (значит и list-значений нет)
     } else {
       const entries = await prisma.listEntry.findMany({
         where: { listId: list.id, orgId, archivedAt: null, record: { archivedAt: null } },
-        include: { record: { include: recordSerializationInclude } },
+        include: { record: { include: recordSerializationInclude }, ...listEntryValueInclude },
         orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
       });
       // entry ↔ record 1:1 (ListEntry @@unique[listId,recordId]) → восстанавливаем entry после фильтра/сорта
       entryByRecordId = new Map(entries.map((e) => [e.record.id, { id: e.id, stage: e.stage }]));
+      for (const e of entries) {
+        listValuesByRecordId.set(e.record.id, buildListValues(e.values, listAttrById));
+        // synthetic-строки: те же typed-колонки, но attributeId = id list-атрибута (движок матчит по attributeId).
+        listRowsByRecordId.set(e.record.id, e.values.map((v) => ({ ...(v as Record<string, unknown>), attributeId: v.listAttributeId })));
+      }
       records = entries.map((e) => e.record);
     }
 
     if (!canReadObject) {
-      res.json({ records: [], calculations: [], restrictedSource: true, hiddenCount: records.length, pagination: { page, limit, total: records.length, totalPages: Math.ceil(records.length / limit) } });
+      res.json({ records: [], calculations: [], restrictedSource: true, hiddenCount: records.length, listAttributes: listAttrs.map(serializeListAttr), pagination: { page, limit, total: records.length, totalPages: Math.ceil(records.length / limit) } });
       return;
     }
 
-    // view-фильтр поверх членства (2-я ступень для DYNAMIC; обычный фильтр для STATIC) — lenient, ОБЩИЙ движок
+    // M30-2: единый lookup object+list-полей. list-поля адресуются namespace 'list:<key>' (без коллизии с object-ключами).
+    const listAttrLiteByKey = new Map<string, AttributeLite>(listAttrs.map((a) => [`list:${a.key}`, { id: a.id, key: `list:${a.key}`, type: a.type }]));
+    const lookup = (k: string): AttributeLite | undefined => (k.startsWith('list:') ? listAttrLiteByKey.get(k) : attrByKey.get(k));
+
+    // Обёртка для движка: к object-values добавляем синтетические list-value-строки. serializeRecord по-прежнему
+    // читает ОРИГИНАЛЬНЫЙ record (wrapper.rec) — синтетические строки в выход не утекают.
+    type Work = { rec: DynamicMember; values: Array<{ attributeId: string } & Record<string, unknown>> };
+    let work: Work[] = records.map((r) => ({
+      rec: r,
+      values: [...(r.values as unknown as Array<{ attributeId: string } & Record<string, unknown>>), ...(listRowsByRecordId.get(r.id) ?? [])],
+    }));
+
+    // view-фильтр поверх членства — lenient, ОБЩИЙ движок (object + list-поля через lookup)
     if (filterTree !== undefined && filterTree !== null) {
-      const { tree } = compileFilterTree(filterTree, (k) => attrByKey.get(k), { strict: false });
-      if (tree) records = records.filter((record) => matchesCompiledTree(record, tree));
+      const { tree } = compileFilterTree(filterTree, lookup, { strict: false });
+      if (tree) work = work.filter((w) => matchesCompiledTree(w, tree));
     }
 
     // сортировка через ОБЩИЙ sortFilterableRecords (пустые вниз), tie-break = свежесть записи
     const sorts: CompiledSortLike[] = Array.isArray(sortsRaw)
       ? (sortsRaw as Array<{ attributeKey?: unknown; dir?: unknown }>)
           .map((s) => {
-            const attribute = typeof s.attributeKey === 'string' ? attrByKey.get(s.attributeKey) : undefined;
+            const attribute = typeof s.attributeKey === 'string' ? lookup(s.attributeKey) : undefined;
             return attribute ? { attribute, dir: s.dir === 'desc' ? ('desc' as const) : ('asc' as const) } : null;
           })
           .filter((s): s is CompiledSortLike => s !== null)
       : [];
 
     if (sorts.length) {
-      records = sortFilterableRecords(records, sorts, (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+      work = sortFilterableRecords(work, sorts, (a, b) => b.rec.updatedAt.getTime() - a.rec.updatedAt.getTime());
     }
 
-    const total = records.length;
-    const paged = records.slice((page - 1) * limit, (page - 1) * limit + limit);
-    const out = paged.map((record) => {
-      const entry = entryByRecordId.get(record.id); // DYNAMIC: entry отсутствует → entryId/stage null
-      return { entryId: entry?.id ?? null, stage: entry?.stage ?? null, ...serializeRecord(record) };
+    const total = work.length;
+    const paged = work.slice((page - 1) * limit, (page - 1) * limit + limit);
+    const out = paged.map((w) => {
+      const entry = entryByRecordId.get(w.rec.id); // DYNAMIC: entry отсутствует → entryId/stage null
+      // M30: listValues — значения list-specific атрибутов записи-в-списке (отдельно от object-values).
+      return { entryId: entry?.id ?? null, stage: entry?.stage ?? null, listValues: listValuesByRecordId.get(w.rec.id) ?? {}, ...serializeRecord(w.rec) };
     });
 
-    // M24-3: калькуляции по ПОЛНОМУ filtered-set списка (до пагинации) — паритет с object table.
+    // M24-3: калькуляции по ПОЛНОМУ filtered-set списка (до пагинации) — паритет с object table (object + list-поля).
     const calcs: CalcRequest[] = Array.isArray(calcsRaw)
       ? (calcsRaw as Array<{ attributeKey?: unknown; type?: unknown }>)
           .filter((c) => typeof c.attributeKey === 'string' && typeof c.type === 'string' && CALC_TYPES.has(c.type))
           .map((c) => ({ attributeKey: c.attributeKey as string, type: c.type as CalcType }))
       : [];
-    const calculations = calcs.length ? computeCalculations(records, (k) => attrByKey.get(k), calcs) : [];
+    const calculations = calcs.length ? computeCalculations(work, lookup, calcs) : [];
 
-    res.json({ records: out, calculations, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }, ...(membershipWarnings.length ? { warnings: membershipWarnings } : {}) });
+    res.json({ records: out, calculations, listAttributes: listAttrs.map(serializeListAttr), pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }, ...(membershipWarnings.length ? { warnings: membershipWarnings } : {}) });
   } catch (err) {
     next(err);
   }
@@ -650,6 +761,191 @@ router.patch('/:id/entries/:recordId/move', async (req: Request, res: Response, 
 
     res.json({ moved: true, from: result.from, to: result.to });
   } catch (err) {
+    next(err);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// M30 — list-specific атрибуты (process lists). CRUD атрибута + запись значений на ListEntry.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// GET /api/lists/:id/attributes — определения list-атрибутов (LIST READ).
+router.get('/:id/attributes', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId = req.user!.orgId!;
+    if (!(await assertAccess(req, res, 'LIST', 'READ', req.params.id))) return;
+    const list = await prisma.list.findFirst({ where: { id: req.params.id, orgId, archivedAt: null }, select: { id: true } });
+    if (!list) { res.status(404).json({ error: 'List not found' }); return; }
+    const attrs = await prisma.listAttribute.findMany({ where: { listId: list.id, orgId, isArchived: false }, orderBy: [{ order: 'asc' }, { createdAt: 'asc' }] });
+    res.json({ attributes: attrs.map((a) => serializeListAttr(a as ListAttrRow)) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/lists/:id/attributes — создать list-атрибут (LIST READ_WRITE).
+router.post('/:id/attributes', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId = req.user!.orgId!;
+    if (!(await assertAccess(req, res, 'LIST', 'READ_WRITE', req.params.id))) return;
+    const data = createListAttrSchema.parse(req.body);
+    if (!isAllowedListAttrType(data.type)) {
+      res.status(400).json({ error: `Type ${data.type} is not allowed for list attributes`, code: 'LIST_ATTR_TYPE_NOT_ALLOWED' });
+      return;
+    }
+    const list = await prisma.list.findFirst({ where: { id: req.params.id, orgId, archivedAt: null }, select: { id: true } });
+    if (!list) { res.status(404).json({ error: 'List not found' }); return; }
+
+    const key = await uniqueListKey(prisma, list.id, slugifyListKey(data.key ?? data.name));
+    const isSelect = data.type === AttributeType.SELECT || data.type === AttributeType.MULTI_SELECT;
+    const config = isSelect && data.options?.length
+      ? { options: data.options.map((o, i) => ({ value: o.value, label: o.label, color: o.color ?? null, order: o.order ?? i })) }
+      : undefined;
+    const agg = await prisma.listAttribute.aggregate({ where: { listId: list.id, orgId }, _max: { order: true } });
+    const order = (agg._max.order ?? -1) + 1;
+
+    const attr = await prisma.listAttribute.create({
+      data: {
+        orgId, listId: list.id, key, name: data.name, description: data.description ?? null,
+        type: data.type, isRequired: data.isRequired ?? false, order,
+        config: config ? (config as Prisma.InputJsonValue) : undefined,
+        createdById: req.user!.userId,
+      },
+    });
+    await audit({ orgId, actorId: req.user!.userId, action: 'LIST_ATTRIBUTE_CREATED', targetType: 'list', targetId: list.id, summary: `list ${list.id} · list-field "${attr.key}" (${attr.type}) created` });
+    res.status(201).json(serializeListAttr(attr as ListAttrRow));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PATCH /api/lists/:id/attributes/:attrId — rename/reorder/archive/options (LIST READ_WRITE).
+router.patch('/:id/attributes/:attrId', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId = req.user!.orgId!;
+    if (!(await assertAccess(req, res, 'LIST', 'READ_WRITE', req.params.id))) return;
+    const data = updateListAttrSchema.parse(req.body);
+    const attr = await prisma.listAttribute.findFirst({ where: { id: req.params.attrId, listId: req.params.id, orgId }, select: { id: true, type: true, config: true } });
+    if (!attr) { res.status(404).json({ error: 'List attribute not found' }); return; }
+
+    let nextConfig: Prisma.InputJsonValue | undefined;
+    if (data.options !== undefined) {
+      if (attr.type !== AttributeType.SELECT && attr.type !== AttributeType.MULTI_SELECT) {
+        res.status(400).json({ error: 'Options are only valid for SELECT / MULTI_SELECT list fields', code: 'OPTIONS_REQUIRE_SELECT' });
+        return;
+      }
+      const base = (attr.config && typeof attr.config === 'object' && !Array.isArray(attr.config)) ? { ...(attr.config as Record<string, unknown>) } : {};
+      base.options = data.options.map((o, i) => ({ value: o.value, label: o.label, color: o.color ?? null, order: o.order ?? i }));
+      nextConfig = base as Prisma.InputJsonValue;
+    }
+
+    const updated = await prisma.listAttribute.update({
+      where: { id: attr.id },
+      data: {
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.description !== undefined && { description: data.description }),
+        ...(data.isRequired !== undefined && { isRequired: data.isRequired }),
+        ...(data.isArchived !== undefined && { isArchived: data.isArchived, archivedAt: data.isArchived ? new Date() : null }),
+        ...(data.order !== undefined && { order: data.order }),
+        ...(nextConfig !== undefined && { config: nextConfig }),
+      },
+    });
+    await audit({ orgId, actorId: req.user!.userId, action: 'LIST_ATTRIBUTE_UPDATED', targetType: 'list', targetId: req.params.id, summary: `list ${req.params.id} · list-field "${updated.key}" updated${data.isArchived ? ' · archived' : ''}` });
+    res.json(serializeListAttr(updated as ListAttrRow));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /api/lists/:id/attributes/:attrId — архивировать list-атрибут (soft, LIST READ_WRITE).
+router.delete('/:id/attributes/:attrId', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId = req.user!.orgId!;
+    if (!(await assertAccess(req, res, 'LIST', 'READ_WRITE', req.params.id))) return;
+    const attr = await prisma.listAttribute.findFirst({ where: { id: req.params.attrId, listId: req.params.id, orgId, isArchived: false }, select: { id: true, key: true } });
+    if (!attr) { res.status(404).json({ error: 'List attribute not found' }); return; }
+    await prisma.listAttribute.update({ where: { id: attr.id }, data: { isArchived: true, archivedAt: new Date() } });
+    await audit({ orgId, actorId: req.user!.userId, action: 'LIST_ATTRIBUTE_DELETED', targetType: 'list', targetId: req.params.id, summary: `list ${req.params.id} · list-field "${attr.key}" archived` });
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PATCH /api/lists/:id/entries/:recordId/values — записать значения list-атрибутов записи-в-списке (LIST READ_WRITE).
+// Значения живут на ListEntry (ListEntryValue), НЕ на Record. Коэрция по типу, no-op не пишет, clear → удаляет строку.
+router.patch('/:id/entries/:recordId/values', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId = req.user!.orgId!;
+    if (!(await assertAccess(req, res, 'LIST', 'READ_WRITE', req.params.id))) return;
+    const data = writeListValuesSchema.parse(req.body);
+
+    const list = await prisma.list.findFirst({ where: { id: req.params.id, orgId, archivedAt: null }, select: { id: true, type: true } });
+    if (!list) { res.status(404).json({ error: 'List not found' }); return; }
+    // DYNAMIC: членство вычисляется правилом, ListEntry нет → list-значения некуда писать.
+    if (list.type === ListType.DYNAMIC) {
+      res.status(409).json({ error: 'Dynamic lists have no entries — list-field values require static/pipeline lists', code: 'LIST_DYNAMIC_NO_ENTRY_VALUES' });
+      return;
+    }
+    const entry = await prisma.listEntry.findFirst({ where: { listId: list.id, recordId: req.params.recordId, orgId, archivedAt: null }, select: { id: true } });
+    if (!entry) { res.status(404).json({ error: 'Entry not found' }); return; }
+
+    const attrs = await prisma.listAttribute.findMany({ where: { listId: list.id, orgId, isArchived: false } });
+    const attrByKey = new Map(attrs.map((a) => [a.key, a]));
+    const attrById = new Map<string, ListAttrRow>(attrs.map((a) => [a.id, a as ListAttrRow]));
+
+    // USER-валидатор: id должен принадлежать орг (FK иначе упадёт). Грузим только если есть USER-поле во вводе.
+    const needsUserCheck = Object.keys(data.values).some((k) => attrByKey.get(k)?.type === AttributeType.USER);
+    let validUsers: Set<string> | undefined;
+    if (needsUserCheck) {
+      const members = await prisma.user.findMany({ where: { orgId }, select: { id: true } });
+      validUsers = new Set(members.map((m) => m.id));
+    }
+    const userValidator = validUsers ? (uid: string) => validUsers!.has(uid) : undefined;
+
+    const existing = await prisma.listEntryValue.findMany({ where: { listEntryId: entry.id, orgId }, include: { userValue: { select: { id: true, email: true, name: true } } } });
+    const existingByAttrId = new Map(existing.map((v) => [v.listAttributeId, v]));
+
+    let changed = 0;
+    const unknownKeys: string[] = [];
+    for (const [key, raw] of Object.entries(data.values)) {
+      const attr = attrByKey.get(key);
+      if (!attr) { unknownKeys.push(key); continue; }
+      const options = readListAttrOptions(attr.config);
+      const { clear, storage } = coerceListEntryValue(attr.type, raw, options, userValidator);
+      const prev = existingByAttrId.get(attr.id);
+
+      if (clear) {
+        if (prev) { await prisma.listEntryValue.delete({ where: { id: prev.id } }); changed += 1; }
+        continue;
+      }
+      // no-op: значение не изменилось → не пишем (не плодим updatedAt-churn).
+      if (prev && storageMatchesRow(storage, prev as never)) continue;
+
+      const writeData = {
+        orgId,
+        textValue: storage.textValue, longTextValue: storage.longTextValue, numberValue: storage.numberValue,
+        booleanValue: storage.booleanValue, dateValue: storage.dateValue, userValueId: storage.userValueId,
+        currencyAmount: storage.currencyAmount, currencyCode: storage.currencyCode,
+        jsonValue: Array.isArray(storage.jsonValue) ? (storage.jsonValue as Prisma.InputJsonValue) : Prisma.DbNull,
+      };
+      await prisma.listEntryValue.upsert({
+        where: { listEntryId_listAttributeId: { listEntryId: entry.id, listAttributeId: attr.id } },
+        create: { listEntryId: entry.id, listAttributeId: attr.id, ...writeData },
+        update: writeData,
+      });
+      changed += 1;
+    }
+
+    if (changed > 0) {
+      await audit({ orgId, actorId: req.user!.userId, action: 'LIST_ENTRY_VALUE_UPDATED', targetType: 'list', targetId: list.id, summary: `list ${list.id} · record ${req.params.recordId} · ${changed} list-field(s) updated` });
+    }
+
+    // Свежая карта значений записи-в-списке для оптимистичного UI.
+    const fresh = await prisma.listEntryValue.findMany({ where: { listEntryId: entry.id, orgId }, include: { userValue: { select: { id: true, email: true, name: true } } } });
+    res.json({ changed, listValues: buildListValues(fresh, attrById), ...(unknownKeys.length ? { unknownKeys } : {}) });
+  } catch (err) {
+    if (err instanceof ListValueError) { res.status(400).json({ error: err.message, code: err.code }); return; }
     next(err);
   }
 });

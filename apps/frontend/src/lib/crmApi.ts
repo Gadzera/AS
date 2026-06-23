@@ -484,9 +484,9 @@ export async function listRecords(params: ListRecordsParams): Promise<ListRecord
 export async function listListRecords(
   listId: string,
   params: { page?: number; limit?: number; filterTree?: CrmFilterNode | null; sorts?: CrmViewSort[]; calcs?: CrmCalcRequest[] } = {},
-): Promise<ListRecordsResponse & { records: (CrmRecord & { entryId?: string | null; stage?: string | null })[]; restrictedSource?: boolean; hiddenCount?: number; warnings?: string[] }> {
+): Promise<ListRecordsResponse & { records: (CrmRecord & { entryId?: string | null; stage?: string | null; listValues?: Record<string, unknown> })[]; restrictedSource?: boolean; hiddenCount?: number; warnings?: string[]; listAttributes?: CrmListAttribute[] }> {
   const { page = 1, limit = 100, filterTree, sorts = [], calcs = [] } = params;
-  const { data } = await crmApi.get<ListRecordsResponse & { restrictedSource?: boolean; hiddenCount?: number; warnings?: string[] }>(`/lists/${encodeURIComponent(listId)}/records`, {
+  const { data } = await crmApi.get<ListRecordsResponse & { restrictedSource?: boolean; hiddenCount?: number; warnings?: string[]; listAttributes?: CrmListAttribute[] }>(`/lists/${encodeURIComponent(listId)}/records`, {
     params: {
       page,
       limit,
@@ -1307,6 +1307,21 @@ export interface CrmList {
 export interface ListRecordEntry extends CrmRecord {
   entryId: string | null;
   stage?: string | null;
+  // M30: значения list-specific атрибутов записи-в-списке (отдельно от object-values).
+  listValues?: Record<string, unknown>;
+}
+
+// M30 — list-specific атрибут (process list). isListField=true отличает его от object-атрибута.
+export interface CrmListAttribute {
+  id: string;
+  key: string;
+  name: string;
+  description?: string | null;
+  type: CrmAttribute['type'];
+  isRequired: boolean;
+  order: number;
+  isListField: true;
+  options: { value: string; label: string; color: string | null; order: number }[];
 }
 
 // LST-1: ответ детали списка. Для DYNAMIC — matchedCount; при отсутствии OBJECT READ — restrictedSource+hiddenCount.
@@ -1317,6 +1332,7 @@ export interface ListDetailResponse {
   restrictedSource?: boolean;
   hiddenCount?: number;
   warnings?: string[];
+  listAttributes?: CrmListAttribute[]; // M30
 }
 
 export async function listLists(objectKey?: string): Promise<CrmList[]> {
@@ -1384,6 +1400,36 @@ export async function addListEntries(id: string, recordIds: string[]): Promise<{
 
 export async function removeListEntry(id: string, recordId: string): Promise<void> {
   await crmApi.delete(`/lists/${encodeURIComponent(id)}/entries/${encodeURIComponent(recordId)}`);
+}
+
+// ── M30: list-specific атрибуты (process lists) ──────────────────────────────
+export interface CreateListAttrPayload {
+  name: string;
+  type: CrmAttribute['type'];
+  key?: string;
+  description?: string;
+  isRequired?: boolean;
+  options?: { value: string; label: string; color?: string; order?: number }[];
+}
+export async function listListAttributes(listId: string): Promise<CrmListAttribute[]> {
+  const { data } = await crmApi.get<{ attributes: CrmListAttribute[] }>(`/lists/${encodeURIComponent(listId)}/attributes`);
+  return data.attributes;
+}
+export async function createListAttribute(listId: string, payload: CreateListAttrPayload): Promise<CrmListAttribute> {
+  const { data } = await crmApi.post<CrmListAttribute>(`/lists/${encodeURIComponent(listId)}/attributes`, payload);
+  return data;
+}
+export async function updateListAttribute(listId: string, attrId: string, payload: { name?: string; description?: string | null; isRequired?: boolean; isArchived?: boolean; order?: number; options?: { value: string; label: string; color?: string; order?: number }[] }): Promise<CrmListAttribute> {
+  const { data } = await crmApi.patch<CrmListAttribute>(`/lists/${encodeURIComponent(listId)}/attributes/${encodeURIComponent(attrId)}`, payload);
+  return data;
+}
+export async function deleteListAttribute(listId: string, attrId: string): Promise<void> {
+  await crmApi.delete(`/lists/${encodeURIComponent(listId)}/attributes/${encodeURIComponent(attrId)}`);
+}
+// Записать значения list-полей записи-в-списке (живут на ListEntry, не на Record).
+export async function writeListEntryValues(listId: string, recordId: string, values: Record<string, unknown>): Promise<{ changed: number; listValues: Record<string, unknown>; unknownKeys?: string[] }> {
+  const { data } = await crmApi.patch<{ changed: number; listValues: Record<string, unknown>; unknownKeys?: string[] }>(`/lists/${encodeURIComponent(listId)}/entries/${encodeURIComponent(recordId)}/values`, { values });
+  return data;
 }
 
 // ── Meetings (ручной трекинг; календарь-синхронизация позже) ─────────────────

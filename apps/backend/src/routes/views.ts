@@ -689,13 +689,19 @@ router.patch('/:id', async (req: Request, res: Response, next: NextFunction) => 
 
     const filterPrep = prepareFilter(data, source);
     validateCalcsConfig(data.config, source);
+    const nextViewType = data.type ?? fromPrismaViewType(existing.type);
+    // Явный groupByAttributeKey (включая null = очистить) приоритетен; иначе для board наследуем существующую
+    // группировку, а для table НЕ наследуем — иначе смена board→table падала бы GROUP_BY_REQUIRES_BOARD на
+    // leftover-группировке (и `?? existing.key` затирал бы даже явный null). Фикс корректен и для object-видов.
+    const requestedGroupKey =
+      data.groupByAttributeKey !== undefined
+        ? data.groupByAttributeKey
+        : nextViewType === 'board'
+        ? existing.groupByAttribute?.key ?? null
+        : null;
     const groupById =
       data.type !== undefined || data.groupByAttributeKey !== undefined
-        ? getDefaultBoardGroupByAttributeId(
-            data.type ?? fromPrismaViewType(existing.type),
-            source.attributes,
-            data.groupByAttributeKey ?? existing.groupByAttribute?.key ?? null,
-          )
+        ? getDefaultBoardGroupByAttributeId(nextViewType, source.attributes, requestedGroupKey)
         : undefined;
 
     // GPT-уточнение #1: legacy-вид (filterTree=NULL) при ПЕРВОМ PATCH канонизируется —

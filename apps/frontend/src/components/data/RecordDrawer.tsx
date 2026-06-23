@@ -538,7 +538,7 @@ export default function RecordDrawer({
                             {bMeta && BIcon && (
                               <span className={`shrink-0 inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide ${bMeta.cls}`}><BIcon size={8} /> {bMeta.label}</span>
                             )}
-                            <p className={`text-[12px] text-ink-muted ${isDossier ? 'line-clamp-3' : 'line-clamp-2'}`}>{raw}</p>
+                            <p className={`text-[12px] text-ink-muted ${isDossier ? 'line-clamp-3' : 'whitespace-pre-wrap'}`}>{raw}</p>
                           </div>
                         ) : bState === 'rejected' ? (
                           <div className="mt-1.5 flex items-center gap-1.5">
@@ -628,6 +628,8 @@ export default function RecordDrawer({
                             )}
                           </div>
                         )}
+                        {/* M29-2 polish (нота GPT): значение non-dossier больше НЕ дублируется здесь —
+                            оно уже показано выше с provenance-badge. Для RESEARCH оставляем разворачиваемое Dossier. */}
                         {raw ? (
                           isDossier ? (
                             <div className="mt-2">
@@ -636,9 +638,7 @@ export default function RecordDrawer({
                               </button>
                               {showDossier && <p className="mt-1 whitespace-pre-wrap rounded-md bg-surface-2/60 p-2 text-[11.5px] leading-relaxed text-ink-muted">{raw}</p>}
                             </div>
-                          ) : (
-                            <p className="mt-1.5 text-[12px] text-ink">{raw}</p>
-                          )
+                          ) : null
                         ) : (
                           <p className="mt-1.5 text-[11.5px] italic text-ink-subtle">not filled yet</p>
                         )}

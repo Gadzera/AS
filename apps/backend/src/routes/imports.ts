@@ -18,6 +18,7 @@ import { authenticate, requireOrg } from '../middleware/auth';
 import { audit } from '../services/audit';
 import {
   ImportError, validateRawRows, autoMap, planImportRows, executeImport, cleanupPartialImport,
+  IMPORTABLE_LIST_TYPES, LIST_FIELD_PREFIX,
   type ImportMapping,
 } from '../services/importJob';
 import { rollbackPreview, rollbackConfirm } from '../services/importRollback';
@@ -143,7 +144,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
     if (!(await assertImportTarget(req, res, job, 'READ'))) return;
     let preview = null;
     if (job.objectId) {
-      const { plan } = await planImportRows({ orgId, objectId: job.objectId, headers: job.headers as string[], rows: job.rawRows as Record<string, string>[], mapping: job.mapping as ImportMapping, dedupeKey: job.dedupeKey }).catch(() => ({ plan: null as never }));
+      const { plan } = await planImportRows({ orgId, objectId: job.objectId, headers: job.headers as string[], rows: job.rawRows as Record<string, string>[], mapping: job.mapping as ImportMapping, dedupeKey: job.dedupeKey, listId: job.listId }).catch(() => ({ plan: null as never }));
       preview = plan ? { estimate: plan.estimate, detectedTypes: plan.detectedTypes, warnings: plan.warnings, rows: plan.rows.slice(0, 50) } : null;
     }
     res.json({ job: jobSummary(job), headers: job.headers, sampleRows: job.sampleRows, mapping: job.mapping, rowResults: job.rowResults, preview });
@@ -162,6 +163,11 @@ router.patch('/:id/mapping', async (req: Request, res: Response, next: NextFunct
     const body = mappingSchema.parse(req.body);
     const attrs = job.objectId ? await prisma.attribute.findMany({ where: { objectId: job.objectId, isArchived: false }, select: { key: true } }) : [];
     const validKeys = new Set(attrs.map((a) => a.key));
+    // M30-4: для LIST-импорта допустимые таргеты включают list-поля ключом list:<key> (импортируемые типы).
+    if (job.targetType === 'LIST' && job.listId) {
+      const listAttrs = await prisma.listAttribute.findMany({ where: { orgId, listId: job.listId, isArchived: false }, select: { key: true, type: true } });
+      for (const la of listAttrs) if (IMPORTABLE_LIST_TYPES.has(la.type)) validKeys.add(`${LIST_FIELD_PREFIX}${la.key}`);
+    }
     const hasValid = Object.values(body.mapping).some((m) => validKeys.has(m.attributeKey));
     const updated = await prisma.importJob.update({ where: { id: job.id }, data: { mapping: body.mapping as unknown as Prisma.InputJsonValue, dedupeKey: body.dedupeKey ?? null, status: hasValid ? ImportStatus.READY : ImportStatus.MAPPING_REQUIRED } });
     res.json({ job: jobSummary(updated), mapping: updated.mapping });
@@ -177,7 +183,7 @@ router.post('/:id/preview', async (req: Request, res: Response, next: NextFuncti
     if (!job) { res.status(404).json({ error: 'Import not found', code: 'IMPORT_NOT_FOUND' }); return; }
     if (!(await assertImportTarget(req, res, job, 'READ_WRITE'))) return;
     if (!job.objectId) { res.status(400).json({ error: 'No target object', code: 'NO_TARGET' }); return; }
-    const { plan } = await planImportRows({ orgId, objectId: job.objectId, headers: job.headers as string[], rows: job.rawRows as Record<string, string>[], mapping: job.mapping as ImportMapping, dedupeKey: job.dedupeKey });
+    const { plan } = await planImportRows({ orgId, objectId: job.objectId, headers: job.headers as string[], rows: job.rawRows as Record<string, string>[], mapping: job.mapping as ImportMapping, dedupeKey: job.dedupeKey, listId: job.listId });
     res.json({ estimate: plan.estimate, detectedTypes: plan.detectedTypes, warnings: plan.warnings, rows: plan.rows.slice(0, 50), totalRows: plan.rows.length });
   } catch (err) { handleErr(err, res, next); }
 });
