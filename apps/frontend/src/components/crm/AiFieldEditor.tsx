@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import type { AiAttributeFields } from '@/lib/crmApi';
+import { useT } from '@/i18n';
 
 export type AiTypeValue = 'CLASSIFY' | 'SUMMARIZE' | 'RESEARCH' | 'PROMPT';
 
@@ -47,17 +48,17 @@ export interface AiFieldDraft {
 
 interface AiTypeMeta {
   value: AiTypeValue;
-  label: string;
-  desc: string;
+  labelKey: string;
+  descKey: string;
   cost: number;
   icon: typeof Tags;
 }
 
 const AI_TYPES: AiTypeMeta[] = [
-  { value: 'CLASSIFY', label: 'Classify', desc: 'Sort a record into one of the categories', cost: 1, icon: Tags },
-  { value: 'SUMMARIZE', label: 'Summarize', desc: 'Short summary of the record data', cost: 1, icon: FileText },
-  { value: 'RESEARCH', label: 'Research', desc: 'Deep research from external sources', cost: 10, icon: Globe },
-  { value: 'PROMPT', label: 'Custom prompt', desc: 'Free-form instruction to the agent', cost: 1, icon: Wand2 },
+  { value: 'CLASSIFY', labelKey: 'classifyType', descKey: 'classifyDesc', cost: 1, icon: Tags },
+  { value: 'SUMMARIZE', labelKey: 'summarizeType', descKey: 'summarizeDesc', cost: 1, icon: FileText },
+  { value: 'RESEARCH', labelKey: 'researchType', descKey: 'researchDesc', cost: 10, icon: Globe },
+  { value: 'PROMPT', labelKey: 'promptType', descKey: 'promptDesc', cost: 1, icon: Wand2 },
 ];
 
 /** Привести AiAttributeFields (с бэка) к черновику редактора. */
@@ -142,6 +143,7 @@ export default function AiFieldEditor({
   selectOptions,
   sourceAttributes,
 }: AiFieldEditorProps) {
+  const t = useT();
   const [touched, setTouched] = useState(false);
 
   function patch(p: Partial<AiFieldDraft>) {
@@ -149,15 +151,15 @@ export default function AiFieldEditor({
     onChange({ ...value, ...p });
   }
 
-  const activeType = AI_TYPES.find((t) => t.value === value.aiType) ?? null;
+  const activeType = AI_TYPES.find((at) => at.value === value.aiType) ?? null;
   const promptLabel =
     value.aiType === 'PROMPT'
-      ? 'Instruction to the agent'
+      ? t('record.aiField.instructionLabel')
       : value.aiType === 'CLASSIFY'
-        ? 'How to classify (optional)'
+        ? t('record.aiField.classifyPromptLabel')
         : value.aiType === 'RESEARCH'
-          ? 'What to look for (optional)'
-          : 'Extra instruction (optional)';
+          ? t('record.aiField.researchPromptLabel')
+          : t('record.aiField.extraInstructionLabel');
 
   return (
     <div className="space-y-4">
@@ -168,8 +170,8 @@ export default function AiFieldEditor({
             <Sparkles size={15} strokeWidth={2} />
           </span>
           <div>
-            <p className="text-[13px] font-semibold text-ink">AI field</p>
-            <p className="text-[12px] text-ink-muted">The agent fills the value from the record data</p>
+            <p className="text-[13px] font-semibold text-ink">{t('record.aiField.toggleLabel')}</p>
+            <p className="text-[12px] text-ink-muted">{t('record.aiField.toggleDesc')}</p>
           </div>
         </div>
         <button
@@ -195,16 +197,16 @@ export default function AiFieldEditor({
         <>
           {/* Выбор типа */}
           <div>
-            <p className="mb-1.5 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink-subtle">Type</p>
+            <p className="mb-1.5 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink-subtle">{t('record.aiField.typeHeader')}</p>
             <div className="grid grid-cols-2 gap-2">
-              {AI_TYPES.map((t) => {
-                const Icon = t.icon;
-                const active = value.aiType === t.value;
+              {AI_TYPES.map((at) => {
+                const Icon = at.icon;
+                const active = value.aiType === at.value;
                 return (
                   <button
-                    key={t.value}
+                    key={at.value}
                     type="button"
-                    onClick={() => patch({ aiType: t.value })}
+                    onClick={() => patch({ aiType: at.value })}
                     className={clsx(
                       'flex items-start gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors',
                       active
@@ -217,12 +219,12 @@ export default function AiFieldEditor({
                     </span>
                     <span className="min-w-0">
                       <span className="flex items-center gap-1.5">
-                        <span className="text-[13px] font-semibold text-ink">{t.label}</span>
+                        <span className="text-[13px] font-semibold text-ink">{t('record.aiField.' + at.labelKey)}</span>
                         <span className="rounded bg-surface-2 px-1 py-0.5 text-[10px] font-medium text-ink-subtle">
-                          {t.cost} cr
+                          {at.cost} {t('record.ai.crAbbr')}
                         </span>
                       </span>
-                      <span className="mt-0.5 block text-[11.5px] leading-snug text-ink-muted">{t.desc}</span>
+                      <span className="mt-0.5 block text-[11.5px] leading-snug text-ink-muted">{t('record.aiField.' + at.descKey)}</span>
                     </span>
                   </button>
                 );
@@ -235,24 +237,24 @@ export default function AiFieldEditor({
             selectOptions && selectOptions.length > 0 ? (
               // Атрибут типа SELECT — категории берутся из его опций (источник правды на backend).
               <div>
-                <p className="mb-1.5 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink-subtle">Categories</p>
+                <p className="mb-1.5 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink-subtle">{t('record.aiField.categories')}</p>
                 <div className="flex flex-wrap gap-1.5 rounded-lg border border-line bg-surface-2/40 px-3 py-2.5">
                   {selectOptions.map((o) => (
                     <span key={o} className="rounded-md bg-surface px-2 py-0.5 text-[12px] font-medium text-ink ring-1 ring-inset ring-line-strong">{o}</span>
                   ))}
                 </div>
-                <p className="mt-1 text-[11px] text-ink-subtle">Taken from the SELECT attribute options. Change them in its settings.</p>
+                <p className="mt-1 text-[11px] text-ink-subtle">{t('record.aiField.categoriesFromSelect')}</p>
               </div>
             ) : (
               <div>
                 <label className="mb-1 block text-[12px] font-semibold uppercase tracking-[0.06em] text-ink-subtle">
-                  Categories <span className="font-normal normal-case tracking-normal text-ink-subtle">(one per line)</span>
+                  {t('record.aiField.categories')} <span className="font-normal normal-case tracking-normal text-ink-subtle">{t('record.aiField.onePerLine')}</span>
                 </label>
                 <textarea
                   value={value.categories}
                   onChange={(e) => patch({ categories: e.target.value })}
                   rows={4}
-                  placeholder={'Enterprise\nMid-market\nSMB\nNot a fit'}
+                  placeholder={t('record.aiField.categoriesPlaceholder')}
                   className="w-full resize-none rounded-lg border border-line-strong bg-surface px-3 py-2 text-[13px] text-ink placeholder:text-ink-subtle focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                 />
               </div>
@@ -270,8 +272,8 @@ export default function AiFieldEditor({
               rows={3}
               placeholder={
                 value.aiType === 'PROMPT'
-                  ? 'e.g. “Detect whether the company uses React from its site and job posts”'
-                  : 'Clarify what to focus on…'
+                  ? t('record.aiField.promptExample')
+                  : t('record.aiField.clarifyPlaceholder')
               }
               className="w-full resize-none rounded-lg border border-line-strong bg-surface px-3 py-2 text-[13px] text-ink placeholder:text-ink-subtle focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
             />
@@ -280,12 +282,12 @@ export default function AiFieldEditor({
           {/* Тон/правила */}
           <div>
             <label className="mb-1 block text-[12px] font-semibold uppercase tracking-[0.06em] text-ink-subtle">
-              Tone and constraints <span className="font-normal normal-case tracking-normal text-ink-subtle">(optional)</span>
+              {t('record.aiField.tone')} <span className="font-normal normal-case tracking-normal text-ink-subtle">{t('record.aiAutofill.optional')}</span>
             </label>
             <input
               value={value.aiGuidance}
               onChange={(e) => patch({ aiGuidance: e.target.value })}
-              placeholder="e.g. concise, in English, no fluff"
+              placeholder={t('record.aiField.toneExample')}
               className="h-9 w-full rounded-lg border border-line-strong bg-surface px-3 text-[13px] text-ink placeholder:text-ink-subtle focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
             />
           </div>
@@ -298,8 +300,8 @@ export default function AiFieldEditor({
                   <RefreshCw size={14} strokeWidth={2} />
                 </span>
                 <div>
-                  <p className="text-[13px] font-semibold text-ink">Auto-rerun on changes</p>
-                  <p className="text-[12px] text-ink-muted">Regenerate this field when its source data changes</p>
+                  <p className="text-[13px] font-semibold text-ink">{t('record.aiField.autoRerun')}</p>
+                  <p className="text-[12px] text-ink-muted">{t('record.aiField.autoRerunDesc')}</p>
                 </div>
               </div>
               <button
@@ -339,9 +341,9 @@ export default function AiFieldEditor({
                       >
                         <span className={clsx('mt-0.5 h-3.5 w-3.5 shrink-0 rounded-full border-2', active ? 'border-brand-600 bg-brand-600' : 'border-line-strong')} />
                         <span className="min-w-0">
-                          <span className="block text-[12.5px] font-semibold text-ink">{m === 'explicit' ? 'Only specific fields' : 'Any non-AI field'}</span>
+                          <span className="block text-[12.5px] font-semibold text-ink">{m === 'explicit' ? t('record.aiField.explicitMode') : t('record.aiField.allNonAiMode')}</span>
                           <span className="block text-[11px] text-ink-muted">
-                            {m === 'explicit' ? 'Rerun only when the fields you pick below change' : 'Rerun when any regular (non-AI) field of the record changes'}
+                            {m === 'explicit' ? t('record.aiField.explicitModeDesc') : t('record.aiField.allNonAiModeDesc')}
                           </span>
                         </span>
                       </button>
@@ -353,7 +355,7 @@ export default function AiFieldEditor({
                 {value.sourceMode === 'explicit' &&
                   (sourceAttributes && sourceAttributes.length > 0 ? (
                     <div>
-                      <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-subtle">Source fields</p>
+                      <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-subtle">{t('record.aiField.sourceFields')}</p>
                       <div className="flex flex-wrap gap-1.5">
                         {sourceAttributes.map((s) => {
                           const on = value.sourceAttributeKeys.includes(s.key);
@@ -379,25 +381,25 @@ export default function AiFieldEditor({
                         })}
                       </div>
                       {value.sourceAttributeKeys.length === 0 && (
-                        <p className="mt-1 text-[11px] text-amber-600">Pick at least one field — otherwise auto-rerun never fires.</p>
+                        <p className="mt-1 text-[11px] text-amber-600">{t('record.aiField.pickAtLeastOne')}</p>
                       )}
                     </div>
                   ) : (
                     <div>
                       <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-subtle">
-                        Source field keys <span className="font-normal normal-case tracking-normal text-ink-subtle">(comma-separated)</span>
+                        {t('record.aiField.sourceFieldKeys')} <span className="font-normal normal-case tracking-normal text-ink-subtle">{t('record.aiField.commaSeparated')}</span>
                       </label>
                       <input
                         value={value.sourceAttributeKeys.join(', ')}
                         onChange={(e) => patch({ sourceAttributeKeys: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })}
-                        placeholder="e.g. description, website, industry"
+                        placeholder={t('record.aiField.fieldKeysExample')}
                         className="h-9 w-full rounded-lg border border-line-strong bg-surface px-3 text-[13px] text-ink placeholder:text-ink-subtle focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                       />
                     </div>
                   ))}
 
                 <p className="text-[11px] text-ink-subtle">
-                  Changes the agent makes itself never trigger a rerun (no loops). Each auto-rerun costs the same credits as a manual run; at zero balance it is skipped, not charged.
+                  {t('record.aiField.autoRerunInfo')}
                 </p>
               </div>
             )}
@@ -405,8 +407,8 @@ export default function AiFieldEditor({
 
           {activeType && (
             <p className="text-[12px] text-ink-muted">
-              Each run costs <span className="font-semibold text-ink">{activeType.cost}</span>{' '}
-              {activeType.cost === 1 ? 'credit' : 'credits'} from the organization balance.
+              {t('record.aiField.costPrefix')} <span className="font-semibold text-ink">{activeType.cost}</span>{' '}
+              {t(activeType.cost === 1 ? 'record.aiField.creditSingular' : 'record.aiField.creditPlural')} {t('record.aiField.costSuffix')}
             </p>
           )}
         </>
@@ -416,7 +418,7 @@ export default function AiFieldEditor({
         <div className="flex items-center justify-end gap-2 pt-1">
           {saved && !touched && (
             <span className="inline-flex items-center gap-1 text-[12px] font-medium text-emerald-600">
-              <Check size={14} /> Saved
+              <Check size={14} /> {t('record.aiField.saved')}
             </span>
           )}
           <button
@@ -429,7 +431,7 @@ export default function AiFieldEditor({
             className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 h-9 text-[13px] font-semibold text-white shadow-brand transition-colors hover:bg-brand-700 disabled:opacity-60"
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-            Сохранить AI-настройки
+            {t('record.aiField.saveButton')}
           </button>
         </div>
       )}

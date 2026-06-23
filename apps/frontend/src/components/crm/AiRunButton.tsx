@@ -20,6 +20,7 @@ import React, { useState } from 'react';
 import clsx from 'clsx';
 import { Sparkles, Loader2, AlertCircle } from 'lucide-react';
 import crmApi from '@/lib/crmApi';
+import { useT } from '@/i18n';
 
 // ─── Типы ─────────────────────────────────────────────────────────────────
 
@@ -91,6 +92,7 @@ export default function AiRunButton({
   className,
   disabled = false,
 }: AiRunButtonProps) {
+  const t = useT();
   // M29-1: 'confirm' — наткнулись на ручное значение, ждём подтверждения перезаписи.
   const [state, setState] = useState<'idle' | 'loading' | 'error' | 'confirm'>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -114,7 +116,7 @@ export default function AiRunButton({
 
       if (result.status === 'FAILED') {
         setState('error');
-        const msg = 'AI run завершился с ошибкой';
+        const msg = t('record.aiRun.runFailed');
         setErrorMsg(msg);
         onError?.(msg);
         return;
@@ -126,12 +128,12 @@ export default function AiRunButton({
       setState('error');
       const apiError =
         (err as { response?: { data?: { error?: string; code?: string } } })?.response?.data
-          ?.error ?? 'Ошибка запуска AI';
+          ?.error ?? t('record.aiRun.runError');
       const code = (err as { response?: { data?: { code?: string } } })?.response?.data?.code;
 
       let userMessage = apiError;
       if (code === 'INSUFFICIENT_CREDITS') {
-        userMessage = `Недостаточно кредитов (нужно ${creditCost})`;
+        userMessage = t('record.aiRun.insufficientCreditsTooltip', { n: creditCost });
       }
 
       setErrorMsg(userMessage);
@@ -157,10 +159,10 @@ export default function AiRunButton({
 
   // Tooltip текст
   const tooltip = hasInsufficientCredits
-    ? `Insufficient credits (need ${creditCost})`
+    ? t('record.aiRun.insufficientCreditsTooltip', { n: creditCost })
     : state === 'loading'
-      ? 'AI is thinking...'
-      : `Run AI · ${creditCost} credit${creditCost > 1 ? 's' : ''}`;
+      ? t('record.aiRun.thinkingTooltip')
+      : t('record.aiRun.runTooltip', { n: creditCost, word: t(creditCost > 1 ? 'record.aiRun.creditPlural' : 'record.aiRun.creditSingular') });
 
   if (compact) {
     // Компактный режим: иконка-кнопка для ячейки таблицы / kanban-карточки
@@ -211,7 +213,7 @@ export default function AiRunButton({
         {state === 'confirm' && (
           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-50 w-max max-w-[230px] rounded-lg border border-[var(--border)] bg-white p-2.5 text-left shadow-lg">
             <p className="mb-2 text-[11.5px] leading-snug text-[var(--text)]">
-              This value was manually edited. Overwrite with AI?
+              {t('record.aiRun.conflictPrompt')}
             </p>
             <div className="flex items-center justify-end gap-1.5">
               <button
@@ -219,14 +221,14 @@ export default function AiRunButton({
                 onClick={handleCancelOverwrite}
                 className="rounded border border-[var(--border)] px-2 py-1 text-[11px] text-[var(--text-muted)] hover:bg-[var(--surface-2)]"
               >
-                Cancel
+                {t('record.aiRun.cancel')}
               </button>
               <button
                 type="button"
                 onClick={handleOverwrite}
                 className="rounded bg-purple-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-purple-700"
               >
-                Overwrite
+                {t('record.aiRun.overwrite')}
               </button>
             </div>
           </div>
@@ -256,17 +258,17 @@ export default function AiRunButton({
         {state === 'loading' ? (
           <>
             <Loader2 size={14} className="animate-spin" />
-            <span>AI is thinking…</span>
+            <span>{t('record.aiRun.thinkingLabel')}</span>
           </>
         ) : state === 'error' ? (
           <>
             <AlertCircle size={14} />
-            <span>Retry AI</span>
+            <span>{t('record.aiRun.retryLabel')}</span>
           </>
         ) : (
           <>
             <Sparkles size={14} className="text-purple-500" />
-            <span>Run AI</span>
+            <span>{t('record.aiRun.runLabel')}</span>
             <span
               className={clsx(
                 'ml-1 text-[11px] px-1.5 py-0.5 rounded border',
@@ -275,7 +277,7 @@ export default function AiRunButton({
                   : 'bg-amber-50 border-amber-200 text-amber-700',
               )}
             >
-              {creditCost} cr
+              {creditCost} {t('record.ai.crAbbr')}
             </span>
           </>
         )}
@@ -290,7 +292,7 @@ export default function AiRunButton({
       {state === 'confirm' && (
         <div className="rounded-md border border-amber-200 bg-amber-50 p-2.5">
           <p className="mb-2 text-[12px] leading-snug text-amber-800">
-            This value was manually edited. Overwrite with AI?
+            {t('record.aiRun.conflictPrompt')}
           </p>
           <div className="flex items-center gap-2">
             <button
@@ -298,14 +300,14 @@ export default function AiRunButton({
               onClick={handleOverwrite}
               className="inline-flex items-center gap-1 rounded-md bg-purple-600 px-2.5 py-1 text-[12px] font-semibold text-white hover:bg-purple-700"
             >
-              <Sparkles size={12} /> Overwrite
+              <Sparkles size={12} /> {t('record.aiRun.overwrite')}
             </button>
             <button
               type="button"
               onClick={handleCancelOverwrite}
               className="rounded-md border border-[var(--border)] px-2.5 py-1 text-[12px] text-[var(--text-muted)] hover:bg-[var(--surface-2)]"
             >
-              Cancel
+              {t('record.aiRun.cancel')}
             </button>
           </div>
         </div>
@@ -314,9 +316,9 @@ export default function AiRunButton({
       {/* Предупреждение о кредитах */}
       {hasInsufficientCredits && !errorMsg && (
         <p className="text-[12px] text-[var(--text-subtle)] leading-snug">
-          Not enough AI credits.{' '}
+          {t('record.aiRun.notEnoughCredits')}{' '}
           <a href="/settings/billing" className="text-[var(--brand)] hover:underline">
-            Buy more
+            {t('record.aiRun.buyMore')}
           </a>
         </p>
       )}
@@ -358,6 +360,7 @@ export function BulkAiRunButton({
   onError,
   className,
 }: BulkAiRunButtonProps) {
+  const t = useT();
   const [state, setState] = useState<'idle' | 'confirming' | 'loading' | 'done' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -384,7 +387,7 @@ export function BulkAiRunButton({
       setState('error');
       const msg =
         (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
-        'Ошибка запуска AI';
+        t('record.aiRun.runError');
       setErrorMsg(msg);
       onError?.(msg);
     }
@@ -398,33 +401,33 @@ export function BulkAiRunButton({
           className,
         )}
       >
-        <p className="text-[14px] font-semibold text-[var(--text)]">Run AI for all rows?</p>
+        <p className="text-[14px] font-semibold text-[var(--text)]">{t('record.aiRun.bulkConfirmHeader')}</p>
         <div className="text-[13px] text-[var(--text-muted)] space-y-1">
           <div className="flex items-center justify-between">
-            <span>Rows to process</span>
+            <span>{t('record.aiRun.bulkRowsLabel')}</span>
             <strong>{totalRows}</strong>
           </div>
           <div className="flex items-center justify-between">
-            <span>Cost per row</span>
-            <strong>{creditCostPerRow} credit{creditCostPerRow > 1 ? 's' : ''}</strong>
+            <span>{t('record.aiRun.bulkCostPerRow')}</span>
+            <strong>{creditCostPerRow} {t(creditCostPerRow > 1 ? 'record.aiRun.creditPlural' : 'record.aiRun.creditSingular')}</strong>
           </div>
           <div className="flex items-center justify-between border-t border-[var(--border)] pt-1 mt-1">
-            <span className="font-medium text-[var(--text)]">Total estimated cost</span>
+            <span className="font-medium text-[var(--text)]">{t('record.aiRun.bulkTotalCost')}</span>
             <strong
               className={clsx(
                 'text-[14px]',
                 hasInsufficientCredits ? 'text-red-600' : 'text-amber-700',
               )}
             >
-              {estimatedCost} credits
+              {estimatedCost} {t('record.aiRun.creditPlural')}
             </strong>
           </div>
         </div>
 
         {hasInsufficientCredits && (
           <p className="text-[12px] text-red-600 bg-red-50 rounded px-2 py-1.5">
-            Insufficient credits. Available: {creditBalance}.{' '}
-            <a href="/settings/billing" className="underline">Buy more</a>
+            {t('record.aiRun.bulkInsufficientInConfirm', { n: creditBalance })}{' '}
+            <a href="/settings/billing" className="underline">{t('record.aiRun.buyMore')}</a>
           </p>
         )}
 
@@ -434,7 +437,7 @@ export function BulkAiRunButton({
             onClick={() => setState('idle')}
             className="rounded-md px-3 py-1.5 text-[13px] text-[var(--text-muted)] hover:bg-[var(--surface-2)] border border-[var(--border)] transition-colors"
           >
-            Cancel
+            {t('record.aiRun.cancel')}
           </button>
           <button
             type="button"
@@ -449,7 +452,7 @@ export function BulkAiRunButton({
             )}
           >
             <Sparkles size={13} />
-            Run AI
+            {t('record.aiRun.runLabel')}
           </button>
         </div>
       </div>
@@ -474,17 +477,17 @@ export function BulkAiRunButton({
         {state === 'loading' ? (
           <>
             <Loader2 size={13} className="animate-spin" />
-            <span>Running AI for {totalRows} rows…</span>
+            <span>{t('record.aiRun.bulkRunning', { n: totalRows })}</span>
           </>
         ) : state === 'done' ? (
           <>
             <Sparkles size={13} className="text-purple-500" />
-            <span>AI queued</span>
+            <span>{t('record.aiRun.bulkQueued')}</span>
           </>
         ) : (
           <>
             <Sparkles size={13} className="text-purple-500" />
-            <span>Run AI for all rows</span>
+            <span>{t('record.aiRun.bulkRunAll')}</span>
           </>
         )}
       </button>

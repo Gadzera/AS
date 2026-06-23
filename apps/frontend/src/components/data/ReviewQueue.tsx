@@ -20,6 +20,7 @@ import {
   editAiReview,
   type AiReviewItem,
 } from '@/lib/crmApi';
+import { useT } from '@/i18n';
 
 interface Props {
   open: boolean;
@@ -39,6 +40,7 @@ function confColor(c: number | null): string {
 }
 
 export default function ReviewQueue({ open, onClose, objectKey, canManage, onChanged }: Props) {
+  const t = useT();
   const [items, setItems] = useState<AiReviewItem[]>([]);
   const [threshold, setThreshold] = useState(60);
   const [loading, setLoading] = useState(false);
@@ -55,11 +57,11 @@ export default function ReviewQueue({ open, onClose, objectKey, canManage, onCha
       setItems(r.items);
       setThreshold(r.threshold);
     } catch (e: any) {
-      setError(e?.response?.data?.error ?? 'Failed to load review queue');
+      setError(e?.response?.data?.error ?? t('record.review.loadFailed'));
     } finally {
       setLoading(false);
     }
-  }, [objectKey]);
+  }, [objectKey, t]);
 
   useEffect(() => { if (open) { setEditing(null); load(); } }, [open, load]);
 
@@ -82,7 +84,7 @@ export default function ReviewQueue({ open, onClose, objectKey, canManage, onCha
       setEditing(null);
       onChanged();
     } catch (e: any) {
-      setError(e?.response?.data?.error ?? 'Action failed');
+      setError(e?.response?.data?.error ?? t('record.review.actionFailed'));
     } finally {
       setBusy(null);
     }
@@ -105,30 +107,30 @@ export default function ReviewQueue({ open, onClose, objectKey, canManage, onCha
             <div className="flex items-center gap-2 border-b border-line px-4 py-3">
               <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-brand-50 text-brand-600"><ScanEye size={15} /></span>
               <div className="min-w-0">
-                <p className="text-[13px] font-bold text-ink">Review AI fields</p>
-                <p className="text-[11px] text-ink-subtle">Low-confidence AI values (&lt; {threshold}%) — approve, reject or edit</p>
+                <p className="text-[13px] font-bold text-ink">{t('record.review.title')}</p>
+                <p className="text-[11px] text-ink-subtle">{t('record.review.subtitle', { threshold })}</p>
               </div>
-              <span className="ml-auto rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-600 ring-1 ring-inset ring-rose-200">{items.length} to review</span>
+              <span className="ml-auto rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-600 ring-1 ring-inset ring-rose-200">{t('record.review.countBadge', { n: items.length })}</span>
               <button type="button" onClick={() => { if (!busy) onClose(); }} className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink-muted hover:bg-surface-2"><X size={15} /></button>
             </div>
 
             {!canManage && (
               <div className="flex items-center gap-2 border-b border-line bg-amber-50 px-4 py-2 text-[11.5px] font-semibold text-amber-700">
-                <AlertTriangle size={13} /> View-only · members can view the review queue but can’t approve/reject/edit
+                <AlertTriangle size={13} /> {t('record.review.viewOnly')}
               </div>
             )}
 
             {/* body */}
             <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
               {loading ? (
-                <div className="flex h-40 items-center justify-center gap-2 text-[13px] text-ink-subtle"><Loader2 size={16} className="animate-spin" /> Loading review queue…</div>
+                <div className="flex h-40 items-center justify-center gap-2 text-[13px] text-ink-subtle"><Loader2 size={16} className="animate-spin" /> {t('record.review.loading')}</div>
               ) : error ? (
-                <div className="flex h-40 flex-col items-center justify-center gap-2 text-[13px] text-rose-600"><AlertTriangle size={18} /> {error}<button type="button" onClick={load} className="mt-1 rounded-md border border-line px-2 py-1 text-[12px] font-semibold text-ink-muted hover:bg-surface-2">Retry</button></div>
+                <div className="flex h-40 flex-col items-center justify-center gap-2 text-[13px] text-rose-600"><AlertTriangle size={18} /> {error}<button type="button" onClick={load} className="mt-1 rounded-md border border-line px-2 py-1 text-[12px] font-semibold text-ink-muted hover:bg-surface-2">{t('record.review.retry')}</button></div>
               ) : items.length === 0 ? (
                 <div className="flex h-40 flex-col items-center justify-center gap-2 text-ink-subtle">
                   <CheckCircle2 size={26} className="text-emerald-500" />
-                  <p className="text-[13px] font-semibold text-ink">Nothing to review</p>
-                  <p className="text-[11.5px]">All AI values are above the {threshold}% confidence threshold.</p>
+                  <p className="text-[13px] font-semibold text-ink">{t('record.review.emptyTitle')}</p>
+                  <p className="text-[11.5px]">{t('record.review.emptySubtitle', { threshold })}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -143,11 +145,11 @@ export default function ReviewQueue({ open, onClose, objectKey, canManage, onCha
                             <div className="flex items-center gap-2">
                               <span className="truncate text-[12.5px] font-bold text-ink">{item.recordName}</span>
                               <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-[10.5px] font-semibold text-ink-muted">{item.attributeName}</span>
-                              {item.lastRunId && <span className="inline-flex items-center gap-0.5 text-[10px] text-ink-subtle" title="last AI run"><Hash size={9} /> {item.lastRunId.slice(-6)}</span>}
+                              {item.lastRunId && <span className="inline-flex items-center gap-0.5 text-[10px] text-ink-subtle" title={t('record.review.lastRunTitle')}><Hash size={9} /> {item.lastRunId.slice(-6)}</span>}
                             </div>
                             <div className="mt-1 flex items-center gap-2">
-                              <span className="text-[12px] text-ink-muted">AI value: <span className="font-semibold text-ink">{item.aiValue ?? '—'}</span></span>
-                              <span className={`text-[11px] font-bold ${confColor(item.confidence)}`}>{item.confidence != null ? `${item.confidence}% conf` : 'no conf'}</span>
+                              <span className="text-[12px] text-ink-muted">{t('record.review.aiValueLabel')}<span className="font-semibold text-ink">{item.aiValue ?? t('record.review.noValue')}</span></span>
+                              <span className={`text-[11px] font-bold ${confColor(item.confidence)}`}>{item.confidence != null ? t('record.review.confidence', { n: item.confidence }) : t('record.review.noConfidence')}</span>
                             </div>
                             {isEditing && (
                               <div className="mt-2 flex items-center gap-1.5">
@@ -155,20 +157,20 @@ export default function ReviewQueue({ open, onClose, objectKey, canManage, onCha
                                   autoFocus
                                   value={editValue}
                                   onChange={(e) => setEditValue(e.target.value)}
-                                  placeholder="Correct value…"
+                                  placeholder={t('record.review.editPlaceholder')}
                                   className="h-8 flex-1 rounded-lg border border-brand-300 bg-surface px-2.5 text-[12.5px] text-ink focus:outline-none focus:ring-2 focus:ring-brand-100"
                                 />
-                                <button type="button" disabled={isBusy || !editValue.trim()} onClick={() => act(item, 'edit', editValue.trim())} className="inline-flex h-8 items-center gap-1 rounded-lg bg-brand-600 px-2.5 text-[12px] font-semibold text-white hover:bg-brand-700 disabled:opacity-50">{isBusy ? <Loader2 size={13} className="animate-spin" /> : 'Save'}</button>
-                                <button type="button" onClick={() => setEditing(null)} className="inline-flex h-8 items-center rounded-lg border border-line px-2 text-[12px] font-semibold text-ink-muted hover:bg-surface-2">Cancel</button>
+                                <button type="button" disabled={isBusy || !editValue.trim()} onClick={() => act(item, 'edit', editValue.trim())} className="inline-flex h-8 items-center gap-1 rounded-lg bg-brand-600 px-2.5 text-[12px] font-semibold text-white hover:bg-brand-700 disabled:opacity-50">{isBusy ? <Loader2 size={13} className="animate-spin" /> : t('record.review.save')}</button>
+                                <button type="button" onClick={() => setEditing(null)} className="inline-flex h-8 items-center rounded-lg border border-line px-2 text-[12px] font-semibold text-ink-muted hover:bg-surface-2">{t('record.review.cancel')}</button>
                               </div>
                             )}
                           </div>
 
                           {canManage && !isEditing && (
                             <div className="flex shrink-0 items-center gap-1">
-                              <button type="button" disabled={isBusy} onClick={() => act(item, 'approve')} title="Approve AI value" className="inline-flex h-8 items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 text-[11.5px] font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50">{isBusy ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} Approve</button>
-                              <button type="button" disabled={isBusy} onClick={() => { setEditing(k); setEditValue(item.aiValue ?? ''); }} title="Edit value manually" className="inline-flex h-8 items-center gap-1 rounded-lg border border-line bg-surface px-2 text-[11.5px] font-semibold text-ink-muted hover:bg-surface-2 disabled:opacity-50"><Pencil size={13} /> Edit</button>
-                              <button type="button" disabled={isBusy} onClick={() => act(item, 'reject')} title="Reject AI value" className="inline-flex h-8 items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2 text-[11.5px] font-semibold text-rose-600 hover:bg-rose-100 disabled:opacity-50"><Ban size={13} /> Reject</button>
+                              <button type="button" disabled={isBusy} onClick={() => act(item, 'approve')} title={t('record.review.approveTitle')} className="inline-flex h-8 items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 text-[11.5px] font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50">{isBusy ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} {t('record.review.approve')}</button>
+                              <button type="button" disabled={isBusy} onClick={() => { setEditing(k); setEditValue(item.aiValue ?? ''); }} title={t('record.review.editTitle')} className="inline-flex h-8 items-center gap-1 rounded-lg border border-line bg-surface px-2 text-[11.5px] font-semibold text-ink-muted hover:bg-surface-2 disabled:opacity-50"><Pencil size={13} /> {t('record.review.edit')}</button>
+                              <button type="button" disabled={isBusy} onClick={() => act(item, 'reject')} title={t('record.review.rejectTitle')} className="inline-flex h-8 items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2 text-[11.5px] font-semibold text-rose-600 hover:bg-rose-100 disabled:opacity-50"><Ban size={13} /> {t('record.review.reject')}</button>
                             </div>
                           )}
                         </div>

@@ -17,6 +17,7 @@
 import React from 'react';
 import clsx from 'clsx';
 import { Brain, ChevronDown, Zap } from 'lucide-react';
+import { useT } from '@/i18n';
 
 // ─── Типы ─────────────────────────────────────────────────────────────────
 
@@ -41,44 +42,21 @@ interface AiAutofillSectionProps {
 
 const AI_TYPES: Array<{
   id: AiAutofillType;
-  label: string;
-  description: string;
+  labelKey: string;
+  descKey: string;
   cost: number;
   icon: string;
 }> = [
-  {
-    id: 'CLASSIFY',
-    label: 'Classify record',
-    description: 'Classify the record into predefined categories',
-    cost: 1,
-    icon: '🏷️',
-  },
-  {
-    id: 'SUMMARIZE',
-    label: 'Summarize record',
-    description: 'Generate a concise summary of the record',
-    cost: 1,
-    icon: '📝',
-  },
-  {
-    id: 'RESEARCH',
-    label: 'Research agent',
-    description: 'Research the record using web sources (10 credits)',
-    cost: 10,
-    icon: '🔍',
-  },
-  {
-    id: 'PROMPT',
-    label: 'Prompt completion',
-    description: 'Fill in a value using a custom prompt with variables',
-    cost: 1,
-    icon: '✨',
-  },
+  { id: 'CLASSIFY', labelKey: 'classifyLabel', descKey: 'classifyDesc', cost: 1, icon: '🏷️' },
+  { id: 'SUMMARIZE', labelKey: 'summarizeLabel', descKey: 'summarizeDesc', cost: 1, icon: '📝' },
+  { id: 'RESEARCH', labelKey: 'researchLabel', descKey: 'researchDesc', cost: 10, icon: '🔍' },
+  { id: 'PROMPT', labelKey: 'promptLabel', descKey: 'promptDesc', cost: 1, icon: '✨' },
 ];
 
 // ─── Бейдж стоимости ──────────────────────────────────────────────────────
 
 function CreditBadge({ cost, insufficient }: { cost: number; insufficient?: boolean }) {
+  const t = useT();
   return (
     <span
       className={clsx(
@@ -89,7 +67,7 @@ function CreditBadge({ cost, insufficient }: { cost: number; insufficient?: bool
       )}
     >
       <Zap size={10} />
-      {cost} {cost === 1 ? 'credit' : 'credits'} / run
+      {cost} {t(cost === 1 ? 'record.aiAutofill.creditSingular' : 'record.aiAutofill.creditPlural')} {t('record.aiAutofill.perRun')}
     </span>
   );
 }
@@ -102,13 +80,14 @@ export default function AiAutofillSection({
   allowedTypes,
   creditBalance,
 }: AiAutofillSectionProps) {
+  const t = useT();
   const [typeOpen, setTypeOpen] = React.useState(false);
 
   const availableTypes = allowedTypes
-    ? AI_TYPES.filter((t) => allowedTypes.includes(t.id))
+    ? AI_TYPES.filter((at) => allowedTypes.includes(at.id))
     : AI_TYPES;
 
-  const selectedType = value.type ? AI_TYPES.find((t) => t.id === value.type) : null;
+  const selectedType = value.type ? AI_TYPES.find((at) => at.id === value.type) : null;
   const cost = selectedType?.cost ?? 1;
   const hasInsufficientCredits =
     creditBalance !== undefined && creditBalance < cost;
@@ -133,9 +112,9 @@ export default function AiAutofillSection({
       <label className="flex items-center justify-between cursor-pointer">
         <div className="flex items-center gap-2">
           <Brain size={15} className="text-purple-500" />
-          <span className="text-[13px] font-medium text-[var(--text)]">Set up AI autofill</span>
+          <span className="text-[13px] font-medium text-[var(--text)]">{t('record.aiAutofill.setup')}</span>
           <span className="text-[11px] bg-purple-100 text-purple-700 border border-purple-200 rounded px-1.5 py-0.5 leading-tight">
-            Beta
+            {t('record.aiAutofill.beta')}
           </span>
         </div>
 
@@ -167,7 +146,7 @@ export default function AiAutofillSection({
           {/* Выбор типа AI */}
           <div className="flex flex-col gap-1">
             <label className="text-[12px] font-medium text-[var(--text-muted)]">
-              Autofill type
+              {t('record.aiAutofill.typeLabel')}
             </label>
 
             <div className="relative">
@@ -185,10 +164,10 @@ export default function AiAutofillSection({
                   {selectedType ? (
                     <>
                       <span>{selectedType.icon}</span>
-                      <span>{selectedType.label}</span>
+                      <span>{t('record.aiAutofill.' + selectedType.labelKey)}</span>
                     </>
                   ) : (
-                    <span className="text-[var(--text-subtle)]">Select AI type…</span>
+                    <span className="text-[var(--text-subtle)]">{t('record.aiAutofill.typeSelectPlaceholder')}</span>
                   )}
                 </span>
                 <ChevronDown size={14} className="text-[var(--text-subtle)]" />
@@ -201,27 +180,27 @@ export default function AiAutofillSection({
                     'bg-white shadow-lg py-1',
                   )}
                 >
-                  {availableTypes.map((t) => (
+                  {availableTypes.map((at) => (
                     <button
-                      key={t.id}
+                      key={at.id}
                       type="button"
-                      onClick={() => selectType(t.id)}
+                      onClick={() => selectType(at.id)}
                       className={clsx(
                         'w-full flex items-start gap-2 px-3 py-2 text-left',
                         'hover:bg-[var(--surface-2)] transition-colors',
-                        value.type === t.id && 'bg-[var(--brand-soft)]',
+                        value.type === at.id && 'bg-[var(--brand-soft)]',
                       )}
                     >
-                      <span className="text-base leading-5">{t.icon}</span>
+                      <span className="text-base leading-5">{at.icon}</span>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-[13px] font-medium text-[var(--text)]">
-                            {t.label}
+                            {t('record.aiAutofill.' + at.labelKey)}
                           </span>
-                          <CreditBadge cost={t.cost} />
+                          <CreditBadge cost={at.cost} />
                         </div>
                         <p className="text-[11px] text-[var(--text-subtle)] mt-0.5 leading-snug">
-                          {t.description}
+                          {t('record.aiAutofill.' + at.descKey)}
                         </p>
                       </div>
                     </button>
@@ -236,7 +215,7 @@ export default function AiAutofillSection({
                 <CreditBadge cost={cost} insufficient={hasInsufficientCredits} />
                 {hasInsufficientCredits && (
                   <span className="text-[11px] text-red-600">
-                    Insufficient credits. Current balance: {creditBalance}
+                    {t('record.aiAutofill.insufficientCredits', { balance: creditBalance })}
                   </span>
                 )}
               </div>
@@ -246,18 +225,18 @@ export default function AiAutofillSection({
           {/* Guidance */}
           <div className="flex flex-col gap-1">
             <label className="text-[12px] font-medium text-[var(--text-muted)]">
-              Guidance{' '}
-              <span className="font-normal text-[var(--text-subtle)]">(optional)</span>
+              {t('record.aiAutofill.guidance')}{' '}
+              <span className="font-normal text-[var(--text-subtle)]">{t('record.aiAutofill.optional')}</span>
             </label>
             <textarea
               value={value.guidance}
               onChange={(e) => onChange({ ...value, guidance: e.target.value })}
               placeholder={
                 value.type === 'PROMPT'
-                  ? 'Example: Return ISO country code for {{Primary location}}'
+                  ? t('record.aiAutofill.promptPlaceholder')
                   : value.type === 'RESEARCH'
-                    ? 'Example: What is their funding stage and business model?'
-                    : 'Tell the AI what to generate from record details and attributes.'
+                    ? t('record.aiAutofill.researchPlaceholder')
+                    : t('record.aiAutofill.guidanceDefaultPlaceholder')
               }
               rows={3}
               className={clsx(
@@ -269,7 +248,7 @@ export default function AiAutofillSection({
               )}
             />
             <p className="text-[11px] text-[var(--text-subtle)] leading-snug">
-              Tell the AI what to generate from record details and attributes.
+              {t('record.aiAutofill.guidanceHelp')}
             </p>
           </div>
 
@@ -277,7 +256,7 @@ export default function AiAutofillSection({
           <div className="flex items-start gap-2 rounded-md bg-amber-50 border border-amber-200 px-2.5 py-2">
             <span className="text-amber-600 text-[13px] leading-none mt-0.5">⚠</span>
             <p className="text-[11px] text-amber-700 leading-snug">
-              AI will have access to all record attributes when running.
+              {t('record.aiAutofill.attributeAccessWarning')}
             </p>
           </div>
         </div>

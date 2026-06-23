@@ -50,6 +50,7 @@ import RecordRelationships from '@/components/data/RecordRelationships';
 import CommentThread from '@/components/data/CommentThread';
 import ReviewQueue from '@/components/data/ReviewQueue';
 import { authApi } from '@/lib/api';
+import { useT, type TFunc } from '@/i18n';
 
 interface PageProps {
   params: {
@@ -62,16 +63,16 @@ interface PageProps {
 type TabKey = 'overview' | 'activity' | 'notes' | 'tasks' | 'comments' | 'calls' | 'emails' | 'relationships' | 'files';
 type DraftValue = string | string[] | boolean;
 
-const tabs: Array<{ key: TabKey; label: string }> = [
-  { key: 'overview', label: 'Overview' },
-  { key: 'activity', label: 'Activity' },
-  { key: 'notes', label: 'Notes' },
-  { key: 'tasks', label: 'Tasks' },
-  { key: 'comments', label: 'Comments' },
-  { key: 'calls', label: 'Calls' },
-  { key: 'emails', label: 'Emails' },
-  { key: 'relationships', label: 'Relationships' },
-  { key: 'files', label: 'Files' },
+const tabs: Array<{ key: TabKey; labelKey: string }> = [
+  { key: 'overview', labelKey: 'overview' },
+  { key: 'activity', labelKey: 'activity' },
+  { key: 'notes', labelKey: 'notes' },
+  { key: 'tasks', labelKey: 'tasks' },
+  { key: 'comments', labelKey: 'comments' },
+  { key: 'calls', labelKey: 'calls' },
+  { key: 'emails', labelKey: 'emails' },
+  { key: 'relationships', labelKey: 'relationships' },
+  { key: 'files', labelKey: 'files' },
 ];
 
 const tagClasses = [
@@ -99,37 +100,37 @@ const aiSourceDot: Record<string, string> = {
 };
 
 // Честное происхождение текущего значения (из record.valueMeta) — не хардкод «всегда AI».
-function valueSourceMeta(source: string | undefined): { dot: string; label: string; title: string } {
+function valueSourceMeta(source: string | undefined, t: TFunc): { dot: string; label: string; title: string } {
   switch (source) {
-    case 'AI': return { dot: aiSourceDot.AI, label: 'AI', title: 'source: AI agent' };
-    case 'IMPORT': return { dot: aiSourceDot.IMPORT, label: 'Import', title: 'source: imported' };
-    case 'SYSTEM': return { dot: aiSourceDot.SYSTEM, label: 'System', title: 'source: system/workflow' };
-    default: return { dot: aiSourceDot.MANUAL, label: 'Manual', title: 'source: manually edited — protected from silent AI overwrite' };
+    case 'AI': return { dot: aiSourceDot.AI, label: t('record.ai.sourceAi'), title: t('record.ai.sourceAiTitle') };
+    case 'IMPORT': return { dot: aiSourceDot.IMPORT, label: t('record.ai.sourceImport'), title: t('record.ai.sourceImportTitle') };
+    case 'SYSTEM': return { dot: aiSourceDot.SYSTEM, label: t('record.ai.sourceSystem'), title: t('record.ai.sourceSystemTitle') };
+    default: return { dot: aiSourceDot.MANUAL, label: t('record.ai.sourceManual'), title: t('record.ai.sourceManualTitle') };
   }
 }
 
-function aiTimeAgo(iso: string): string {
+function aiTimeAgo(iso: string, t: TFunc): string {
   const d = Date.parse(iso);
   if (Number.isNaN(d)) return '';
   const s = Math.floor((Date.now() - d) / 1000);
-  if (s < 60) return 'just now';
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return `${Math.floor(s / 86400)}d ago`;
+  if (s < 60) return t('record.activity.justNow');
+  if (s < 3600) return t('record.activity.minAgo', { n: Math.floor(s / 60) });
+  if (s < 86400) return t('record.activity.hourAgo', { n: Math.floor(s / 3600) });
+  return t('record.activity.dayAgo', { n: Math.floor(s / 86400) });
 }
 
 // Мета события аудит-таймлайна provenance-поповера (метка + цвет + точка).
-function aiTlMeta(type: string, source?: string | null): { label: string; color: string; dot: string } {
+function aiTlMeta(type: string, source: string | null | undefined, t: TFunc): { label: string; color: string; dot: string } {
   switch (type) {
     case 'AI_FILLED':
       return source === 'AUTO'
-        ? { label: 'Auto-rerun · filled', color: 'text-violet-700', dot: 'bg-violet-500' }
-        : { label: 'AI filled', color: 'text-indigo-700', dot: 'bg-indigo-500' };
-    case 'AI_FAILED': return { label: 'AI run failed', color: 'text-rose-600', dot: 'bg-rose-400' };
-    case 'AI_SKIPPED': return { label: source === 'AUTO' ? 'Auto-rerun · skipped' : 'AI skipped', color: 'text-amber-700', dot: 'bg-amber-400' };
-    case 'REVIEW_APPROVED': return { label: 'Approved', color: 'text-emerald-700', dot: 'bg-emerald-500' };
-    case 'REVIEW_REJECTED': return { label: 'Rejected & cleared', color: 'text-rose-600', dot: 'bg-rose-400' };
-    case 'REVIEW_EDITED': return { label: 'Edited', color: 'text-indigo-700', dot: 'bg-indigo-500' };
+        ? { label: t('record.ai.tlAutoFilled'), color: 'text-violet-700', dot: 'bg-violet-500' }
+        : { label: t('record.ai.tlAiFilled'), color: 'text-indigo-700', dot: 'bg-indigo-500' };
+    case 'AI_FAILED': return { label: t('record.ai.tlAiFailed'), color: 'text-rose-600', dot: 'bg-rose-400' };
+    case 'AI_SKIPPED': return { label: source === 'AUTO' ? t('record.ai.tlAutoSkipped') : t('record.ai.tlAiSkipped'), color: 'text-amber-700', dot: 'bg-amber-400' };
+    case 'REVIEW_APPROVED': return { label: t('record.ai.tlApproved'), color: 'text-emerald-700', dot: 'bg-emerald-500' };
+    case 'REVIEW_REJECTED': return { label: t('record.ai.tlRejectedCleared'), color: 'text-rose-600', dot: 'bg-rose-400' };
+    case 'REVIEW_EDITED': return { label: t('record.ai.tlEdited'), color: 'text-indigo-700', dot: 'bg-indigo-500' };
     default: return { label: type, color: 'text-gray-700', dot: 'bg-gray-400' };
   }
 }
@@ -142,21 +143,21 @@ function deriveAiBadge(p: AiProvenance, hasValue: boolean): AiBadgeState {
   if (p.review) return p.review.status === 'APPROVED' ? 'reviewed' : p.review.status === 'EDITED' ? 'edited' : 'rejected';
   return hasValue ? 'generated' : 'empty';
 }
-function aiBadgeMeta(state: AiBadgeState): { label: string; cls: string; icon: typeof Sparkles } | null {
+function aiBadgeMeta(state: AiBadgeState, t: TFunc): { label: string; cls: string; icon: typeof Sparkles } | null {
   switch (state) {
-    case 'generated': return { label: 'Generated by AI', cls: 'bg-indigo-50 text-indigo-700', icon: Sparkles };
-    case 'review': return { label: 'AI · under review', cls: 'bg-amber-50 text-amber-700', icon: AlertTriangle };
-    case 'reviewed': return { label: 'AI · reviewed', cls: 'bg-emerald-50 text-emerald-700', icon: Check };
-    case 'edited': return { label: 'AI · edited', cls: 'bg-violet-50 text-violet-700', icon: Pencil };
-    case 'rejected': return { label: 'AI · rejected', cls: 'bg-rose-50 text-rose-600', icon: X };
-    case 'unknown': return { label: 'AI', cls: 'bg-gray-100 text-gray-600', icon: Sparkles };
+    case 'generated': return { label: t('record.ai.badgeGenerated'), cls: 'bg-indigo-50 text-indigo-700', icon: Sparkles };
+    case 'review': return { label: t('record.ai.badgeUnderReview'), cls: 'bg-amber-50 text-amber-700', icon: AlertTriangle };
+    case 'reviewed': return { label: t('record.ai.badgeReviewed'), cls: 'bg-emerald-50 text-emerald-700', icon: Check };
+    case 'edited': return { label: t('record.ai.badgeEdited'), cls: 'bg-violet-50 text-violet-700', icon: Pencil };
+    case 'rejected': return { label: t('record.ai.badgeRejected'), cls: 'bg-rose-50 text-rose-600', icon: X };
+    case 'unknown': return { label: t('record.ai.badgeUnknown'), cls: 'bg-gray-100 text-gray-600', icon: Sparkles };
     default: return null;
   }
 }
 // Не утекаем сырую ошибку провайдера в UI (полный текст остаётся в AiRun.error для аудита).
-function humanizeAiError(err: string): string {
-  if (/DeepSeek|Anthropic|authentication|provider|LLM|aborted|timeout|ECONNREFUSED|fetch failed|\b(401|403|429|5\d\d)\b/i.test(err)) return 'AI provider error — please retry';
-  if (/Запись не найдена|not found/i.test(err)) return 'Record not found (archived/deleted)';
+function humanizeAiError(err: string, t: TFunc): string {
+  if (/DeepSeek|Anthropic|authentication|provider|LLM|aborted|timeout|ECONNREFUSED|fetch failed|\b(401|403|429|5\d\d)\b/i.test(err)) return t('record.ai.providerError');
+  if (/Запись не найдена|not found/i.test(err)) return t('record.ai.recordNotFound');
   return err.length > 60 ? err.slice(0, 60) + '…' : err;
 }
 
@@ -465,13 +466,13 @@ function renderTag(label: string) {
   );
 }
 
-function renderEmptyValue(attribute: CrmAttribute) {
-  return <span className="text-gray-400">Set {attribute.name}...</span>;
+function renderEmptyValue(attribute: CrmAttribute, t: TFunc) {
+  return <span className="text-gray-400">{t('record.field.setPrompt', { name: attribute.name })}</span>;
 }
 
-function renderDisplayValue(attribute: CrmAttribute, value: CrmRecordValue | undefined) {
+function renderDisplayValue(attribute: CrmAttribute, value: CrmRecordValue | undefined, t: TFunc) {
   if (value === null || value === undefined || value === '') {
-    return renderEmptyValue(attribute);
+    return renderEmptyValue(attribute, t);
   }
 
   switch (attribute.type) {
@@ -479,7 +480,7 @@ function renderDisplayValue(attribute: CrmAttribute, value: CrmRecordValue | und
       const url = formatScalar(value);
 
       if (!url) {
-        return renderEmptyValue(attribute);
+        return renderEmptyValue(attribute, t);
       }
 
       return (
@@ -501,7 +502,7 @@ function renderDisplayValue(attribute: CrmAttribute, value: CrmRecordValue | und
       const email = formatScalar(value);
 
       if (!email) {
-        return renderEmptyValue(attribute);
+        return renderEmptyValue(attribute, t);
       }
 
       return (
@@ -521,7 +522,7 @@ function renderDisplayValue(attribute: CrmAttribute, value: CrmRecordValue | und
       const labels = getTagLabelsForAttribute(attribute, value);
 
       if (!labels.length) {
-        return renderEmptyValue(attribute);
+        return renderEmptyValue(attribute, t);
       }
 
       return <div className="flex min-w-0 flex-wrap gap-1">{labels.map(renderTag)}</div>;
@@ -531,20 +532,20 @@ function renderDisplayValue(attribute: CrmAttribute, value: CrmRecordValue | und
       const checked = value === true || value === 'true' || value === 1 || value === '1';
 
       return checked ? (
-        <span className="text-gray-900">Yes</span>
+        <span className="text-gray-900">{t('record.field.yes')}</span>
       ) : (
-        <span className="text-gray-400">No</span>
+        <span className="text-gray-400">{t('record.field.no')}</span>
       );
     }
 
     case 'DATE': {
       const date = formatDate(value);
-      return date ? <span className="truncate text-gray-900">{date}</span> : renderEmptyValue(attribute);
+      return date ? <span className="truncate text-gray-900">{date}</span> : renderEmptyValue(attribute, t);
     }
 
     case 'CURRENCY': {
       const text = formatCurrency(value);
-      return text ? <span className="truncate text-gray-900" title={text}>{text}</span> : renderEmptyValue(attribute);
+      return text ? <span className="truncate text-gray-900" title={text}>{text}</span> : renderEmptyValue(attribute, t);
     }
 
     case 'LOCATION':
@@ -559,13 +560,14 @@ function renderDisplayValue(attribute: CrmAttribute, value: CrmRecordValue | und
           {text}
         </span>
       ) : (
-        renderEmptyValue(attribute)
+        renderEmptyValue(attribute, t)
       );
     }
   }
 }
 
 export default function RecordPage({ params }: PageProps) {
+  const t = useT();
   const objectKey = params.objectKey;
   const recordId = params.recordId;
 
@@ -631,7 +633,7 @@ export default function RecordPage({ params }: PageProps) {
       setObject(objectData);
       setRecord(recordData);
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : 'Не удалось загрузить запись.');
+      setLoadError(err instanceof Error ? err.message : t('record.errors.loadFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -781,7 +783,7 @@ export default function RecordPage({ params }: PageProps) {
       setRecord(updatedRecord);
     } catch (err) {
       setRecord(previousRecord);
-      setSaveError(err instanceof Error ? err.message : 'Не удалось сохранить значение.');
+      setSaveError(err instanceof Error ? err.message : t('record.errors.saveFailed'));
     } finally {
       setSavingKey(null);
     }
@@ -822,7 +824,7 @@ export default function RecordPage({ params }: PageProps) {
             onKeyDown={(event) => handleEditorKeyDown(event, attribute)}
             className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600"
           />
-          <span className="text-[13px] text-gray-700">{checked ? 'Yes' : 'No'}</span>
+          <span className="text-[13px] text-gray-700">{checked ? t('record.field.yes') : t('record.field.no')}</span>
         </label>
       );
     }
@@ -841,7 +843,7 @@ export default function RecordPage({ params }: PageProps) {
           onKeyDown={(event) => handleEditorKeyDown(event, attribute)}
           className="h-7 w-full rounded-md border border-blue-200 bg-white px-2 text-[13px] text-gray-900 outline-none ring-blue-100 focus:border-blue-500 focus:ring-2"
         >
-          <option value="">Unset</option>
+          <option value="">{t('record.field.unset')}</option>
           {options.map((option) => (
             <option key={option.key} value={option.key}>
               {getOptionLabel(option)}
@@ -895,9 +897,9 @@ export default function RecordPage({ params }: PageProps) {
 
   function renderActivityTypeLabel(type: string): string {
     switch (type) {
-      case 'RECORD_CREATED': return 'Запись создана';
-      case 'RECORD_UPDATED': return 'Запись обновлена';
-      case 'RECORD_ARCHIVED': return 'Запись архивирована';
+      case 'RECORD_CREATED': return t('record.activity.created');
+      case 'RECORD_UPDATED': return t('record.activity.updated');
+      case 'RECORD_ARCHIVED': return t('record.activity.archived');
       default: return type.replace(/_/g, ' ').toLowerCase();
     }
   }
@@ -906,22 +908,22 @@ export default function RecordPage({ params }: PageProps) {
     if (activeTab === 'overview') {
       return (
         <div className="min-h-[360px] px-4 py-4">
-          <h2 className="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-gray-400">Highlights</h2>
+          <h2 className="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-gray-400">{t('record.overview.highlights')}</h2>
           {highlights.length === 0 ? (
             <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-[13px] text-gray-500">
-              No highlighted fields yet — fill in details on the right and they’ll surface here.
+              {t('record.overview.highlightsEmpty')}
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {highlights.map((attribute) => (
                 <div key={attribute.id} className="min-w-0 rounded-lg border border-gray-200 bg-white px-3 py-2">
                   <div className="truncate text-[11px] font-medium uppercase tracking-[0.04em] text-gray-400" title={attribute.name}>{attribute.name}</div>
-                  <div className="mt-0.5 min-w-0 text-[13px] text-gray-900">{renderDisplayValue(attribute, record!.values?.[attribute.key])}</div>
+                  <div className="mt-0.5 min-w-0 text-[13px] text-gray-900">{renderDisplayValue(attribute, record!.values?.[attribute.key], t)}</div>
                 </div>
               ))}
             </div>
           )}
-          <p className="mt-4 text-[12px] text-gray-400">All fields are editable in the Details panel on the right. Activity, notes and more are in their tabs.</p>
+          <p className="mt-4 text-[12px] text-gray-400">{t('record.overview.help')}</p>
         </div>
       );
     }
@@ -931,7 +933,7 @@ export default function RecordPage({ params }: PageProps) {
         return (
           <div className="flex h-full min-h-[360px] items-center justify-center text-[13px] text-gray-500">
             <Loader2 className="mr-2 h-4 w-4 animate-spin text-gray-400" />
-            Загрузка истории…
+            {t('record.activity.loading')}
           </div>
         );
       }
@@ -941,7 +943,7 @@ export default function RecordPage({ params }: PageProps) {
           <div className="flex h-full min-h-[360px] items-center justify-center text-[13px] text-gray-500">
             <div className="text-center">
               <Activity className="mx-auto mb-2 h-5 w-5 text-gray-300" />
-              <div>История активностей пуста</div>
+              <div>{t('record.activity.empty')}</div>
             </div>
           </div>
         );
@@ -963,7 +965,7 @@ export default function RecordPage({ params }: PageProps) {
                       {activity.redacted ? renderActivityTypeLabel(activity.type) : (activity.title ?? renderActivityTypeLabel(activity.type))}
                     </span>
                     {activity.redacted ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10.5px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-200"><Lock className="h-2.5 w-2.5" /> Restricted</span>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10.5px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-200"><Lock className="h-2.5 w-2.5" /> {t('record.activity.restricted')}</span>
                     ) : null}
                     <span className="text-[12px] text-gray-400">
                       {new Intl.DateTimeFormat('ru', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(activity.createdAt))}
@@ -975,7 +977,7 @@ export default function RecordPage({ params }: PageProps) {
                   ) : null}
 
                   {activity.redacted ? (
-                    <div className="mt-1 text-[12px] italic text-gray-400">You don’t have access to the related item.</div>
+                    <div className="mt-1 text-[12px] italic text-gray-400">{t('record.activity.accessDenied')}</div>
                   ) : activity.body ? (
                     <div className="mt-1 text-[13px] text-gray-700">{activity.body}</div>
                   ) : null}
@@ -998,15 +1000,15 @@ export default function RecordPage({ params }: PageProps) {
       <div className="min-h-[360px] px-4 py-4">
         <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-12 text-center">
           <Paperclip className="mx-auto mb-2 h-5 w-5 text-gray-300" />
-          <p className="text-[13px] font-medium text-gray-600">File storage isn’t connected yet</p>
-          <p className="mt-1 text-[12px] text-gray-400">Attachments will live here once a storage provider is connected. No files are stored on records today.</p>
+          <p className="text-[13px] font-medium text-gray-600">{t('record.files.storageNotConnected')}</p>
+          <p className="mt-1 text-[12px] text-gray-400">{t('record.files.storageDescription')}</p>
         </div>
       </div>
     );
 
     return (
       <div className="flex h-full min-h-[360px] items-center justify-center text-[13px] text-gray-500">
-        Нет данных
+        {t('record.errors.noData')}
       </div>
     );
   }
@@ -1015,7 +1017,7 @@ export default function RecordPage({ params }: PageProps) {
     return (
       <div className="flex h-full min-h-screen items-center justify-center bg-white text-[13px] text-gray-600">
         <Loader2 className="mr-2 h-4 w-4 animate-spin text-gray-400" />
-        Loading...
+        {t('record.errors.pageLoading')}
       </div>
     );
   }
@@ -1024,14 +1026,14 @@ export default function RecordPage({ params }: PageProps) {
     return (
       <div className="flex h-full min-h-screen items-center justify-center bg-white px-6 text-center">
         <div>
-          <div className="text-[14px] font-semibold text-gray-950">Не удалось открыть запись</div>
-          <div className="mt-1 text-[13px] text-gray-500">{loadError ?? 'Запись не найдена.'}</div>
+          <div className="text-[14px] font-semibold text-gray-950">{t('record.errors.openFailed')}</div>
+          <div className="mt-1 text-[13px] text-gray-500">{loadError ?? t('record.errors.notFound')}</div>
           <button
             type="button"
             onClick={() => void loadRecord()}
             className="mt-4 h-8 rounded-md border border-gray-200 bg-white px-3 text-[13px] font-medium text-gray-700 hover:bg-gray-50"
           >
-            Повторить
+            {t('record.errors.retry')}
           </button>
         </div>
       </div>
@@ -1081,7 +1083,7 @@ export default function RecordPage({ params }: PageProps) {
             <button
               type="button"
               onClick={() => setReviewOpen(true)}
-              title="Review low-confidence AI values for this object"
+              title={t('record.ai.reviewQueueTitle')}
               className={[
                 'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-[13px] font-medium transition-colors',
                 reviewCount > 0
@@ -1090,7 +1092,7 @@ export default function RecordPage({ params }: PageProps) {
               ].join(' ')}
             >
               <ScanEye className="h-3.5 w-3.5" />
-              {reviewCount > 0 ? `${reviewCount} to review` : 'Review AI'}
+              {reviewCount > 0 ? t('record.ai.toReview', { count: reviewCount }) : t('record.ai.reviewAi')}
             </button>
           )}
         </div>
@@ -1115,7 +1117,7 @@ export default function RecordPage({ params }: PageProps) {
                   ].join(' ')}
                 >
                   {renderTabIcon(tab.key)}
-                  <span>{tab.label}</span>
+                  <span>{t('record.tab.' + tab.labelKey)}</span>
                 </button>
               );
             })}
@@ -1128,7 +1130,7 @@ export default function RecordPage({ params }: PageProps) {
           <div className="flex h-10 shrink-0 items-center border-b border-gray-200 px-3">
             <span className="inline-flex h-8 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 text-[13px] font-medium text-gray-950 shadow-sm">
               <FileText className="h-3.5 w-3.5" />
-              Details
+              {t('record.details.details')}
             </span>
           </div>
 
@@ -1140,7 +1142,7 @@ export default function RecordPage({ params }: PageProps) {
                 className="flex h-10 w-full items-center gap-2 px-4 text-left text-[13px] font-medium text-gray-900 hover:bg-gray-50"
               >
                 <ChevronDown className={`h-3.5 w-3.5 text-gray-500 transition-transform ${detailsOpen ? '' : '-rotate-90'}`} />
-                Record Details
+                {t('record.details.recordDetails')}
               </button>
 
               <div className={`pb-2 ${detailsOpen ? '' : 'hidden'}`}>
@@ -1156,9 +1158,9 @@ export default function RecordPage({ params }: PageProps) {
                   let bState: AiBadgeState = badgeStates[attribute.id] ?? (hasValue ? 'generated' : 'empty');
                   // Значение НЕ от AI (ручное/импорт/система) не должно показывать «Generated by AI».
                   if ((vSrc === 'MANUAL' || vSrc === 'IMPORT' || vSrc === 'SYSTEM') && bState === 'generated') bState = 'empty';
-                  const bMeta = isAi ? aiBadgeMeta(bState) : null;
+                  const bMeta = isAi ? aiBadgeMeta(bState, t) : null;
                   const BIcon = bMeta?.icon;
-                  const sm = valueSourceMeta(vSrc);
+                  const sm = valueSourceMeta(vSrc, t);
 
                   return (
                     <div
@@ -1192,14 +1194,14 @@ export default function RecordPage({ params }: PageProps) {
                             }}
                             className="flex min-h-[24px] min-w-0 cursor-text items-center rounded-md px-1 py-0.5 outline-none hover:bg-white focus:bg-white focus:ring-2 focus:ring-blue-100"
                           >
-                            {renderDisplayValue(attribute, value)}
+                            {renderDisplayValue(attribute, value, t)}
                           </div>
                         )}
 
                         {isSaving ? (
                           <div className="mt-1 inline-flex items-center gap-1 text-[11px] text-gray-400">
                             <Loader2 className="h-3 w-3 animate-spin" />
-                            Saving
+                            {t('record.field.saving')}
                           </div>
                         ) : null}
 
@@ -1222,14 +1224,14 @@ export default function RecordPage({ params }: PageProps) {
                             <button
                               type="button"
                               onClick={() => void openProvenance(attribute.id)}
-                              title="Provenance — full AI audit timeline"
+                              title={t('record.ai.provenanceTitle')}
                               className={`inline-flex h-6 items-center gap-1 rounded-md border px-1.5 text-[10.5px] font-semibold transition-colors ${
                                 provFor === attribute.id
                                   ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
                                   : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
                               }`}
                             >
-                              <Info className="h-3 w-3" /> Provenance
+                              <Info className="h-3 w-3" /> {t('record.ai.provenance')}
                             </button>
                           </div>
                         ) : null}
@@ -1239,16 +1241,16 @@ export default function RecordPage({ params }: PageProps) {
                           <div className="mt-1.5 rounded-md border border-indigo-100 bg-indigo-50/40 p-2.5 text-[11px]">
                             {provLoading ? (
                               <p className="inline-flex items-center gap-1.5 text-gray-500">
-                                <Loader2 className="h-3 w-3 animate-spin" /> Loading provenance…
+                                <Loader2 className="h-3 w-3 animate-spin" /> {t('record.ai.provenanceLoading')}
                               </p>
                             ) : !prov || (!prov.run && (!prov.timeline || prov.timeline.length === 0)) ? (
-                              <p className="text-gray-500">No AI history yet for this field.</p>
+                              <p className="text-gray-500">{t('record.ai.provenanceEmpty')}</p>
                             ) : (
                               <div className="space-y-2">
                                 <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-gray-600">
                                   {prov.reviewable && prov.underReview ? (
                                     <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-1 text-[10px] font-bold text-amber-700">
-                                      <AlertTriangle className="h-2.5 w-2.5" /> Under review · {prov.confidence ?? '—'}% conf
+                                      <AlertTriangle className="h-2.5 w-2.5" /> {t('record.ai.underReview')} · {prov.confidence ?? '—'}{t('record.ai.confPercent')}
                                     </span>
                                   ) : null}
                                   {prov.review && !prov.underReview ? (
@@ -1260,14 +1262,14 @@ export default function RecordPage({ params }: PageProps) {
                                       {prov.review.status}{prov.review.decidedBy ? ` · ${prov.review.decidedBy}` : ''}
                                     </span>
                                   ) : null}
-                                  <span className="inline-flex items-center gap-1" title="total AI credits actually spent on this cell">
-                                    <Coins className="h-2.5 w-2.5" /> {prov.totalAiCost ?? 0} cr total
+                                  <span className="inline-flex items-center gap-1" title={t('record.ai.totalCostTitle')}>
+                                    <Coins className="h-2.5 w-2.5" /> {t('record.ai.crTotalN', { n: prov.totalAiCost ?? 0 })}
                                   </span>
-                                  <span className="text-gray-400">· {prov.runCount} run{prov.runCount === 1 ? '' : 's'}</span>
+                                  <span className="text-gray-400">· {prov.runCount} {t(prov.runCount === 1 ? 'record.ai.run' : 'record.ai.runs')}</span>
                                 </div>
 
                                 {prov.attribute.prompt || prov.attribute.guidance ? (
-                                  <p className="text-gray-600"><span className="font-semibold text-gray-500">Prompt:</span> {prov.attribute.prompt || prov.attribute.guidance}</p>
+                                  <p className="text-gray-600"><span className="font-semibold text-gray-500">{t('record.ai.prompt')}</span> {prov.attribute.prompt || prov.attribute.guidance}</p>
                                 ) : null}
 
                                 {prov.run && prov.run.status === 'SUCCEEDED' && prov.run.outputText ? (
@@ -1279,10 +1281,10 @@ export default function RecordPage({ params }: PageProps) {
                                 {prov.timeline && prov.timeline.length > 0 ? (
                                   <div className="space-y-1 border-t border-indigo-100 pt-1.5">
                                     <p className="text-[9.5px] font-bold uppercase tracking-[0.08em] text-gray-400">
-                                      Audit timeline · newest first{prov.hasMore ? ` · latest ${prov.runsLimit ?? 10} of ${prov.runCount} runs` : ''}
+                                      {t('record.ai.auditTimeline')}{prov.hasMore ? t('record.ai.auditLatest', { limit: prov.runsLimit ?? 10, count: prov.runCount }) : ''}
                                     </p>
                                     {prov.timeline.map((e, i) => {
-                                      const m = aiTlMeta(e.type, e.source);
+                                      const m = aiTlMeta(e.type, e.source, t);
                                       const showActor = e.actor && e.source !== 'AUTO';
                                       return (
                                         <div key={i} className="flex items-start gap-1.5">
@@ -1291,10 +1293,10 @@ export default function RecordPage({ params }: PageProps) {
                                             <span className="text-[11px] text-gray-800">
                                               <span className={`font-semibold ${m.color}`}>{m.label}</span>
                                               {showActor ? <span className="text-gray-500"> · {e.actor}</span> : null}
-                                              {e.cost > 0 ? <span className="text-gray-400"> · {e.cost} cr</span> : e.type === 'AI_FAILED' || e.type === 'AI_SKIPPED' ? <span className="text-gray-400"> · 0 cr · not charged</span> : null}
-                                              <span className="text-gray-400"> · {aiTimeAgo(e.at)}</span>
+                                              {e.cost > 0 ? <span className="text-gray-400">{t('record.ai.auditCost', { n: e.cost })}</span> : e.type === 'AI_FAILED' || e.type === 'AI_SKIPPED' ? <span className="text-gray-400">{t('record.ai.auditNotCharged')}</span> : null}
+                                              <span className="text-gray-400"> · {aiTimeAgo(e.at, t)}</span>
                                             </span>
-                                            {e.detail ? <p className="truncate text-[10.5px] text-gray-400">{e.type === 'AI_FAILED' ? humanizeAiError(e.detail) : e.detail}</p> : null}
+                                            {e.detail ? <p className="truncate text-[10.5px] text-gray-400">{e.type === 'AI_FAILED' ? humanizeAiError(e.detail, t) : e.detail}</p> : null}
                                           </div>
                                         </div>
                                       );
@@ -1319,26 +1321,26 @@ export default function RecordPage({ params }: PageProps) {
                 className="flex h-10 w-full items-center gap-2 px-4 text-left text-[13px] font-medium text-gray-900 hover:bg-gray-50"
               >
                 <ChevronDown className={`h-3.5 w-3.5 text-gray-500 transition-transform ${systemOpen ? '' : '-rotate-90'}`} />
-                System
+                {t('record.details.system')}
               </button>
 
               <div className={`pb-2 ${systemOpen ? '' : 'hidden'}`}>
                 <div className="grid grid-cols-[128px_minmax(0,1fr)] gap-3 px-4 py-2">
-                  <div className="text-[12px] text-gray-500">Record ID</div>
+                  <div className="text-[12px] text-gray-500">{t('record.details.recordId')}</div>
                   <div className="truncate text-[13px] text-gray-900" title={record.id}>
                     {record.id}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-[128px_minmax(0,1fr)] gap-3 px-4 py-2">
-                  <div className="text-[12px] text-gray-500">Created</div>
+                  <div className="text-[12px] text-gray-500">{t('record.details.created')}</div>
                   <div className="truncate text-[13px] text-gray-900">
                     {record.createdAt ? formatDate(record.createdAt) : '—'}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-[128px_minmax(0,1fr)] gap-3 px-4 py-2">
-                  <div className="text-[12px] text-gray-500">Updated</div>
+                  <div className="text-[12px] text-gray-500">{t('record.details.updated')}</div>
                   <div className="truncate text-[13px] text-gray-900">
                     {record.updatedAt ? formatDate(record.updatedAt) : '—'}
                   </div>

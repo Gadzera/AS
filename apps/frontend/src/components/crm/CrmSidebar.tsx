@@ -28,6 +28,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { listObjects, type CrmObject } from '@/lib/crmApi';
+import { useT } from '@/i18n';
 
 interface StaticNavItem {
   label: string;
@@ -35,14 +36,15 @@ interface StaticNavItem {
   icon: LucideIcon;
 }
 
-const mainNavItems: StaticNavItem[] = [
-  { label: 'Notifications', href: '#', icon: Bell },
-  { label: 'Tasks', href: '#', icon: CheckSquare },
-  { label: 'Notes', href: '#', icon: FileText },
-  { label: 'Emails', href: '#', icon: Mail },
-  { label: 'Calls', href: '#', icon: Phone },
-  { label: 'Reports', href: '#', icon: SquareKanban },
-  { label: 'Automations', href: '#', icon: Zap },
+// Пункты nav-обвязки переводятся (labelKey → crmShell.*); названия списков/объектов — данные.
+const mainNavItems: Array<{ labelKey: string; href: string; icon: LucideIcon }> = [
+  { labelKey: 'notifications', href: '#', icon: Bell },
+  { labelKey: 'tasks', href: '#', icon: CheckSquare },
+  { labelKey: 'notes', href: '#', icon: FileText },
+  { labelKey: 'emails', href: '#', icon: Mail },
+  { labelKey: 'calls', href: '#', icon: Phone },
+  { labelKey: 'reports', href: '#', icon: SquareKanban },
+  { labelKey: 'automations', href: '#', icon: Zap },
 ];
 
 const listItems: StaticNavItem[] = [
@@ -97,6 +99,7 @@ function SidebarItem({
 }
 
 export default function CrmSidebar() {
+  const t = useT();
   const pathname = usePathname();
   const [objects, setObjects] = useState<CrmObject[]>([]);
 
@@ -138,7 +141,7 @@ export default function CrmSidebar() {
         <button
           type="button"
           className="rounded-lg border border-line bg-surface p-1.5 text-ink-subtle shadow-xs transition-colors hover:bg-surface-2 hover:text-ink"
-          aria-label="Toggle sidebar"
+          aria-label={t('crmShell.toggleSidebar')}
         >
           <LayoutGrid className="h-3.5 w-3.5" />
         </button>
@@ -151,7 +154,7 @@ export default function CrmSidebar() {
             className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border border-line bg-surface px-2.5 text-sm text-ink-muted shadow-xs transition-all hover:bg-surface-2 hover:text-ink hover:border-line-strong"
           >
             <Sparkles className="h-4 w-4 text-brand-500" />
-            <span className="truncate">Quick actions</span>
+            <span className="truncate">{t('crmShell.quickActions')}</span>
             <kbd className="ml-auto rounded border border-line bg-surface-2 px-1.5 py-0.5 text-[10px] text-ink-subtle">
               ⌘K
             </kbd>
@@ -160,7 +163,7 @@ export default function CrmSidebar() {
           <Link
             href="#"
             className="flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-ink-subtle shadow-xs transition-all hover:bg-surface-2 hover:text-ink hover:border-line-strong"
-            aria-label="Search"
+            aria-label={t('crmShell.search')}
           >
             <Search className="h-3.5 w-3.5" />
           </Link>
@@ -168,21 +171,21 @@ export default function CrmSidebar() {
 
         <nav className="space-y-0.5">
           {mainNavItems.map((item) => (
-            <SidebarItem key={item.label} href={item.href} icon={item.icon} label={item.label} />
+            <SidebarItem key={item.labelKey} href={item.href} icon={item.icon} label={t('crmShell.' + item.labelKey)} />
           ))}
         </nav>
 
         <div className="mt-5">
           <div className="mb-2 flex items-center gap-1 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-subtle">
             <ChevronDown className="h-3 w-3" />
-            <span>Favorites</span>
+            <span>{t('crmShell.favorites')}</span>
           </div>
         </div>
 
         <div className="mt-4">
           <div className="mb-2 flex items-center gap-1 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-subtle">
             <ChevronDown className="h-3 w-3" />
-            <span>Records</span>
+            <span>{t('crmShell.records')}</span>
           </div>
 
           <nav className="space-y-0.5">
@@ -207,7 +210,7 @@ export default function CrmSidebar() {
         <div className="mt-4">
           <div className="mb-2 flex items-center gap-1 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-subtle">
             <ChevronDown className="h-3 w-3" />
-            <span>Lists</span>
+            <span>{t('crmShell.lists')}</span>
           </div>
 
           <nav className="space-y-0.5">
@@ -215,7 +218,7 @@ export default function CrmSidebar() {
               <SidebarItem key={item.label} href={item.href} icon={item.icon} label={item.label} />
             ))}
 
-            <SidebarItem href="#" icon={CircleDot} label="All lists" />
+            <SidebarItem href="#" icon={CircleDot} label={t('crmShell.allLists')} />
           </nav>
         </div>
       </div>
@@ -224,7 +227,7 @@ export default function CrmSidebar() {
         <SidebarItem
           href="/crm/settings/data/objects"
           icon={Settings}
-          label="Settings / Data"
+          label={t('crmShell.settingsData')}
           active={pathname.startsWith('/crm/settings')}
         />
         <div className="mt-2 flex items-center gap-2.5 rounded-xl border border-line bg-white/70 px-2.5 py-2 shadow-xs">
@@ -232,8 +235,8 @@ export default function CrmSidebar() {
             AI
           </div>
           <div className="min-w-0">
-            <p className="truncate text-[12px] font-semibold text-ink">AISDR workspace</p>
-            <p className="truncate text-[11px] text-ink-muted">Flexible CRM</p>
+            <p className="truncate text-[12px] font-semibold text-ink">{t('crmShell.workspaceName')}</p>
+            <p className="truncate text-[11px] text-ink-muted">{t('crmShell.workspaceTagline')}</p>
           </div>
         </div>
       </div>

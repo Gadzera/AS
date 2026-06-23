@@ -54,6 +54,7 @@ import {
 import { workflowsApi, callsApi, type Workflow, type Call } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import CommentThread from '@/components/data/CommentThread';
+import { useT, type TFunc } from '@/i18n';
 
 // Типы, редактируемые прямо в карточке (остальные показываем read-only с типовым рендером).
 const TEXTUAL = new Set(['TEXT', 'LONG_TEXT', 'NUMBER', 'CURRENCY', 'EMAIL', 'PHONE', 'URL', 'LOCATION']);
@@ -61,12 +62,12 @@ const EDIT_INLINE = new Set([...TEXTUAL, 'SELECT', 'BOOLEAN']);
 const sourceDot: Record<string, string> = { AI: 'bg-brand-500', web: 'bg-cyan-500', mailbox: 'bg-violet-500', human: 'bg-emerald-500', import: 'bg-ink-subtle' };
 
 // M29-1: честное происхождение текущего значения (из record.valueMeta) — больше не хардкод «всегда AI».
-function valueSourceMeta(source: string | undefined): { dot: string; label: string; title: string } {
+function valueSourceMeta(source: string | undefined, t: TFunc): { dot: string; label: string; title: string } {
   switch (source) {
-    case 'AI': return { dot: sourceDot.AI, label: 'AI', title: 'source: AI agent' };
-    case 'IMPORT': return { dot: sourceDot.import, label: 'Import', title: 'source: imported' };
-    case 'SYSTEM': return { dot: sourceDot.mailbox, label: 'System', title: 'source: system/workflow' };
-    default: return { dot: sourceDot.human, label: 'Manual', title: 'source: manually edited — protected from silent AI overwrite' };
+    case 'AI': return { dot: sourceDot.AI, label: t('record.ai.sourceAi'), title: t('record.ai.sourceAiTitle') };
+    case 'IMPORT': return { dot: sourceDot.import, label: t('record.ai.sourceImport'), title: t('record.ai.sourceImportTitle') };
+    case 'SYSTEM': return { dot: sourceDot.mailbox, label: t('record.ai.sourceSystem'), title: t('record.ai.sourceSystemTitle') };
+    default: return { dot: sourceDot.human, label: t('record.ai.sourceManual'), title: t('record.ai.sourceManualTitle') };
   }
 }
 
@@ -77,27 +78,27 @@ function asText(v: CrmRecordValue | undefined): string {
   if (typeof v === 'object') return JSON.stringify(v);
   return String(v);
 }
-function timeAgo(iso: string): string {
+function timeAgo(iso: string, t: TFunc): string {
   const d = Date.parse(iso);
   if (isNaN(d)) return '';
   const s = Math.floor((Date.now() - d) / 1000);
-  if (s < 60) return 'just now';
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return `${Math.floor(s / 86400)}d ago`;
+  if (s < 60) return t('record.activity.justNow');
+  if (s < 3600) return t('record.activity.minAgo', { n: Math.floor(s / 60) });
+  if (s < 86400) return t('record.activity.hourAgo', { n: Math.floor(s / 3600) });
+  return t('record.activity.dayAgo', { n: Math.floor(s / 86400) });
 }
 // M9.8 — мета события аудит-таймлайна (метка + цвет + точка). M25-2: AUTO → «Auto-rerun», SKIPPED-стадия.
-function tlMeta(type: string, source?: string | null): { label: string; color: string; dot: string } {
+function tlMeta(type: string, source: string | null | undefined, t: TFunc): { label: string; color: string; dot: string } {
   switch (type) {
     case 'AI_FILLED':
       return source === 'AUTO'
-        ? { label: 'Auto-rerun · filled', color: 'text-violet-700', dot: 'bg-violet-500' }
-        : { label: 'AI filled', color: 'text-brand-700', dot: 'bg-brand-500' };
-    case 'AI_FAILED': return { label: 'AI run failed', color: 'text-rose-600', dot: 'bg-rose-400' };
-    case 'AI_SKIPPED': return { label: source === 'AUTO' ? 'Auto-rerun · skipped' : 'AI skipped', color: 'text-amber-700', dot: 'bg-amber-400' };
-    case 'REVIEW_APPROVED': return { label: 'Approved', color: 'text-emerald-700', dot: 'bg-emerald-500' };
-    case 'REVIEW_REJECTED': return { label: 'Rejected & cleared', color: 'text-rose-600', dot: 'bg-rose-400' };
-    case 'REVIEW_EDITED': return { label: 'Edited', color: 'text-brand-700', dot: 'bg-brand-500' };
+        ? { label: t('record.ai.tlAutoFilled'), color: 'text-violet-700', dot: 'bg-violet-500' }
+        : { label: t('record.ai.tlAiFilled'), color: 'text-brand-700', dot: 'bg-brand-500' };
+    case 'AI_FAILED': return { label: t('record.ai.tlAiFailed'), color: 'text-rose-600', dot: 'bg-rose-400' };
+    case 'AI_SKIPPED': return { label: source === 'AUTO' ? t('record.ai.tlAutoSkipped') : t('record.ai.tlAiSkipped'), color: 'text-amber-700', dot: 'bg-amber-400' };
+    case 'REVIEW_APPROVED': return { label: t('record.ai.tlApproved'), color: 'text-emerald-700', dot: 'bg-emerald-500' };
+    case 'REVIEW_REJECTED': return { label: t('record.ai.tlRejectedCleared'), color: 'text-rose-600', dot: 'bg-rose-400' };
+    case 'REVIEW_EDITED': return { label: t('record.ai.tlEdited'), color: 'text-brand-700', dot: 'bg-brand-500' };
     default: return { label: type, color: 'text-ink', dot: 'bg-ink-subtle' };
   }
 }
@@ -110,21 +111,21 @@ function deriveBadgeState(p: AiProvenance, hasValue: boolean): AiBadgeState {
   return hasValue ? 'generated' : 'empty';
 }
 // Метка/цвет/иконка badge по стадии. generated/reviewed/edited/rejected — обязательное различие (GPT M25-2).
-function badgeMeta(state: AiBadgeState): { label: string; cls: string; icon: typeof Sparkles } | null {
+function badgeMeta(state: AiBadgeState, t: TFunc): { label: string; cls: string; icon: typeof Sparkles } | null {
   switch (state) {
-    case 'generated': return { label: 'Generated by AI', cls: 'bg-brand-50 text-brand-700', icon: Sparkles };
-    case 'review': return { label: 'AI · under review', cls: 'bg-amber-50 text-amber-700', icon: AlertTriangle };
-    case 'reviewed': return { label: 'AI · reviewed', cls: 'bg-emerald-50 text-emerald-700', icon: Check };
-    case 'edited': return { label: 'AI · edited', cls: 'bg-violet-50 text-violet-700', icon: Pencil };
-    case 'rejected': return { label: 'AI · rejected', cls: 'bg-rose-50 text-rose-600', icon: X };
-    case 'unknown': return { label: 'AI', cls: 'bg-surface-2 text-ink-muted', icon: Sparkles };
+    case 'generated': return { label: t('record.ai.badgeGenerated'), cls: 'bg-brand-50 text-brand-700', icon: Sparkles };
+    case 'review': return { label: t('record.ai.badgeUnderReview'), cls: 'bg-amber-50 text-amber-700', icon: AlertTriangle };
+    case 'reviewed': return { label: t('record.ai.badgeReviewed'), cls: 'bg-emerald-50 text-emerald-700', icon: Check };
+    case 'edited': return { label: t('record.ai.badgeEdited'), cls: 'bg-violet-50 text-violet-700', icon: Pencil };
+    case 'rejected': return { label: t('record.ai.badgeRejected'), cls: 'bg-rose-50 text-rose-600', icon: X };
+    case 'unknown': return { label: t('record.ai.badgeUnknown'), cls: 'bg-surface-2 text-ink-muted', icon: Sparkles };
     default: return null;
   }
 }
 // M9.8 — не утекаем сырую ошибку провайдера в UI (полный текст остаётся в AiRun.error для аудита).
-function humanizeProviderError(err: string): string {
-  if (/DeepSeek|Anthropic|authentication|provider|LLM|aborted|timeout|ECONNREFUSED|fetch failed|\b(401|403|429|5\d\d)\b/i.test(err)) return 'AI provider error — please retry';
-  if (/Запись не найдена|not found/i.test(err)) return 'Record not found (archived/deleted)';
+function humanizeProviderError(err: string, t: TFunc): string {
+  if (/DeepSeek|Anthropic|authentication|provider|LLM|aborted|timeout|ECONNREFUSED|fetch failed|\b(401|403|429|5\d\d)\b/i.test(err)) return t('record.ai.providerError');
+  if (/Запись не найдена|not found/i.test(err)) return t('record.ai.recordNotFound');
   return err.length > 60 ? err.slice(0, 60) + '…' : err;
 }
 // relationship/user/select value → читаемый текст (значение может быть объектом/массивом).
@@ -164,6 +165,7 @@ export default function RecordDrawer({
   onClose: () => void;
   onChanged?: () => void;
 }) {
+  const t = useT();
   const [rec, setRec] = useState<CrmRecord | null>(null);
   const [acts, setActs] = useState<CrmActivity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -347,15 +349,15 @@ export default function RecordDrawer({
         return <div className="flex flex-wrap gap-1">{arr.map((x, i) => <span key={i} className="rounded bg-brand-50 px-1.5 py-0.5 text-[11px] font-medium text-brand-700">{optLabel(a, x as CrmRecordValue)}</span>)}</div>;
       }
       case 'RELATIONSHIP': {
-        const t = refText(v);
-        return t ? <span className="inline-flex items-center gap-1 rounded bg-surface-2 px-1.5 py-0.5 text-[12px] text-ink"><Link2 size={11} className="text-brand-600" />{t}</span> : <span className="text-ink-subtle">—</span>;
+        const txt = refText(v);
+        return txt ? <span className="inline-flex items-center gap-1 rounded bg-surface-2 px-1.5 py-0.5 text-[12px] text-ink"><Link2 size={11} className="text-brand-600" />{txt}</span> : <span className="text-ink-subtle">—</span>;
       }
       case 'USER': {
-        const t = refText(v);
-        return t ? <span className="inline-flex items-center gap-1 text-[12px] text-ink"><UserIcon size={11} className="text-brand-600" />{t}</span> : <span className="text-ink-subtle">—</span>;
+        const txt = refText(v);
+        return txt ? <span className="inline-flex items-center gap-1 text-[12px] text-ink"><UserIcon size={11} className="text-brand-600" />{txt}</span> : <span className="text-ink-subtle">—</span>;
       }
       case 'BOOLEAN':
-        return <span className={asBool(v) ? 'font-medium text-emerald-700' : 'text-ink-subtle'}>{asBool(v) ? 'Yes' : 'No'}</span>;
+        return <span className={asBool(v) ? 'font-medium text-emerald-700' : 'text-ink-subtle'}>{asBool(v) ? t('record.field.yes') : t('record.field.no')}</span>;
       case 'DATE':
       case 'DATETIME':
         return <span className="inline-flex items-center gap-1 text-ink"><Calendar size={11} className="text-ink-subtle" />{fmtDate(v)}</span>;
@@ -386,7 +388,7 @@ export default function RecordDrawer({
       return (
         <label className="inline-flex items-center gap-1.5">
           <input type="checkbox" checked={draft[a.key] === 'true'} onChange={(e) => setDraft((d) => ({ ...d, [a.key]: e.target.checked ? 'true' : 'false' }))} className="h-3.5 w-3.5 rounded border-line text-brand-600" />
-          <span className="text-[12px] text-ink">{draft[a.key] === 'true' ? 'Yes' : 'No'}</span>
+          <span className="text-[12px] text-ink">{draft[a.key] === 'true' ? t('record.field.yes') : t('record.field.no')}</span>
         </label>
       );
     }
@@ -439,13 +441,13 @@ export default function RecordDrawer({
         </div>
 
         {loading ? (
-          <div className="flex flex-1 items-center justify-center gap-2 text-[13px] text-ink-subtle"><Loader2 size={16} className="animate-spin" /> Loading…</div>
+          <div className="flex flex-1 items-center justify-center gap-2 text-[13px] text-ink-subtle"><Loader2 size={16} className="animate-spin" /> {t('record.errors.pageLoading')}</div>
         ) : (
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
             {/* agent band */}
             <div className="rounded-xl border border-line bg-gradient-to-br from-brand-50/70 to-surface p-3.5">
               <div className="flex items-center justify-between">
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-brand-700"><Bot size={13} /> Agent status</span>
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-brand-700"><Bot size={13} /> {t('record.drawer.agentStatus')}</span>
                 <div className="flex items-center gap-1.5">
                   {/* M17-5: запуск published record-workflow прямо из карточки */}
                   <RunWorkflowButton recordId={recordId} />
@@ -454,27 +456,27 @@ export default function RecordDrawer({
                       type="button"
                       disabled={busy.has(researchAttr.id)}
                       onClick={() => runField(researchAttr.id)}
-                      title={`Runs the “${researchAttr.name}” AI field for this record`}
+                      title={t('record.drawer.runResearchTooltip', { name: researchAttr.name })}
                       className="inline-flex h-7 items-center gap-1.5 rounded-md bg-brand-600 px-2.5 text-[11.5px] font-semibold text-white shadow-xs hover:bg-brand-700 disabled:opacity-60"
                     >
                       {busy.has(researchAttr.id) ? <Loader2 size={12} className="animate-spin" /> : <FlaskConical size={12} />}
-                      {busy.has(researchAttr.id) ? 'Researching…' : 'Run research'}
+                      {busy.has(researchAttr.id) ? t('record.drawer.researching') : t('record.drawer.runResearch')}
                     </button>
                   )}
                 </div>
               </div>
               <div className="mt-2.5 flex items-center gap-4">
                 <div>
-                  <p className="text-[10px] font-medium uppercase tracking-wide text-ink-subtle">ICP fit</p>
+                  <p className="text-[10px] font-medium uppercase tracking-wide text-ink-subtle">{t('record.drawer.icpFit')}</p>
                   {fit ? (
                     <span className="mt-1 inline-flex items-center gap-1.5">
                       <span className={`rounded px-1.5 py-0.5 text-[12px] font-bold ${fitTone}`}>{fit} · {icp}</span>
-                      {icpConf != null && <span className="text-[10px] font-bold text-ink-subtle">{icpConf}% conf</span>}
+                      {icpConf != null && <span className="text-[10px] font-bold text-ink-subtle">{icpConf}{t('record.ai.confPercent')}</span>}
                     </span>
-                  ) : <p className="mt-1 text-[12px] text-ink-subtle">— not scored</p>}
+                  ) : <p className="mt-1 text-[12px] text-ink-subtle">{t('data.notScored')}</p>}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-medium uppercase tracking-wide text-ink-subtle">Last agent action</p>
+                  <p className="text-[10px] font-medium uppercase tracking-wide text-ink-subtle">{t('data.col.lastAction')}</p>
                   <p className="mt-1 truncate text-[12px] font-medium text-ink">{asText(values.last_agent_action) || '—'}</p>
                 </div>
               </div>
@@ -483,7 +485,7 @@ export default function RecordDrawer({
             {/* AI attributes & provenance */}
             {aiAttrs.length > 0 && (
               <section className="mt-5">
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.1em] text-ink-subtle">AI attributes & provenance</p>
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.1em] text-ink-subtle">{t('record.drawer.aiProvenance')}</p>
                 <div className="space-y-2">
                   {aiAttrs.map((a) => {
                     const raw = asText(values[a.key]);
@@ -493,7 +495,7 @@ export default function RecordDrawer({
                     // M29-1: значение НЕ от AI (ручное/импорт/система) не должно показывать «Generated by AI».
                     // Review-стадии (review/reviewed/edited/rejected) оставляем — они отражают реальное решение по ValueReview.
                     if ((vSrc === 'MANUAL' || vSrc === 'IMPORT' || vSrc === 'SYSTEM') && bState === 'generated') bState = 'empty';
-                    const bMeta = badgeMeta(bState);
+                    const bMeta = badgeMeta(bState, t);
                     const BIcon = bMeta?.icon;
                     return (
                       <div key={a.id} className="rounded-lg border border-line bg-surface p-2.5">
@@ -504,7 +506,7 @@ export default function RecordDrawer({
                           <span className="ml-auto inline-flex items-center gap-1">
                             {/* M29-1: значок происхождения — только у заполненного поля (у пустого происхождения нет). */}
                             {raw && (() => {
-                              const sm = valueSourceMeta(rec?.valueMeta?.[a.key]?.source);
+                              const sm = valueSourceMeta(rec?.valueMeta?.[a.key]?.source, t);
                               return (
                                 <span className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide text-ink-subtle" title={sm.title}>
                                   <span className={`h-1.5 w-1.5 rounded-full ${sm.dot}`} /> {sm.label}
@@ -514,10 +516,10 @@ export default function RecordDrawer({
                             <button
                               type="button"
                               onClick={() => openProvenance(a.id)}
-                              title="Provenance — full AI audit timeline"
+                              title={t('record.ai.provenanceTitle')}
                               className={`inline-flex h-6 items-center gap-1 rounded-md border px-1.5 text-[10.5px] font-semibold transition-colors ${provFor === a.id ? 'border-brand-300 bg-brand-50 text-brand-700' : 'border-line bg-surface text-ink-muted hover:bg-surface-2'}`}
                             >
-                              <Info size={11} /> Provenance
+                              <Info size={11} /> {t('record.ai.provenance')}
                             </button>
                             {a.aiEnabled && (
                               <button
@@ -526,7 +528,7 @@ export default function RecordDrawer({
                                 onClick={() => runField(a.id)}
                                 className="inline-flex h-6 items-center gap-1 rounded-md border border-line bg-surface px-1.5 text-[10.5px] font-semibold text-brand-700 hover:bg-brand-50 disabled:opacity-60"
                               >
-                                {busy.has(a.id) ? <Loader2 size={10} className="animate-spin" /> : raw ? 'Re-run' : 'Run'}
+                                {busy.has(a.id) ? <Loader2 size={10} className="animate-spin" /> : raw ? t('record.drawer.reRun') : t('record.ai.runWord')}
                               </button>
                             )}
                           </span>
@@ -542,18 +544,18 @@ export default function RecordDrawer({
                           </div>
                         ) : bState === 'rejected' ? (
                           <div className="mt-1.5 flex items-center gap-1.5">
-                            <span className="shrink-0 inline-flex items-center gap-0.5 rounded bg-rose-50 px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide text-rose-600"><X size={8} /> AI · rejected</span>
-                            <span className="text-[11px] text-ink-subtle">Value was rejected &amp; cleared.</span>
+                            <span className="shrink-0 inline-flex items-center gap-0.5 rounded bg-rose-50 px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide text-rose-600"><X size={8} /> {t('record.ai.badgeRejected')}</span>
+                            <span className="text-[11px] text-ink-subtle">{t('record.ai.rejectedCleared')}</span>
                           </div>
                         ) : a.aiEnabled ? (
-                          <p className="mt-1.5 text-[11px] text-ink-subtle">Not generated yet — click <span className="font-semibold text-brand-700">Run</span>.</p>
+                          <p className="mt-1.5 text-[11px] text-ink-subtle">{t('record.ai.notGeneratedPrefix')} <span className="font-semibold text-brand-700">{t('record.ai.runWord')}</span>.</p>
                         ) : null}
 
                         {/* M29-1: inline-подтверждение перезаписи РУЧНОГО значения (вместо native confirm; защита ручных данных) */}
                         {conflictAttr === a.id && (
                           <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 p-2.5">
                             <p className="mb-2 flex items-start gap-1.5 text-[11.5px] font-medium leading-snug text-amber-800">
-                              <AlertTriangle size={13} className="mt-px shrink-0" /> This value was manually edited. Overwrite with AI?
+                              <AlertTriangle size={13} className="mt-px shrink-0" /> {t('record.ai.manualConflict')}
                             </p>
                             <div className="flex items-center gap-1.5">
                               <button
@@ -561,14 +563,14 @@ export default function RecordDrawer({
                                 onClick={() => void runField(a.id, true)}
                                 className="inline-flex items-center gap-1 rounded-md bg-brand-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-brand-700"
                               >
-                                <Sparkles size={11} /> Overwrite with AI
+                                <Sparkles size={11} /> {t('record.ai.overwriteWithAi')}
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setConflictAttr(null)}
                                 className="rounded-md border border-line px-2.5 py-1 text-[11px] font-semibold text-ink-muted hover:bg-surface-2"
                               >
-                                Keep manual
+                                {t('record.ai.keepManual')}
                               </button>
                             </div>
                           </div>
@@ -578,25 +580,25 @@ export default function RecordDrawer({
                         {provFor === a.id && (
                           <div className="mt-2 rounded-md border border-brand-100 bg-brand-50/40 p-2.5 text-[11px]">
                             {provLoading ? (
-                              <p className="inline-flex items-center gap-1.5 text-ink-subtle"><Loader2 size={11} className="animate-spin" /> Loading provenance…</p>
+                              <p className="inline-flex items-center gap-1.5 text-ink-subtle"><Loader2 size={11} className="animate-spin" /> {t('record.ai.provenanceLoading')}</p>
                             ) : !prov || (!prov.run && (!prov.timeline || prov.timeline.length === 0)) ? (
-                              <p className="text-ink-subtle">No AI history yet for this field.{a.aiEnabled ? <> Click <span className="font-semibold text-brand-700">Run</span> to generate a value.</> : null}</p>
+                              <p className="text-ink-subtle">{t('record.ai.provenanceEmpty')}{a.aiEnabled ? <> {t('record.ai.clickRunPrefix')} <span className="font-semibold text-brand-700">{t('record.ai.runWord')}</span> {t('record.ai.clickRunSuffix')}</> : null}</p>
                             ) : (
                               <div className="space-y-2">
                                 {/* статус-строка: review-статус + стоимость по ячейке + кол-во запусков */}
                                 <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-ink-muted">
                                   {prov.reviewable && prov.underReview && (
-                                    <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-1 text-[10px] font-bold text-amber-700"><AlertTriangle size={10} /> Under review · {prov.confidence ?? '—'}% conf</span>
+                                    <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-1 text-[10px] font-bold text-amber-700"><AlertTriangle size={10} /> {t('record.ai.underReview')} · {prov.confidence ?? '—'}{t('record.ai.confPercent')}</span>
                                   )}
                                   {prov.review && !prov.underReview && (
                                     <span className={`inline-flex items-center gap-1 rounded px-1 text-[10px] font-bold ${prov.review.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700' : prov.review.status === 'REJECTED' ? 'bg-rose-50 text-rose-600' : 'bg-brand-50 text-brand-700'}`}>{prov.review.status}{prov.review.decidedBy ? ` · ${prov.review.decidedBy}` : ''}</span>
                                   )}
-                                  <span className="inline-flex items-center gap-1" title="total AI credits actually spent on this cell"><Coins size={10} /> {prov.totalAiCost ?? 0} cr total</span>
-                                  <span className="text-ink-subtle">· {prov.runCount} run{prov.runCount === 1 ? '' : 's'}</span>
+                                  <span className="inline-flex items-center gap-1" title={t('record.ai.totalCostTitle')}><Coins size={10} /> {t('record.ai.crTotalN', { n: prov.totalAiCost ?? 0 })}</span>
+                                  <span className="text-ink-subtle">· {prov.runCount} {t(prov.runCount === 1 ? 'record.ai.run' : 'record.ai.runs')}</span>
                                 </div>
 
                                 {(prov.attribute.prompt || prov.attribute.guidance) && (
-                                  <p className="text-ink-muted"><span className="font-semibold text-ink-subtle">Prompt:</span> {prov.attribute.prompt || prov.attribute.guidance}</p>
+                                  <p className="text-ink-muted"><span className="font-semibold text-ink-subtle">{t('record.ai.prompt')}</span> {prov.attribute.prompt || prov.attribute.guidance}</p>
                                 )}
 
                                 {/* латест успешный output */}
@@ -607,17 +609,17 @@ export default function RecordDrawer({
                                 {/* audit timeline — newest-first: runs + review decisions */}
                                 {prov.timeline && prov.timeline.length > 0 && (
                                   <div className="space-y-1 border-t border-brand-100 pt-1.5">
-                                    <p className="text-[9.5px] font-bold uppercase tracking-[0.08em] text-ink-subtle">Audit timeline · newest first{prov.hasMore ? ` · latest ${prov.runsLimit ?? 10} of ${prov.runCount} runs` : ''}</p>
+                                    <p className="text-[9.5px] font-bold uppercase tracking-[0.08em] text-ink-subtle">{t('record.ai.auditTimeline')}{prov.hasMore ? t('record.ai.auditLatest', { limit: prov.runsLimit ?? 10, count: prov.runCount }) : ''}</p>
                                     {prov.timeline.map((e, i) => {
-                                      const m = tlMeta(e.type, e.source);
+                                      const m = tlMeta(e.type, e.source, t);
                                       // AUTO: метка уже несёт «Auto-rerun» — не дублируем как actor.
                                       const showActor = e.actor && e.source !== 'AUTO';
                                       return (
                                         <div key={i} className="flex items-start gap-1.5">
                                           <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${m.dot}`} />
                                           <div className="min-w-0 flex-1">
-                                            <span className="text-[11px] text-ink"><span className={`font-semibold ${m.color}`}>{m.label}</span>{showActor ? <span className="text-ink-muted"> · {e.actor}</span> : null}{e.cost > 0 ? <span className="text-ink-subtle"> · {e.cost} cr</span> : e.type === 'AI_FAILED' || e.type === 'AI_SKIPPED' ? <span className="text-ink-subtle"> · 0 cr · not charged</span> : null}<span className="text-ink-subtle"> · {timeAgo(e.at)}</span></span>
-                                            {e.detail && <p className="truncate text-[10.5px] text-ink-subtle">{e.type === 'AI_FAILED' ? humanizeProviderError(e.detail) : e.detail}</p>}
+                                            <span className="text-[11px] text-ink"><span className={`font-semibold ${m.color}`}>{m.label}</span>{showActor ? <span className="text-ink-muted"> · {e.actor}</span> : null}{e.cost > 0 ? <span className="text-ink-subtle">{t('record.ai.auditCost', { n: e.cost })}</span> : e.type === 'AI_FAILED' || e.type === 'AI_SKIPPED' ? <span className="text-ink-subtle">{t('record.ai.auditNotCharged')}</span> : null}<span className="text-ink-subtle"> · {timeAgo(e.at, t)}</span></span>
+                                            {e.detail && <p className="truncate text-[10.5px] text-ink-subtle">{e.type === 'AI_FAILED' ? humanizeProviderError(e.detail, t) : e.detail}</p>}
                                           </div>
                                         </div>
                                       );
@@ -634,13 +636,13 @@ export default function RecordDrawer({
                           isDossier ? (
                             <div className="mt-2">
                               <button type="button" onClick={() => setShowDossier((v) => !v)} className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-ink-subtle hover:text-ink">
-                                <ChevronDown size={11} className={showDossier ? '' : '-rotate-90'} /> Dossier
+                                <ChevronDown size={11} className={showDossier ? '' : '-rotate-90'} /> {t('record.ai.dossier')}
                               </button>
                               {showDossier && <p className="mt-1 whitespace-pre-wrap rounded-md bg-surface-2/60 p-2 text-[11.5px] leading-relaxed text-ink-muted">{raw}</p>}
                             </div>
                           ) : null
                         ) : (
-                          <p className="mt-1.5 text-[11.5px] italic text-ink-subtle">not filled yet</p>
+                          <p className="mt-1.5 text-[11.5px] italic text-ink-subtle">{t('record.ai.notFilledYet')}</p>
                         )}
                       </div>
                     );
@@ -652,16 +654,16 @@ export default function RecordDrawer({
             {/* fields */}
             <section className="mt-5">
               <div className="mb-2 flex items-center justify-between">
-                <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-ink-subtle">Fields</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-ink-subtle">{t('record.drawer.fields')}</p>
                 {edit ? (
                   <div className="flex items-center gap-1.5">
-                    <button type="button" onClick={() => setEdit(false)} className="text-[11px] font-medium text-ink-muted hover:text-ink">Cancel</button>
+                    <button type="button" onClick={() => setEdit(false)} className="text-[11px] font-medium text-ink-muted hover:text-ink">{t('record.drawer.cancel')}</button>
                     <button type="button" disabled={saving} onClick={save} className="inline-flex h-6 items-center gap-1 rounded-md bg-brand-600 px-2 text-[11px] font-semibold text-white hover:bg-brand-700 disabled:opacity-60">
-                      {saving ? <Loader2 size={10} className="animate-spin" /> : <Check size={11} />} Save
+                      {saving ? <Loader2 size={10} className="animate-spin" /> : <Check size={11} />} {t('record.drawer.save')}
                     </button>
                   </div>
                 ) : (
-                  <button type="button" onClick={startEdit} className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 hover:underline"><Pencil size={10} /> Edit</button>
+                  <button type="button" onClick={startEdit} className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 hover:underline"><Pencil size={10} /> {t('record.drawer.edit')}</button>
                 )}
               </div>
               <div className="rounded-lg border border-line [&>*:first-child]:rounded-t-lg [&>*:last-child]:rounded-b-lg">
@@ -674,11 +676,11 @@ export default function RecordDrawer({
                       {a.type === 'RELATIONSHIP' ? (
                         <RelationshipField a={a} value={values[a.key]} recordId={recordId} onChanged={async () => { await load(); onChanged?.(); }} />
                       ) : edit && EDIT_INLINE.has(a.type) ? editor(a) : display(a)}
-                      {edit && a.type !== 'RELATIONSHIP' && !EDIT_INLINE.has(a.type) && <span className="ml-1 text-[10px] text-ink-subtle">(read-only here)</span>}
+                      {edit && a.type !== 'RELATIONSHIP' && !EDIT_INLINE.has(a.type) && <span className="ml-1 text-[10px] text-ink-subtle">{t('record.field.readOnlyHere')}</span>}
                     </div>
                   </div>
                 ))}
-                {fieldAttrs.length === 0 && <p className="px-3 py-2 text-[12px] text-ink-subtle">No fields.</p>}
+                {fieldAttrs.length === 0 && <p className="px-3 py-2 text-[12px] text-ink-subtle">{t('record.field.noFields')}</p>}
               </div>
             </section>
 
@@ -695,16 +697,16 @@ export default function RecordDrawer({
 
             {/* activity */}
             <section className="mt-5 pb-4">
-              <p className="mb-2 inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-ink-subtle"><History size={11} /> Activity</p>
+              <p className="mb-2 inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-ink-subtle"><History size={11} /> {t('record.tab.activity')}</p>
               {acts.length === 0 ? (
-                <p className="text-[12px] text-ink-subtle">No activity yet.</p>
+                <p className="text-[12px] text-ink-subtle">{t('record.activity.noActivityYet')}</p>
               ) : (
                 <ol className="relative space-y-3 border-l border-line pl-4">
                   {acts.map((a) => (
                     <li key={a.id} className="relative">
                       <span className={`absolute -left-[21px] top-1 h-2 w-2 rounded-full ring-2 ring-surface ${a.redacted ? 'bg-amber-400' : 'bg-brand-400'}`} />
-                      <p className="text-[12px] font-medium text-ink">{a.redacted ? a.type.replace(/_/g, ' ').toLowerCase() : (a.title || a.type)}{a.redacted ? <span className="ml-1.5 inline-flex items-center gap-0.5 rounded-full bg-amber-50 px-1.5 py-0.5 text-[9.5px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-200"><Lock size={9} /> restricted</span> : null}</p>
-                      <p className="inline-flex items-center gap-1 text-[10.5px] text-ink-subtle"><Clock size={9} /> {timeAgo(a.createdAt)}{a.actor?.name ? ` · ${a.actor.name}` : ''}</p>
+                      <p className="text-[12px] font-medium text-ink">{a.redacted ? a.type.replace(/_/g, ' ').toLowerCase() : (a.title || a.type)}{a.redacted ? <span className="ml-1.5 inline-flex items-center gap-0.5 rounded-full bg-amber-50 px-1.5 py-0.5 text-[9.5px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-200"><Lock size={9} /> {t('record.activity.restrictedLower')}</span> : null}</p>
+                      <p className="inline-flex items-center gap-1 text-[10.5px] text-ink-subtle"><Clock size={9} /> {timeAgo(a.createdAt, t)}{a.actor?.name ? ` · ${a.actor.name}` : ''}</p>
                     </li>
                   ))}
                 </ol>
@@ -739,6 +741,7 @@ function toLinked(v: CrmRecordValue | undefined): Linked[] {
 /* REL-2: обратные связи. Каждая группа = записи source-объекта, ссылающиеся на эту через forward-связь.
    Read-only проекция forward-данных; add/remove пишут ТОЛЬКО forward (rebind для *_TO_ONE на backend). */
 function ReverseRelationships({ recordId, onChanged }: { recordId: string; onChanged: () => Promise<void> }) {
+  const t = useT();
   const [groups, setGroups] = useState<ReverseGroup[] | null>(null);
   const reload = useCallback(() => { getReverseGroups(recordId).then(setGroups).catch(() => setGroups([])); }, [recordId]);
   useEffect(() => { reload(); }, [reload]);
@@ -747,7 +750,7 @@ function ReverseRelationships({ recordId, onChanged }: { recordId: string; onCha
   if (!groups || shown.length === 0) return null;
   return (
     <section className="mt-5">
-      <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.1em] text-ink-subtle">Related from other records</p>
+      <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.1em] text-ink-subtle">{t('record.rel.relatedFrom')}</p>
       <div className="space-y-2.5">
         {shown.map((g) => <ReverseGroupCard key={g.attributeId} recordId={recordId} group={g} onChanged={onChanged} />)}
       </div>
@@ -756,6 +759,7 @@ function ReverseRelationships({ recordId, onChanged }: { recordId: string; onCha
 }
 
 function ReverseGroupCard({ recordId, group, onChanged }: { recordId: string; group: ReverseGroup; onChanged: () => Promise<void> }) {
+  const t = useT();
   const [g, setG] = useState<ReverseGroup>(group);
   const [recs, setRecs] = useState(group.records);
   const [adding, setAdding] = useState(false);
@@ -784,23 +788,23 @@ function ReverseGroupCard({ recordId, group, onChanged }: { recordId: string; gr
   useEffect(() => {
     if (!adding) return;
     let alive = true;
-    const t = setTimeout(async () => {
+    const timer = setTimeout(async () => {
       try { const r = await listRecords({ objectKey: g.sourceObjectKey, search: q.trim(), limit: 6 }); if (alive) setResults(r.records.filter((rec) => !recs.some((x) => x.id === rec.id))); }
       catch { if (alive) setResults([]); }
     }, 250);
-    return () => { alive = false; clearTimeout(t); };
+    return () => { alive = false; clearTimeout(timer); };
   }, [q, adding, g.sourceObjectKey, recs]);
 
   async function add(sourceRecordId: string) {
     setBusy(true); setErr(null);
     try { await reverseLinkAdd(recordId, g.attributeId, sourceRecordId); setQ(''); setResults([]); setAdding(false); await refetchWindow(); await onChanged(); }
-    catch (e: unknown) { setErr((e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Could not link'); }
+    catch (e: unknown) { setErr((e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? t('record.rel.couldNotLink')); }
     finally { setBusy(false); }
   }
   async function remove(sourceRecordId: string) {
     setBusy(true); setErr(null);
     try { await reverseLinkRemove(recordId, g.attributeId, sourceRecordId); await refetchWindow(); await onChanged(); }
-    catch (e: unknown) { setErr((e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Could not unlink'); }
+    catch (e: unknown) { setErr((e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? t('record.rel.couldNotUnlink')); }
     finally { setBusy(false); }
   }
 
@@ -811,38 +815,38 @@ function ReverseGroupCard({ recordId, group, onChanged }: { recordId: string; gr
           <Link2 size={11} className="shrink-0 text-brand-600" />
           <span className="truncate text-[12px] font-semibold text-ink">{g.name}</span>
           <span className="shrink-0 rounded-full bg-surface-2 px-1.5 py-0.5 text-[10px] font-bold text-ink-muted">{g.total}</span>
-          {g.reverseOfLabel && <span className="truncate text-[10.5px] text-ink-subtle">· reverse of {g.reverseOfLabel}</span>}
+          {g.reverseOfLabel && <span className="truncate text-[10.5px] text-ink-subtle">· {t('record.rel.reverseOf')} {g.reverseOfLabel}</span>}
         </div>
-        {g.editable && !adding && <button type="button" onClick={() => setAdding(true)} className="inline-flex shrink-0 items-center gap-0.5 rounded-md border border-line px-1.5 py-0.5 text-[10px] font-semibold text-ink-muted hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"><Plus size={10} /> Link</button>}
+        {g.editable && !adding && <button type="button" onClick={() => setAdding(true)} className="inline-flex shrink-0 items-center gap-0.5 rounded-md border border-line px-1.5 py-0.5 text-[10px] font-semibold text-ink-muted hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"><Plus size={10} /> {t('record.rel.link')}</button>}
       </div>
 
       {recs.length > 0 ? (
         <div className="flex flex-wrap gap-1">
           {recs.map((r) => (
             <span key={r.id} className="inline-flex items-center gap-1 rounded bg-surface-2 px-1.5 py-0.5 text-[11.5px] text-ink">
-              <a href={r.href} className="hover:text-brand-700 hover:underline">{r.displayName || '(no name)'}</a>
-              {g.editable && <button type="button" disabled={busy} onClick={() => remove(r.id)} title="Unlink" className="ml-0.5 text-ink-subtle hover:text-rose-600 disabled:opacity-50"><X size={10} /></button>}
+              <a href={r.href} className="hover:text-brand-700 hover:underline">{r.displayName || t('record.field.noName')}</a>
+              {g.editable && <button type="button" disabled={busy} onClick={() => remove(r.id)} title={t('record.rel.unlink')} className="ml-0.5 text-ink-subtle hover:text-rose-600 disabled:opacity-50"><X size={10} /></button>}
             </span>
           ))}
         </div>
-      ) : g.hiddenCount > 0 ? null : <p className="text-[11.5px] text-ink-subtle">No linked records yet.</p>}
+      ) : g.hiddenCount > 0 ? null : <p className="text-[11.5px] text-ink-subtle">{t('record.rel.noLinkedYet')}</p>}
 
       {/* RBAC: записи скрыты — показываем только число, без id/имён */}
-      {g.hiddenCount > 0 && <p className="mt-1 inline-flex items-center gap-1 text-[11px] text-ink-subtle"><Lock size={10} /> {g.hiddenCount} record{g.hiddenCount === 1 ? '' : 's'} — you don’t have access to this object’s data.</p>}
+      {g.hiddenCount > 0 && <p className="mt-1 inline-flex items-center gap-1 text-[11px] text-ink-subtle"><Lock size={10} /> {t('record.rel.hidden', { n: g.hiddenCount, word: t(g.hiddenCount === 1 ? 'record.rel.recordSingular' : 'record.rel.recordPlural') })}</p>}
 
-      {g.hasMore && <button type="button" onClick={showMore} className="mt-1.5 text-[11px] font-semibold text-brand-700 hover:underline">Show more ({g.total - recs.length})</button>}
+      {g.hasMore && <button type="button" onClick={showMore} className="mt-1.5 text-[11px] font-semibold text-brand-700 hover:underline">{t('record.rel.showMore', { n: g.total - recs.length })}</button>}
 
       {adding && (
         <div className="mt-2 rounded-md border border-line bg-surface-2/40 p-1.5">
           <div className="flex items-center gap-1.5">
             <Search size={11} className="text-ink-subtle" />
-            <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Search ${g.sourceObjectKey}…`} className="min-w-0 flex-1 bg-transparent text-[12px] text-ink outline-none placeholder:text-ink-subtle" />
+            <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('record.rel.search', { obj: g.sourceObjectKey })} className="min-w-0 flex-1 bg-transparent text-[12px] text-ink outline-none placeholder:text-ink-subtle" />
             <button type="button" onClick={() => { setAdding(false); setQ(''); }} className="text-ink-subtle hover:text-ink"><X size={12} /></button>
           </div>
           {results.length > 0 && (
             <div className="mt-1 max-h-40 overflow-y-auto">
               {results.map((r) => (
-                <button key={r.id} type="button" disabled={busy} onClick={() => add(r.id)} className="block w-full truncate rounded px-1.5 py-1 text-left text-[12px] text-ink hover:bg-brand-50 disabled:opacity-50">{r.displayName || '(no name)'}</button>
+                <button key={r.id} type="button" disabled={busy} onClick={() => add(r.id)} className="block w-full truncate rounded px-1.5 py-1 text-left text-[12px] text-ink hover:bg-brand-50 disabled:opacity-50">{r.displayName || t('record.field.noName')}</button>
               ))}
             </div>
           )}
@@ -854,6 +858,7 @@ function ReverseGroupCard({ recordId, group, onChanged }: { recordId: string; gr
 }
 
 function RelationshipField({ a, value, recordId, onChanged }: { a: CrmAttribute; value: CrmRecordValue | undefined; recordId: string; onChanged: () => Promise<void> }) {
+  const t = useT();
   const targetKey = String(a.config?.targetObjectKey ?? a.config?.relationObjectKey ?? '');
   const linked = toLinked(value);
   const [open, setOpen] = useState(false);
@@ -865,12 +870,12 @@ function RelationshipField({ a, value, recordId, onChanged }: { a: CrmAttribute;
   useEffect(() => {
     if (!open || !targetKey) { setResults([]); return; }
     let alive = true; setSearching(true);
-    const t = setTimeout(async () => {
+    const timer = setTimeout(async () => {
       try { const r = await listRecords({ objectKey: targetKey, search: q.trim(), limit: 6 }); if (alive) setResults(r.records.filter((rec) => rec.id !== recordId)); }
       catch { if (alive) setResults([]); }
       finally { if (alive) setSearching(false); }
     }, 220);
-    return () => { alive = false; clearTimeout(t); };
+    return () => { alive = false; clearTimeout(timer); };
   }, [q, open, targetKey, recordId]);
 
   async function setLink(ids: string[]) {
@@ -891,11 +896,11 @@ function RelationshipField({ a, value, recordId, onChanged }: { a: CrmAttribute;
         {linked.map((l) => (
           <span key={l.id} className="inline-flex items-center gap-1 rounded-md border border-line bg-surface-2 px-1.5 py-0.5 text-[12px] text-ink">
             <Link2 size={11} className="text-brand-600" />{l.displayName}
-            <button type="button" disabled={busy} onClick={() => setLink(linked.filter((x) => x.id !== l.id).map((x) => x.id))} title="Unlink" className="ml-0.5 text-ink-subtle hover:text-rose-600 disabled:opacity-50"><X size={11} /></button>
+            <button type="button" disabled={busy} onClick={() => setLink(linked.filter((x) => x.id !== l.id).map((x) => x.id))} title={t('record.rel.unlink')} className="ml-0.5 text-ink-subtle hover:text-rose-600 disabled:opacity-50"><X size={11} /></button>
           </span>
         ))}
         <button type="button" disabled={busy} onClick={() => setOpen((v) => !v)} className="inline-flex items-center gap-1 rounded-md border border-dashed border-line px-1.5 py-0.5 text-[11.5px] font-medium text-ink-muted hover:border-brand-300 hover:text-brand-600 disabled:opacity-50">
-          {busy ? <Loader2 size={10} className="animate-spin" /> : <Plus size={11} />} {linked.length ? 'Change' : 'Link'}
+          {busy ? <Loader2 size={10} className="animate-spin" /> : <Plus size={11} />} {linked.length ? t('record.rel.change') : t('record.rel.link')}
         </button>
       </div>
 
@@ -903,15 +908,15 @@ function RelationshipField({ a, value, recordId, onChanged }: { a: CrmAttribute;
         <div className="absolute left-0 top-full z-20 mt-1 w-64 overflow-hidden rounded-lg border border-line bg-surface shadow-lg">
           <div className="flex items-center gap-1.5 border-b border-line px-2">
             <Search size={12} className="shrink-0 text-ink-subtle" />
-            <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Search ${targetKey}…`} className="h-8 flex-1 bg-transparent text-[12.5px] text-ink outline-none placeholder:text-ink-subtle" />
+            <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('record.rel.search', { obj: targetKey })} className="h-8 flex-1 bg-transparent text-[12.5px] text-ink outline-none placeholder:text-ink-subtle" />
             {searching && <Loader2 size={11} className="animate-spin text-ink-subtle" />}
           </div>
           <div className="max-h-52 overflow-y-auto p-1">
             {results.length === 0 ? (
-              <p className="px-2 py-3 text-center text-[12px] text-ink-subtle">{q.trim() ? 'No matches' : 'Type to search…'}</p>
+              <p className="px-2 py-3 text-center text-[12px] text-ink-subtle">{q.trim() ? t('record.rel.noMatches') : t('record.rel.typeToSearch')}</p>
             ) : results.map((r) => (
               <button key={r.id} type="button" disabled={busy} onClick={() => setLink([r.id])} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12.5px] text-ink hover:bg-surface-2 disabled:opacity-50">
-                <Link2 size={12} className="shrink-0 text-brand-600" /><span className="truncate">{r.displayName || 'Untitled'}</span>
+                <Link2 size={12} className="shrink-0 text-brand-600" /><span className="truncate">{r.displayName || t('record.field.untitled')}</span>
               </button>
             ))}
           </div>
@@ -923,6 +928,7 @@ function RelationshipField({ a, value, recordId, onChanged }: { a: CrmAttribute;
 
 /* M17-5: запуск published record-совместимого workflow из RecordDrawer (тот же POST /:id/run, clientRequestId). */
 function RunWorkflowButton({ recordId }: { recordId: string }) {
+  const t = useT();
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const [list, setList] = useState<Workflow[] | null>(null);
@@ -937,17 +943,17 @@ function RunWorkflowButton({ recordId }: { recordId: string }) {
   }
   async function run(w: Workflow) {
     setBusy(true);
-    try { const r = await workflowsApi.runManual(w.id, { clientRequestId: crypto.randomUUID(), recordId }); toast.success(r.deduped ? 'Already run (deduped)' : `Ran · ${w.name}`, `Status: ${r.status ?? '—'}`); setOpen(false); }
-    catch (e) { const err = e as { response?: { data?: { error?: string } } }; toast.error('Could not run', err.response?.data?.error || w.name); }
+    try { const r = await workflowsApi.runManual(w.id, { clientRequestId: crypto.randomUUID(), recordId }); toast.success(r.deduped ? t('record.workflow.alreadyRunDeduped') : t('record.workflow.ran', { name: w.name, status: r.status ?? '—' }), ''); setOpen(false); }
+    catch (e) { const err = e as { response?: { data?: { error?: string } } }; toast.error(t('record.workflow.couldNotRun', { name: w.name, error: err.response?.data?.error || w.name }), ''); }
     finally { setBusy(false); }
   }
   return (
     <div className="relative">
-      <button type="button" onClick={toggle} title="Run a published workflow on this record" className="inline-flex h-7 items-center gap-1.5 rounded-md border border-line bg-white px-2.5 text-[11.5px] font-semibold text-ink-muted hover:bg-surface-2"><Zap size={12} /> Run workflow</button>
+      <button type="button" onClick={toggle} title={t('record.workflow.runWorkflowTitle')} className="inline-flex h-7 items-center gap-1.5 rounded-md border border-line bg-white px-2.5 text-[11.5px] font-semibold text-ink-muted hover:bg-surface-2"><Zap size={12} /> {t('record.workflow.runWorkflow')}</button>
       {open && (
         <div className="absolute right-0 z-20 mt-1 w-60 rounded-lg border border-line bg-surface p-1 shadow-lg">
           {list === null ? <div className="px-2 py-3 text-center text-[12px] text-ink-subtle"><Loader2 size={12} className="mx-auto animate-spin" /></div>
-            : list.length === 0 ? <div className="px-2 py-3 text-center text-[12px] text-ink-subtle">No published record workflows.</div>
+            : list.length === 0 ? <div className="px-2 py-3 text-center text-[12px] text-ink-subtle">{t('record.workflow.noPublished')}</div>
               : list.map((w) => (
                 <button key={w.id} type="button" disabled={busy} onClick={() => run(w)} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12.5px] text-ink hover:bg-brand-50 disabled:opacity-50">
                   <Zap size={12} className="shrink-0 text-brand-600" /><span className="min-w-0 flex-1 truncate">{w.name}</span><span className="text-[10px] text-ink-subtle">v{w.publishedVersion}</span>
@@ -961,12 +967,13 @@ function RunWorkflowButton({ recordId }: { recordId: string }) {
 
 /* M19-2: звонки, привязанные к записи (Calls tab на record page). Пусто → секция скрыта. */
 function RecordCalls({ recordId }: { recordId: string }) {
+  const t = useT();
   const [calls, setCalls] = useState<Call[]>([]);
   useEffect(() => { callsApi.list({ recordId }).then((r) => setCalls(r.calls)).catch(() => setCalls([])); }, [recordId]);
   if (calls.length === 0) return null;
   return (
     <section className="mt-5">
-      <p className="mb-2 inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-ink-subtle"><Phone size={11} /> Calls · {calls.length}</p>
+      <p className="mb-2 inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-ink-subtle"><Phone size={11} /> {t('record.calls.header', { n: calls.length })}</p>
       <div className="space-y-1.5">
         {calls.map((c) => (
           <div key={c.id} className="rounded-lg border border-line bg-surface px-2.5 py-1.5">
