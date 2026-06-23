@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Zap } from 'lucide-react';
 import { authApi } from '@/lib/api';
 import { setToken, setStoredUser } from '@/lib/auth';
+import { useT } from '@/i18n';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 
@@ -23,6 +24,7 @@ function GoogleG() {
 
 export default function RegisterPage() {
   const router = useRouter();
+  const t = useT();
   const [form, setForm] = useState({ name: '', orgName: '', email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -39,7 +41,7 @@ export default function RegisterPage() {
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
-        (err instanceof Error ? err.message : 'Registration failed');
+        (err instanceof Error ? err.message : t('auth.errors.registrationFailed'));
       setError(msg);
     } finally {
       setLoading(false);
@@ -60,10 +62,10 @@ export default function RegisterPage() {
 
         <div className="surface-glass rounded-[24px] p-9">
           <h1 className="text-[30px] font-extrabold tracking-[-0.025em] text-ink mb-1.5 leading-[1.08]">
-            Create your account
+            {t('auth.register.title')}
           </h1>
           <p className="text-[15px] text-ink-muted mb-7 leading-5">
-            Free forever on the Starter plan. No credit card required.
+            {t('auth.register.subtitle')}
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-3">
@@ -73,33 +75,33 @@ export default function RegisterPage() {
               </div>
             )}
             <Input
-              label="Your name"
-              placeholder="Jane Smith"
+              label={t('auth.register.name')}
+              placeholder={t('auth.register.namePlaceholder')}
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               required
               autoComplete="name"
             />
             <Input
-              label="Company"
-              placeholder="Acme Inc."
+              label={t('auth.register.company')}
+              placeholder={t('auth.register.companyPlaceholder')}
               value={form.orgName}
               onChange={(e) => setForm({ ...form, orgName: e.target.value })}
               required
             />
             <Input
-              label="Work email"
+              label={t('auth.register.workEmail')}
               type="email"
-              placeholder="you@company.com"
+              placeholder={t('auth.emailPlaceholder')}
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
               required
               autoComplete="email"
             />
             <Input
-              label="Password"
+              label={t('auth.password')}
               type="password"
-              placeholder="Min. 8 characters"
+              placeholder={t('auth.register.passwordMin')}
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               required
@@ -108,13 +110,13 @@ export default function RegisterPage() {
             />
 
             <Button type="submit" loading={loading} className="w-full mt-4" size="lg">
-              Create account
+              {t('auth.register.createAccount')}
             </Button>
           </form>
 
           <div className="my-5 flex items-center gap-3">
             <hr className="flex-1 border-[var(--border)]" />
-            <span className="text-[12px] text-[var(--text-subtle)] font-medium">OR</span>
+            <span className="text-[12px] text-[var(--text-subtle)] font-medium">{t('auth.or')}</span>
             <hr className="flex-1 border-[var(--border)]" />
           </div>
 
@@ -124,37 +126,37 @@ export default function RegisterPage() {
             size="lg"
             type="button"
             disabled
-            title="Google OAuth will be available soon"
+            title={t('auth.googleOauthSoon')}
           >
             <GoogleG />
-            Continue with Google
+            {t('auth.continueGoogle')}
             <span className="ml-1.5 rounded-full bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-subtle">
-              Soon
+              {t('auth.soon')}
             </span>
           </Button>
           <p className="mt-1.5 text-center text-[11.5px] text-ink-subtle">
-            Google sign-up will be available soon
+            {t('auth.register.googleSignupSoon')}
           </p>
 
           <p className="text-[12.5px] text-center text-[var(--text-muted)] mt-6">
-            Already have an account?{' '}
+            {t('auth.register.haveAccount')}{' '}
             <Link
               href="/login"
               className="text-[var(--text)] font-medium hover:underline underline-offset-2"
             >
-              Sign in
+              {t('auth.signIn')}
             </Link>
           </p>
         </div>
 
         <p className="text-[12px] text-center text-[var(--text-subtle)] mt-6 leading-5">
-          By signing up you agree to our{' '}
+          {t('auth.register.agreePrefix')}{' '}
           <Link href="/terms" className="font-medium text-brand-700 hover:underline focus:underline underline-offset-2 focus:outline-none">
-            Terms
+            {t('auth.terms')}
           </Link>{' '}
-          and{' '}
+          {t('auth.and')}{' '}
           <Link href="/privacy" className="font-medium text-brand-700 hover:underline focus:underline underline-offset-2 focus:outline-none">
-            Privacy Policy
+            {t('auth.privacy')}
           </Link>
           .
         </p>

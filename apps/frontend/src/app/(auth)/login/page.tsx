@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Zap } from 'lucide-react';
 import { authApi } from '@/lib/api';
 import { setToken, setStoredUser } from '@/lib/auth';
+import { useT } from '@/i18n';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 
@@ -25,6 +26,7 @@ function GoogleG() {
 
 export default function LoginPage() {
   const router = useRouter();
+  const t = useT();
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -44,7 +46,7 @@ export default function LoginPage() {
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
-        (err instanceof Error ? err.message : 'Login failed');
+        (err instanceof Error ? err.message : t('auth.errors.loginFailed'));
       setError(msg);
     } finally {
       setLoading(false);
@@ -58,7 +60,7 @@ export default function LoginPage() {
       const res = await authApi.verifyLogin(challenge, code.trim());
       setToken(res.token); setStoredUser(res.user); router.push('/dashboard');
     } catch (err: unknown) {
-      setError((err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Invalid code');
+      setError((err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? t('auth.errors.invalidCode'));
     } finally { setLoading(false); }
   };
 
@@ -87,10 +89,10 @@ export default function LoginPage() {
 
         <div className="surface-glass rounded-[24px] p-9">
           <h1 className="text-[30px] font-extrabold tracking-[-0.025em] text-ink mb-1.5 leading-[1.08]">
-            Welcome back
+            {t('auth.login.title')}
           </h1>
           <p className="text-[15px] text-ink-muted mb-7 leading-5">
-            Sign in to continue to your workspace.
+            {t('auth.login.subtitle')}
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-3">
@@ -102,34 +104,34 @@ export default function LoginPage() {
             {challenge ? (
               /* M23-1: второй шаг — код 2FA (TOTP или recovery) */
               <>
-                <div className="rounded-xl border border-brand-200 bg-brand-50/60 px-3 py-2.5 text-[12.5px] text-brand-900">Two-factor enabled — enter the 6-digit code from your authenticator app (or a recovery code).</div>
+                <div className="rounded-xl border border-brand-200 bg-brand-50/60 px-3 py-2.5 text-[12.5px] text-brand-900">{t('auth.login.twoFactorPrompt')}</div>
                 <Input
-                  label="Authentication code"
+                  label={t('auth.login.authCode')}
                   type="text"
-                  placeholder="123456"
+                  placeholder={t('auth.login.authCodePlaceholder')}
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   autoFocus
                   autoComplete="one-time-code"
                 />
-                <Button type="submit" loading={loading} className="w-full mt-2" size="lg">Verify &amp; sign in</Button>
-                <button type="button" onClick={() => { setChallenge(null); setCode(''); setError(''); }} className="w-full text-center text-[12px] font-medium text-ink-muted hover:text-ink">← Back</button>
+                <Button type="submit" loading={loading} className="w-full mt-2" size="lg">{t('auth.login.verifySignIn')}</Button>
+                <button type="button" onClick={() => { setChallenge(null); setCode(''); setError(''); }} className="w-full text-center text-[12px] font-medium text-ink-muted hover:text-ink">{t('auth.login.back')}</button>
               </>
             ) : (
               <>
                 <Input
-                  label="Email"
+                  label={t('auth.email')}
                   type="email"
-                  placeholder="you@company.com"
+                  placeholder={t('auth.emailPlaceholder')}
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                   required
                   autoComplete="email"
                 />
                 <Input
-                  label="Password"
+                  label={t('auth.password')}
                   type="password"
-                  placeholder="Enter your password"
+                  placeholder={t('auth.login.passwordPlaceholder')}
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
                   required
@@ -138,12 +140,12 @@ export default function LoginPage() {
 
                 <div className="flex justify-end -mt-1">
                   <Link href="/forgot-password" className="text-[12.5px] font-medium text-brand-700 hover:underline underline-offset-2">
-                    Forgot password?
+                    {t('auth.login.forgot')}
                   </Link>
                 </div>
 
                 <Button type="submit" loading={loading} className="w-full mt-4" size="lg">
-                  Sign in
+                  {t('auth.signIn')}
                 </Button>
               </>
             )}
@@ -151,7 +153,7 @@ export default function LoginPage() {
 
           <div className="my-5 flex items-center gap-3">
             <hr className="flex-1 border-[var(--border)]" />
-            <span className="text-[12px] text-[var(--text-subtle)] font-medium">OR</span>
+            <span className="text-[12px] text-[var(--text-subtle)] font-medium">{t('auth.or')}</span>
             <hr className="flex-1 border-[var(--border)]" />
           </div>
 
@@ -161,31 +163,31 @@ export default function LoginPage() {
             size="lg"
             type="button"
             disabled
-            title="Google OAuth will be available soon"
+            title={t('auth.googleOauthSoon')}
           >
             <GoogleG />
-            Continue with Google
+            {t('auth.continueGoogle')}
             <span className="ml-1.5 rounded-full bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-subtle">
-              Soon
+              {t('auth.soon')}
             </span>
           </Button>
           <p className="mt-1.5 text-center text-[11.5px] text-ink-subtle">
-            Google sign-in will be available soon
+            {t('auth.login.googleSigninSoon')}
           </p>
 
           <p className="text-[12.5px] text-center text-[var(--text-muted)] mt-6">
-            Don&apos;t have an account?{' '}
+            {t('auth.login.noAccount')}{' '}
             <Link
               href="/register"
               className="text-[var(--text)] font-medium hover:underline underline-offset-2"
             >
-              Sign up
+              {t('auth.signUp')}
             </Link>
           </p>
         </div>
 
         <div className="mt-4 px-4 py-3.5 rounded-2xl border border-brand-200/60 bg-[linear-gradient(135deg,rgba(79,70,229,0.08),rgba(217,70,239,0.08))] text-[12.5px]">
-          <p className="font-bold text-ink mb-1.5">Demo credentials</p>
+          <p className="font-bold text-ink mb-1.5">{t('auth.login.demoTitle')}</p>
           <p className="text-ink-muted tabular-nums">demo@aisdr.dev · demo1234</p>
           <p className="text-ink-muted tabular-nums">admin@aisdr.dev · admin1234</p>
           <button
@@ -193,15 +195,15 @@ export default function LoginPage() {
             onClick={fillDemo}
             className="mt-2 inline-flex h-7 items-center rounded-lg bg-white/70 px-2.5 font-semibold text-brand-700 ring-1 ring-brand-200/70 transition-colors hover:bg-white hover:text-brand-800"
           >
-            Enter demo workspace →
+            {t('auth.login.enterDemo')}
           </button>
         </div>
 
         <p className="text-[12px] text-center text-[var(--text-subtle)] mt-6 leading-5">
-          By signing in you agree to our{' '}
-          <Link href="/terms" className="font-medium text-brand-700 hover:underline underline-offset-2">Terms</Link>{' '}
-          and{' '}
-          <Link href="/privacy" className="font-medium text-brand-700 hover:underline underline-offset-2">Privacy Policy</Link>.
+          {t('auth.login.agreePrefix')}{' '}
+          <Link href="/terms" className="font-medium text-brand-700 hover:underline underline-offset-2">{t('auth.terms')}</Link>{' '}
+          {t('auth.and')}{' '}
+          <Link href="/privacy" className="font-medium text-brand-700 hover:underline underline-offset-2">{t('auth.privacy')}</Link>.
         </p>
       </div>
     </div>

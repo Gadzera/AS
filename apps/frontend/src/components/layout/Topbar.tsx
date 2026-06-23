@@ -10,6 +10,7 @@ import { paletteStore } from '@/lib/paletteStore';
 import { teamApi } from '@/lib/api';
 import { getStoredUser } from '@/lib/auth';
 import AskAssistant from '@/components/ask/AskAssistant';
+import { useT, LanguageSwitcher } from '@/i18n';
 
 export interface TopbarProps {
   /** Optional page-level icon (lucide). Rendered at 16px. Pass a node, e.g. `<Users size={16} />` */
@@ -28,6 +29,7 @@ export interface TopbarProps {
 }
 
 function DefaultActions() {
+  const t = useT();
   // Реальные участники организации (а не хардкод-имена).
   const [team, setTeam] = useState<Array<{ name: string }>>([]);
 
@@ -66,8 +68,8 @@ function DefaultActions() {
       )}
       <button
         type="button"
-        aria-label="Quick actions"
-        title="Quick actions (⌘K)"
+        aria-label={t('topbar.quickActions')}
+        title={t('topbar.quickActionsHint')}
         onClick={() => paletteStore.open()}
         className="w-7 h-7 rounded-md inline-flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)] transition-colors duration-100"
       >
@@ -79,7 +81,7 @@ function DefaultActions() {
         onClick={() => composeStore.open()}
       >
         <Mail size={14} strokeWidth={1.75} />
-        <span>Compose email</span>
+        <span>{t('topbar.composeEmail')}</span>
       </Button>
     </div>
   );
@@ -95,6 +97,7 @@ export default function Topbar({
   className,
 }: TopbarProps) {
   const [askOpen, setAskOpen] = useState(false);
+  const t = useT();
   const crumbs =
     breadcrumb && breadcrumb.length > 0
       ? breadcrumb
@@ -148,15 +151,17 @@ export default function Topbar({
       </div>
 
       <div className="flex items-center gap-1.5 shrink-0">
+        {/* Переключатель языка — всегда виден (вне actions, которые страница может переопределить). */}
+        <LanguageSwitcher />
         {/* M26-1: Ask AISDR — slide-over поверх текущего экрана (точка входа topbar) */}
         <button
           type="button"
-          aria-label="Ask AISDR"
-          title="Ask AISDR"
+          aria-label={t('topbar.askAISDR')}
+          title={t('topbar.askAISDR')}
           onClick={() => setAskOpen(true)}
           className="inline-flex h-7 items-center gap-1.5 rounded-md border border-line bg-surface px-2 text-[12px] font-semibold text-brand-700 transition-colors hover:border-brand-200 hover:bg-brand-50"
         >
-          <Sparkles size={14} strokeWidth={1.9} /> <span className="hidden sm:inline">Ask</span>
+          <Sparkles size={14} strokeWidth={1.9} /> <span className="hidden sm:inline">{t('topbar.ask')}</span>
         </button>
         {actions ?? <DefaultActions />}
       </div>
@@ -168,7 +173,7 @@ export default function Topbar({
           <div className="absolute inset-0 bg-ink/20 backdrop-blur-[1px]" onClick={() => setAskOpen(false)} />
           <div className="relative flex h-full w-full max-w-[440px] flex-col bg-surface shadow-2xl">
             <div className="flex h-14 shrink-0 items-center justify-between border-b border-line px-4">
-              <span className="inline-flex items-center gap-2 text-[14px] font-bold text-ink"><span className="brand-gradient inline-flex h-7 w-7 items-center justify-center rounded-lg text-white"><Sparkles size={15} /></span> Ask AISDR</span>
+              <span className="inline-flex items-center gap-2 text-[14px] font-bold text-ink"><span className="brand-gradient inline-flex h-7 w-7 items-center justify-center rounded-lg text-white"><Sparkles size={15} /></span> {t('topbar.askAISDR')}</span>
               <button type="button" onClick={() => setAskOpen(false)} className="flex h-7 w-7 items-center justify-center rounded-md text-ink-muted hover:bg-surface-2 hover:text-ink"><X size={16} /></button>
             </div>
             <AskAssistant compact />

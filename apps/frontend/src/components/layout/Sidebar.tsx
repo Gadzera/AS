@@ -33,61 +33,65 @@ import { logout, getStoredUser } from '@/lib/auth';
 import { authApi, outreachApi, notificationsApi } from '@/lib/api';
 import { getAiCreditBalance } from '@/lib/crmApi';
 import { paletteStore } from '@/lib/paletteStore';
+import { useT } from '@/i18n';
 import { useEffect, useState, type ReactNode } from 'react';
 
 interface NavItem {
   href: string;
-  label: string;
+  /** i18n-ключ подписи (nav.*) */
+  labelKey: string;
   icon: ReactNode;
   /** короткий бейдж справа (число входящих/очередь) */
   badge?: string;
 }
 
 interface NavGroup {
-  heading: string;
+  /** i18n-ключ заголовка группы (nav.groups.*) */
+  headingKey: string;
   items: NavItem[];
 }
 
 // Навигация построена ВОКРУГ AI-SDR-воркфлоу (не вокруг CRM-таблиц как у Attio).
 // Часть разделов пока ведёт на существующие роуты / заглушки — экраны строятся по очереди.
+// Подписи — i18n-ключи; реальный текст резолвится t() в рендере.
 const navGroups: NavGroup[] = [
   {
-    heading: 'Command',
+    headingKey: 'nav.groups.command',
     items: [
-      { href: '/dashboard', label: 'Agent Cockpit', icon: <Gauge size={16} strokeWidth={1.85} /> },
-      { href: '/ask', label: 'Ask AISDR', icon: <Sparkles size={16} strokeWidth={1.85} /> },
-      { href: '/notifications', label: 'Notifications', icon: <Bell size={16} strokeWidth={1.85} /> },
+      { href: '/dashboard', labelKey: 'nav.cockpit', icon: <Gauge size={16} strokeWidth={1.85} /> },
+      { href: '/ask', labelKey: 'nav.ask', icon: <Sparkles size={16} strokeWidth={1.85} /> },
+      { href: '/notifications', labelKey: 'nav.notifications', icon: <Bell size={16} strokeWidth={1.85} /> },
     ],
   },
   {
-    heading: 'Outbound motion',
+    headingKey: 'nav.groups.outbound',
     items: [
-      { href: '/pipeline', label: 'Pipeline Radar', icon: <Radar size={16} strokeWidth={1.85} /> },
-      { href: '/campaigns', label: 'Outreach Studio', icon: <Send size={16} strokeWidth={1.85} /> },
-      { href: '/sequences', label: 'Sequences', icon: <Workflow size={16} strokeWidth={1.85} /> },
-      { href: '/workflows', label: 'Workflows', icon: <Zap size={16} strokeWidth={1.85} /> },
-      { href: '/calls', label: 'Calls', icon: <Phone size={16} strokeWidth={1.85} /> },
-      { href: '/emails', label: 'Emails', icon: <Mail size={16} strokeWidth={1.85} /> },
-      { href: '/replies', label: 'Replies', icon: <Inbox size={16} strokeWidth={1.85} />, badge: '5' },
-      { href: '/meetings', label: 'Meetings', icon: <CalendarCheck size={16} strokeWidth={1.85} /> },
+      { href: '/pipeline', labelKey: 'nav.pipeline', icon: <Radar size={16} strokeWidth={1.85} /> },
+      { href: '/campaigns', labelKey: 'nav.outreach', icon: <Send size={16} strokeWidth={1.85} /> },
+      { href: '/sequences', labelKey: 'nav.sequences', icon: <Workflow size={16} strokeWidth={1.85} /> },
+      { href: '/workflows', labelKey: 'nav.workflows', icon: <Zap size={16} strokeWidth={1.85} /> },
+      { href: '/calls', labelKey: 'nav.calls', icon: <Phone size={16} strokeWidth={1.85} /> },
+      { href: '/emails', labelKey: 'nav.emails', icon: <Mail size={16} strokeWidth={1.85} /> },
+      { href: '/replies', labelKey: 'nav.replies', icon: <Inbox size={16} strokeWidth={1.85} />, badge: '5' },
+      { href: '/meetings', labelKey: 'nav.meetings', icon: <CalendarCheck size={16} strokeWidth={1.85} /> },
     ],
   },
   {
-    heading: 'Intelligence',
+    headingKey: 'nav.groups.intelligence',
     items: [
-      { href: '/research', label: 'Research Lab', icon: <FlaskConical size={16} strokeWidth={1.85} /> },
-      { href: '/playbooks', label: 'Playbooks', icon: <BookOpenCheck size={16} strokeWidth={1.85} /> },
-      { href: '/learning', label: 'Learning', icon: <GraduationCap size={16} strokeWidth={1.85} /> },
-      { href: '/reports', label: 'Reports', icon: <BarChart3 size={16} strokeWidth={1.85} /> },
+      { href: '/research', labelKey: 'nav.research', icon: <FlaskConical size={16} strokeWidth={1.85} /> },
+      { href: '/playbooks', labelKey: 'nav.playbooks', icon: <BookOpenCheck size={16} strokeWidth={1.85} /> },
+      { href: '/learning', labelKey: 'nav.learning', icon: <GraduationCap size={16} strokeWidth={1.85} /> },
+      { href: '/reports', labelKey: 'nav.reports', icon: <BarChart3 size={16} strokeWidth={1.85} /> },
     ],
   },
   {
-    heading: 'Foundation',
+    headingKey: 'nav.groups.foundation',
     items: [
-      { href: '/data', label: 'Data Hub', icon: <Database size={16} strokeWidth={1.85} /> },
-      { href: '/dashboards', label: 'Dashboards', icon: <LayoutDashboard size={16} strokeWidth={1.85} /> },
-      { href: '/lists', label: 'Lists', icon: <ListChecks size={16} strokeWidth={1.85} /> },
-      { href: '/settings', label: 'Settings', icon: <Settings size={16} strokeWidth={1.85} /> },
+      { href: '/data', labelKey: 'nav.data', icon: <Database size={16} strokeWidth={1.85} /> },
+      { href: '/dashboards', labelKey: 'nav.dashboards', icon: <LayoutDashboard size={16} strokeWidth={1.85} /> },
+      { href: '/lists', labelKey: 'nav.lists', icon: <ListChecks size={16} strokeWidth={1.85} /> },
+      { href: '/settings', labelKey: 'nav.settings', icon: <Settings size={16} strokeWidth={1.85} /> },
     ],
   },
 ];
@@ -103,7 +107,9 @@ function SectionHeading({ children }: { children: ReactNode }) {
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [planLabel, setPlanLabel] = useState('STARTER PLAN');
+  const t = useT();
+  // Имя тарифа (напр. STARTER) — подпись локализуется через t('shell.planSuffix', { plan }).
+  const [plan, setPlan] = useState('STARTER');
   const [credits, setCredits] = useState<number | null>(null);
   const [replyCount, setReplyCount] = useState<number | null>(null);
   const [notifCount, setNotifCount] = useState<number | null>(null);
@@ -122,11 +128,11 @@ export default function Sidebar() {
     window.addEventListener('notifications:refresh', onNotif);
     // Мгновенно из кеша, затем актуализируем из API — единый источник правды с Settings.
     const cached = getStoredUser()?.org?.plan;
-    if (cached) setPlanLabel(`${cached} PLAN`);
+    if (cached) setPlan(String(cached));
     authApi
       .me()
       .then((u) => {
-        if (mounted && u?.org?.plan) setPlanLabel(`${u.org.plan} PLAN`);
+        if (mounted && u?.org?.plan) setPlan(String(u.org.plan));
       })
       .catch(() => {});
     // Реальный баланс AI-кредитов (M2) — тот же источник, что Settings/биллинг.
@@ -170,12 +176,12 @@ export default function Sidebar() {
             className="flex-1 h-9 flex items-center gap-2 px-2.5 rounded-lg border border-line bg-surface shadow-xs hover:bg-surface-2 hover:border-line-strong transition-all duration-150 text-[13px] text-ink-muted font-medium"
           >
             <Sparkles size={14} strokeWidth={1.85} className="text-brand-500" />
-            <span className="flex-1 text-left truncate">Ask the agent</span>
+            <span className="flex-1 text-left truncate">{t('shell.askAgent')}</span>
             <ArrowUpRight size={13} strokeWidth={2} className="text-ink-subtle shrink-0" />
           </button>
           <button
             type="button"
-            aria-label="Search"
+            aria-label={t('shell.search')}
             onClick={() => paletteStore.open()}
             className="w-9 h-9 rounded-lg border border-line bg-surface flex items-center justify-center text-ink-subtle shadow-xs hover:bg-surface-2 hover:text-ink hover:border-line-strong transition-all duration-150"
           >
@@ -186,8 +192,8 @@ export default function Sidebar() {
 
       <nav className="flex-1 overflow-y-auto px-2.5 pb-3">
         {navGroups.map((group) => (
-          <div key={group.heading}>
-            <SectionHeading>{group.heading}</SectionHeading>
+          <div key={group.headingKey}>
+            <SectionHeading>{t(group.headingKey)}</SectionHeading>
             <ul className="space-y-0.5">
               {group.items.map((item) => {
                 const isActive =
@@ -226,7 +232,7 @@ export default function Sidebar() {
                       <span className={clsx('shrink-0 transition-colors', isActive ? 'text-brand-600' : 'text-ink-subtle group-hover:text-brand-600')}>
                         {item.icon}
                       </span>
-                      <span className="truncate flex-1">{item.label}</span>
+                      <span className="truncate flex-1">{t(item.labelKey)}</span>
                       {badge && (
                         <span className="shrink-0 rounded-full bg-brand-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
                           {badge}
@@ -248,10 +254,10 @@ export default function Sidebar() {
           </span>
           <div className="min-w-0">
             <p className="text-[11px] font-bold tracking-[0.04em] text-brand-700 leading-none">
-              {planLabel}
+              {t('shell.planSuffix', { plan })}
             </p>
             <p className="text-[12px] text-ink-muted mt-1 leading-none truncate">
-              {credits === null ? '— credits' : `${credits.toLocaleString('en-US')} credits left`}
+              {credits === null ? t('shell.creditsNone') : t('shell.creditsLeft', { count: credits.toLocaleString('en-US') })}
             </p>
           </div>
         </div>
@@ -262,7 +268,7 @@ export default function Sidebar() {
           className="group mt-1.5 w-full h-10 flex items-center gap-2.5 px-3 rounded-lg text-[13.5px] font-medium text-ink-muted hover:text-ink hover:bg-surface-2 transition-colors duration-150"
         >
           <LogOut size={16} strokeWidth={1.85} className="text-ink-subtle group-hover:text-rose-500 transition-colors" />
-          <span>Sign out</span>
+          <span>{t('shell.signOut')}</span>
         </button>
       </div>
     </aside>

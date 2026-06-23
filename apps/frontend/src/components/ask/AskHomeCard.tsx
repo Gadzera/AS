@@ -10,6 +10,8 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { askApi, type AskHome } from '@/lib/api';
+import { getStoredUser } from '@/lib/auth';
+import { useT } from '@/i18n';
 import { Sparkles, SendHorizonal, MessageSquare, CalendarCheck, ListChecks, ShieldCheck } from 'lucide-react';
 
 function fmtWhen(iso: string | null): string {
@@ -21,10 +23,21 @@ function fmtWhen(iso: string | null): string {
 
 export default function AskHomeCard() {
   const router = useRouter();
+  const t = useT();
   const [home, setHome] = useState<AskHome | null>(null);
   const [q, setQ] = useState('');
+  // Приветствие считаем на клиенте (локаль + время суток + имя), а не из серверной строки —
+  // так оно переводится. На сервере/до маунта пусто → показываем fallback (без рассинхрона гидратации).
+  const [greeting, setGreeting] = useState('');
 
   useEffect(() => { askApi.home().then(setHome).catch(() => {}); }, []);
+  useEffect(() => {
+    const name = getStoredUser()?.name?.split(' ')[0]?.trim();
+    const h = new Date().getHours();
+    const key = h < 12 ? 'greetingMorning' : h < 18 ? 'greetingAfternoon' : 'greetingEvening';
+    const g = t(`dashboard.ask.${key}`);
+    setGreeting(name ? `${g}, ${name}` : g);
+  }, [t]);
 
   function ask(question: string) {
     const v = question.trim();
@@ -32,7 +45,7 @@ export default function AskHomeCard() {
     router.push(`/ask?q=${encodeURIComponent(v)}`);
   }
 
-  const starters = ['Help me prep for my day', 'What objections came up recently?', 'Who are my hottest leads?'];
+  const starters = [t('dashboard.ask.starter1'), t('dashboard.ask.starter2'), t('dashboard.ask.starter3')];
 
   return (
     <section className="mb-5 overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
@@ -40,18 +53,18 @@ export default function AskHomeCard() {
         <div className="min-w-0">
           <h3 className="flex items-center gap-2 text-[16px] font-extrabold tracking-[-0.01em] text-ink">
             <span className="brand-gradient inline-flex h-7 w-7 items-center justify-center rounded-lg text-white"><Sparkles size={15} /></span>
-            {home?.greeting ?? 'Ask AISDR'}
+            {greeting || t('dashboard.ask.fallbackTitle')}
           </h3>
-          <p className="mt-0.5 text-[12px] text-ink-muted">Ask the agent anything about your workspace — grounded on data you can access.</p>
+          <p className="mt-0.5 text-[12px] text-ink-muted">{t('dashboard.ask.subtitle')}</p>
         </div>
-        <span className="hidden shrink-0 items-center gap-1.5 rounded-md bg-surface-2 px-2 py-1 text-[10.5px] font-medium text-emerald-700 sm:inline-flex"><ShieldCheck size={12} /> RBAC-aware</span>
+        <span className="hidden shrink-0 items-center gap-1.5 rounded-md bg-surface-2 px-2 py-1 text-[10.5px] font-medium text-emerald-700 sm:inline-flex"><ShieldCheck size={12} /> {t('dashboard.ask.rbacAware')}</span>
       </div>
 
       <div className="px-5 py-4">
         {/* ask box */}
         <form onSubmit={(e) => { e.preventDefault(); ask(q); }} className="flex items-center gap-2 rounded-xl border border-line bg-surface px-2 py-1.5 shadow-xs focus-within:border-brand-300 focus-within:ring-2 focus-within:ring-brand-100">
           <Sparkles size={15} className="ml-1 shrink-0 text-brand-500" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ask anything…" className="min-w-0 flex-1 bg-transparent px-1 py-1.5 text-[13.5px] text-ink outline-none placeholder:text-ink-subtle" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('dashboard.ask.placeholder')} className="min-w-0 flex-1 bg-transparent px-1 py-1.5 text-[13.5px] text-ink outline-none placeholder:text-ink-subtle" />
           <button type="submit" disabled={!q.trim()} className={['inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all', q.trim() ? 'brand-gradient text-white shadow-brand' : 'cursor-not-allowed bg-surface-2 text-ink-subtle'].join(' ')}><SendHorizonal size={15} /></button>
         </form>
         <div className="mt-2 flex flex-wrap gap-1.5">
@@ -62,17 +75,17 @@ export default function AskHomeCard() {
 
         {/* S190: recent chats + today's meetings + open tasks */}
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <HomeCol icon={<MessageSquare size={12} />} title="Recent chats" empty="No chats yet">
+          <HomeCol icon={<MessageSquare size={12} />} title={t('dashboard.ask.recentChats')} empty={t('dashboard.ask.noChats')}>
             {(home?.recentChats ?? []).slice(0, 3).map((c) => (
-              <button key={c.id} type="button" onClick={() => router.push(`/ask?chat=${c.id}`)} className="block w-full truncate rounded-md px-2 py-1 text-left text-[12px] text-ink-muted hover:bg-surface-2 hover:text-ink">{c.title || 'New chat'}</button>
+              <button key={c.id} type="button" onClick={() => router.push(`/ask?chat=${c.id}`)} className="block w-full truncate rounded-md px-2 py-1 text-left text-[12px] text-ink-muted hover:bg-surface-2 hover:text-ink">{c.title || t('dashboard.ask.newChat')}</button>
             ))}
           </HomeCol>
-          <HomeCol icon={<CalendarCheck size={12} />} title="Upcoming meetings" empty="No upcoming meetings">
+          <HomeCol icon={<CalendarCheck size={12} />} title={t('dashboard.ask.upcomingMeetings')} empty={t('dashboard.ask.noMeetings')}>
             {(home?.meetings ?? []).slice(0, 3).map((m, i) => (
               <button key={i} type="button" onClick={() => router.push('/meetings')} className="block w-full truncate rounded-md px-2 py-1 text-left text-[12px] text-ink-muted hover:bg-surface-2 hover:text-ink"><span className="font-medium text-ink">{m.title}</span>{m.when ? <span className="text-ink-subtle"> · {fmtWhen(m.when)}</span> : null}</button>
             ))}
           </HomeCol>
-          <HomeCol icon={<ListChecks size={12} />} title="Your open tasks" empty="No open tasks">
+          <HomeCol icon={<ListChecks size={12} />} title={t('dashboard.ask.openTasks')} empty={t('dashboard.ask.noTasks')}>
             {(home?.tasks ?? []).slice(0, 3).map((t) => (
               <button key={t.id} type="button" onClick={() => router.push(t.href)} className="block w-full truncate rounded-md px-2 py-1 text-left text-[12px] text-ink-muted hover:bg-surface-2 hover:text-ink">{t.title}</button>
             ))}

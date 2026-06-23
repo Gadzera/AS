@@ -45,6 +45,7 @@ import AutomationGrants from '@/components/settings/AutomationGrants';
 import SecuritySettings from '@/components/settings/SecuritySettings';
 import AppearanceToggle from '@/components/settings/AppearanceToggle';
 import WorkspaceGeneral from '@/components/settings/WorkspaceGeneral';
+import { LanguageSwitcher } from '@/i18n';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
@@ -384,6 +385,13 @@ export default function SettingsPage() {
             {section === 'account' && (
               <SectionCard title="Appearance" desc="Light or dark theme. Saved to your account and applied everywhere.">
                 <AppearanceToggle />
+              </SectionCard>
+            )}
+
+            {/* I18N-1: язык интерфейса (per-устройство, persist в localStorage) — в Account */}
+            {section === 'account' && (
+              <SectionCard title="Language" desc="Interface language for this device. Switches instantly and is remembered next time.">
+                <LanguageSwitcher variant="settings" />
               </SectionCard>
             )}
 

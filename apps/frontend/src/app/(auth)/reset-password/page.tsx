@@ -7,12 +7,14 @@ import { ArrowLeft, ShieldCheck, CheckCircle2, Zap } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import { authApi } from '@/lib/api';
+import { useT } from '@/i18n';
 
 /* /reset-password?token=… — установка нового пароля по токену сброса (JWT, 30 мин).
    Backend POST /api/auth/reset-password проверяет токен и обновляет passwordHash. */
 
 export default function ResetPasswordPage() {
   const router = useRouter();
+  const t = useT();
   const [token, setToken] = useState<string | null>(null);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -29,9 +31,9 @@ export default function ResetPasswordPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (password.length < 8) { setError('Password must be at least 8 characters'); return; }
-    if (password !== confirm) { setError('Passwords do not match'); return; }
-    if (!token) { setError('Reset link is invalid'); return; }
+    if (password.length < 8) { setError(t('auth.errors.passwordMin8')); return; }
+    if (password !== confirm) { setError(t('auth.errors.passwordsNoMatch')); return; }
+    if (!token) { setError(t('auth.errors.resetLinkInvalid')); return; }
     setLoading(true);
     try {
       await authApi.resetPassword(token, password);
@@ -40,7 +42,7 @@ export default function ResetPasswordPage() {
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
-        (err instanceof Error ? err.message : 'Could not reset password');
+        (err instanceof Error ? err.message : t('auth.errors.couldNotReset'));
       setError(msg);
     } finally {
       setLoading(false);
@@ -65,18 +67,18 @@ export default function ResetPasswordPage() {
               <span className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
                 <CheckCircle2 size={26} strokeWidth={2} />
               </span>
-              <h1 className="text-[24px] font-extrabold tracking-[-0.02em] text-ink mb-1.5">Password updated</h1>
-              <p className="text-[14px] text-ink-muted leading-5">Your password has been changed. Redirecting to sign in…</p>
+              <h1 className="text-[24px] font-extrabold tracking-[-0.02em] text-ink mb-1.5">{t('auth.reset.updatedTitle')}</h1>
+              <p className="text-[14px] text-ink-muted leading-5">{t('auth.reset.updatedBody')}</p>
               <Link href="/login" className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-medium text-brand-700 hover:underline underline-offset-2">
-                Go to sign in →
+                {t('auth.reset.goToSignIn')}
               </Link>
             </div>
           ) : token === null ? (
             <div className="text-center">
-              <h1 className="text-[24px] font-extrabold tracking-[-0.02em] text-ink mb-1.5">Invalid reset link</h1>
-              <p className="text-[14px] text-ink-muted leading-5">This link is missing its token. Request a new password reset.</p>
+              <h1 className="text-[24px] font-extrabold tracking-[-0.02em] text-ink mb-1.5">{t('auth.reset.invalidTitle')}</h1>
+              <p className="text-[14px] text-ink-muted leading-5">{t('auth.reset.invalidBody')}</p>
               <Link href="/forgot-password" className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-medium text-brand-700 hover:underline underline-offset-2">
-                <ArrowLeft size={14} strokeWidth={2} /> Request reset link
+                <ArrowLeft size={14} strokeWidth={2} /> {t('auth.reset.requestResetLink')}
               </Link>
             </div>
           ) : (
@@ -84,22 +86,22 @@ export default function ResetPasswordPage() {
               <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-100 text-brand-600">
                 <ShieldCheck size={22} strokeWidth={2} />
               </span>
-              <h1 className="text-[30px] font-extrabold tracking-[-0.025em] text-ink mb-1.5 leading-[1.08]">Set a new password</h1>
-              <p className="text-[15px] text-ink-muted mb-7 leading-5">Choose a strong password for your account.</p>
+              <h1 className="text-[30px] font-extrabold tracking-[-0.025em] text-ink mb-1.5 leading-[1.08]">{t('auth.reset.setNewTitle')}</h1>
+              <p className="text-[15px] text-ink-muted mb-7 leading-5">{t('auth.reset.setNewSubtitle')}</p>
 
               <form onSubmit={handleSubmit} className="space-y-3">
                 {error && (
                   <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-[12.5px] font-medium text-rose-700">{error}</div>
                 )}
-                <Input label="New password" type="password" placeholder="Min. 8 characters" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} autoComplete="new-password" />
-                <Input label="Confirm password" type="password" placeholder="Repeat password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required minLength={8} autoComplete="new-password" />
-                <Button type="submit" loading={loading} className="w-full mt-4" size="lg">Update password</Button>
+                <Input label={t('auth.reset.newPassword')} type="password" placeholder={t('auth.register.passwordMin')} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} autoComplete="new-password" />
+                <Input label={t('auth.reset.confirmPassword')} type="password" placeholder={t('auth.reset.repeatPassword')} value={confirm} onChange={(e) => setConfirm(e.target.value)} required minLength={8} autoComplete="new-password" />
+                <Button type="submit" loading={loading} className="w-full mt-4" size="lg">{t('auth.reset.updatePassword')}</Button>
               </form>
             </>
           )}
 
           <Link href="/login" className="mt-6 inline-flex items-center gap-1.5 text-[13px] font-medium text-brand-700 hover:underline underline-offset-2">
-            <ArrowLeft size={14} strokeWidth={2} /> Back to sign in
+            <ArrowLeft size={14} strokeWidth={2} /> {t('auth.backToSignIn')}
           </Link>
         </div>
       </div>
