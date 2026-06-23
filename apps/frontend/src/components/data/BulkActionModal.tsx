@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, Loader2, Send, Radar, Layers } from 'lucide-react';
 import { AGENT_STAGES } from '@/lib/crmApi';
+import { useT } from '@/i18n';
 
 export type BulkMode = 'campaign' | 'stage' | 'segment';
 
@@ -21,13 +22,6 @@ export interface BulkConfirmPayload {
   stage?: string;
   name?: string;
 }
-
-const STAGE_LABELS: Record<string, string> = {
-  sourced: 'Sourced', researching: 'Researching', ready_to_engage: 'Ready to engage',
-  engaging: 'Engaging', in_conversation: 'In conversation', meeting_set: 'Meeting set',
-  handed_off: 'Handed off', nurture: 'Nurture', recycle: 'Recycle', suppressed: 'Suppressed',
-  disqualified: 'Disqualified',
-};
 
 interface Props {
   mode: BulkMode;
@@ -38,6 +32,7 @@ interface Props {
 }
 
 export default function BulkActionModal({ mode, count, campaigns, onConfirm, onClose }: Props) {
+  const t = useT();
   const [campaignId, setCampaignId] = useState(campaigns[0]?.id ?? '');
   const [stage, setStage] = useState<string>('ready_to_engage');
   const [name, setName] = useState('');
@@ -50,9 +45,9 @@ export default function BulkActionModal({ mode, count, campaigns, onConfirm, onC
   }, [onClose, busy]);
 
   const meta = {
-    campaign: { icon: <Send size={16} />, title: 'Add to campaign', cta: 'Add to campaign' },
-    stage: { icon: <Radar size={16} />, title: 'Push to Pipeline', cta: 'Set stage' },
-    segment: { icon: <Layers size={16} />, title: 'Save as view', cta: 'Save view' },
+    campaign: { icon: <Send size={16} />, title: t('data.bulkModal.addToCampaignTitle'), cta: t('data.bulkModal.addToCampaignTitle') },
+    stage: { icon: <Radar size={16} />, title: t('data.pushToPipeline'), cta: t('data.bulkModal.setStageTitle') },
+    segment: { icon: <Layers size={16} />, title: t('data.bulkModal.saveAsViewTitle'), cta: t('data.bulkModal.saveViewCta') },
   }[mode];
 
   const canConfirm =
@@ -90,7 +85,7 @@ export default function BulkActionModal({ mode, count, campaigns, onConfirm, onC
               <div>
                 <h2 className="text-[15px] font-bold text-ink">{meta.title}</h2>
                 <p className="text-[12px] text-ink-muted">
-                  {mode === 'segment' ? 'Current view · filter + sort' : `${count} selected records`}
+                  {mode === 'segment' ? t('data.bulkModal.currentView') : t('data.bulkModal.selectedRecords', { count })}
                 </p>
               </div>
             </div>
@@ -100,34 +95,34 @@ export default function BulkActionModal({ mode, count, campaigns, onConfirm, onC
           <div className="space-y-3 px-5 py-4">
             {mode === 'campaign' && (
               <>
-                <label className="block text-[12px] font-semibold uppercase tracking-[0.05em] text-ink-subtle">Campaign</label>
+                <label className="block text-[12px] font-semibold uppercase tracking-[0.05em] text-ink-subtle">{t('data.bulkModal.campaign')}</label>
                 <select value={campaignId} onChange={(e) => setCampaignId(e.target.value)} className="h-9 w-full rounded-lg border border-line-strong bg-surface px-2.5 text-[13px] text-ink focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100">
-                  {campaigns.length === 0 && <option value="">No campaigns</option>}
+                  {campaigns.length === 0 && <option value="">{t('data.bulkModal.noCampaigns')}</option>}
                   {campaigns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
-                <p className="text-[11.5px] leading-4 text-ink-muted">Recipient-first: only records with an email get enrolled; records without an email go to “skipped” (need research/contact). Leads and enrollment are created for real and the agent starts working.</p>
+                <p className="text-[11.5px] leading-4 text-ink-muted">{t('data.bulkModal.campaignNote')}</p>
               </>
             )}
             {mode === 'stage' && (
               <>
-                <label className="block text-[12px] font-semibold uppercase tracking-[0.05em] text-ink-subtle">AI-SDR stage</label>
+                <label className="block text-[12px] font-semibold uppercase tracking-[0.05em] text-ink-subtle">{t('data.bulkModal.aiStage')}</label>
                 <select value={stage} onChange={(e) => setStage(e.target.value)} className="h-9 w-full rounded-lg border border-line-strong bg-surface px-2.5 text-[13px] text-ink focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100">
-                  {AGENT_STAGES.map((s) => <option key={s} value={s}>{STAGE_LABELS[s] ?? s}</option>)}
+                  {AGENT_STAGES.map((s) => <option key={s} value={s}>{t('data.stage.' + s)}</option>)}
                 </select>
-                <p className="text-[11.5px] leading-4 text-ink-muted">Written to the <code className="font-mono text-ink">agent_stage</code> field of the selected records — they show up in Pipeline Radar at this stage.</p>
+                <p className="text-[11.5px] leading-4 text-ink-muted">{t('data.bulkModal.writtenTo')} <code className="font-mono text-ink">agent_stage</code> {t('data.bulkModal.stageNoteSuffix')}</p>
               </>
             )}
             {mode === 'segment' && (
               <>
-                <label className="block text-[12px] font-semibold uppercase tracking-[0.05em] text-ink-subtle">View name</label>
-                <input value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="e.g. Enterprise SaaS · DACH" className="h-9 w-full rounded-lg border border-line-strong bg-surface px-2.5 text-[13px] text-ink placeholder:text-ink-subtle focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100" />
-                <p className="text-[11.5px] leading-4 text-ink-muted">Saves the current filter/sort as a View — it appears in the Views bar and persists in the database.</p>
+                <label className="block text-[12px] font-semibold uppercase tracking-[0.05em] text-ink-subtle">{t('data.bulkModal.viewName')}</label>
+                <input value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder={t('data.bulkModal.viewNamePlaceholder')} className="h-9 w-full rounded-lg border border-line-strong bg-surface px-2.5 text-[13px] text-ink placeholder:text-ink-subtle focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100" />
+                <p className="text-[11.5px] leading-4 text-ink-muted">{t('data.bulkModal.segmentNote')}</p>
               </>
             )}
           </div>
 
           <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
-            <button type="button" onClick={onClose} className="h-9 rounded-lg px-3 text-[13px] font-medium text-ink-muted hover:bg-surface-2">Cancel</button>
+            <button type="button" onClick={onClose} className="h-9 rounded-lg px-3 text-[13px] font-medium text-ink-muted hover:bg-surface-2">{t('data.bulkModal.cancel')}</button>
             <button type="button" disabled={!canConfirm || busy} onClick={confirm} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-600 px-4 text-[13px] font-semibold text-white shadow-brand hover:bg-brand-700 disabled:opacity-60">
               {busy ? <Loader2 size={14} className="animate-spin" /> : meta.icon}
               {meta.cta}

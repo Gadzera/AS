@@ -12,6 +12,7 @@ import { useState } from 'react';
 import type { DragEvent } from 'react';
 import { Building2, User as UserIcon, GripVertical, Lock } from 'lucide-react';
 import type { CrmRecord, CrmAttribute, CrmAttributeOption } from '@/lib/crmApi';
+import { useT, type TFunc } from '@/i18n';
 
 const COLOR_DOT: Record<string, string> = {
   gray: 'bg-ink-subtle', slate: 'bg-slate-400', blue: 'bg-blue-500', sky: 'bg-sky-500', cyan: 'bg-cyan-500',
@@ -55,16 +56,16 @@ function relName(v: unknown): string | null {
   return null;
 }
 
-function ageLabel(iso?: string): string | null {
+function ageLabel(iso: string | undefined, t: TFunc): string | null {
   if (!iso) return null;
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return null;
-  const days = Math.floor((Date.now() - t) / 86400000);
-  if (days <= 0) return 'today';
-  if (days === 1) return '1d';
-  if (days < 30) return `${days}d`;
+  const ms = new Date(iso).getTime();
+  if (Number.isNaN(ms)) return null;
+  const days = Math.floor((Date.now() - ms) / 86400000);
+  if (days <= 0) return t('data.boardAge.today');
+  if (days === 1) return t('data.boardAge.oneDay');
+  if (days < 30) return t('data.boardAge.days', { n: days });
   const m = Math.floor(days / 30);
-  return `${m}mo`;
+  return t('data.boardAge.months', { n: m });
 }
 
 interface Lane { value: string | null; label: string; color?: string | null }
@@ -92,6 +93,7 @@ interface Props {
 }
 
 export default function DataHubBoard({ records, groupAttr, userOptions, canManage, busyId, onMove, onOpen }: Props) {
+  const t = useT();
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragFrom, setDragFrom] = useState<string | null>(null);
   const [overLane, setOverLane] = useState<string | null>(null);
@@ -113,7 +115,7 @@ export default function DataHubBoard({ records, groupAttr, userOptions, canManag
   // «No stage» — ВСЕГДА присутствует как drop-таргет (drag сюда = очистка значения, M24-2); required-атрибут backend отклонит 422.
   const lanes: Lane[] = [
     ...baseLanes,
-    { value: null as string | null, label: 'No stage', color: 'gray' as string | null },
+    { value: null as string | null, label: t('data.noStage'), color: 'gray' as string | null },
   ];
 
   const byLane = (laneVal: string | null) => records.filter((r) => valueOf(r) === laneVal);
@@ -168,16 +170,16 @@ export default function DataHubBoard({ records, groupAttr, userOptions, canManag
             <div className="flex min-h-[120px] flex-1 flex-col gap-2 overflow-y-auto p-2">
               {cards.length === 0 ? (
                 <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-line py-6 text-center text-[11px] text-ink-subtle">
-                  {isOver ? 'Drop here' : 'No records here'}
+                  {isOver ? t('data.dropHere') : t('data.noRecordsHere')}
                 </div>
               ) : (
                 cards.map((rec) => {
                   const v = rec.values || {};
-                  const title = rec.displayName || (typeof v.name === 'string' ? v.name : 'Untitled');
+                  const title = rec.displayName || (typeof v.name === 'string' ? v.name : t('data.untitled'));
                   const company = relName(v.company);
                   const money = fmtMoney(v.value);
                   const owner = relName(v.owner);
-                  const age = ageLabel(rec.updatedAt as unknown as string);
+                  const age = ageLabel(rec.updatedAt as unknown as string, t);
                   const moving = busyId === rec.id;
                   return (
                     <div
@@ -204,7 +206,7 @@ export default function DataHubBoard({ records, groupAttr, userOptions, canManag
                       <div className="mt-2 flex items-center gap-2">
                         {money && <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[11px] font-bold text-emerald-700">{money}</span>}
                         {owner && <span className="inline-flex items-center gap-1 text-[10.5px] text-ink-subtle"><UserIcon size={9} /> {owner}</span>}
-                        {age && <span className="ml-auto text-[10px] text-ink-subtle" title="Last activity">{age}</span>}
+                        {age && <span className="ml-auto text-[10px] text-ink-subtle" title={t('data.lastActivity')}>{age}</span>}
                       </div>
                     </div>
                   );
@@ -217,7 +219,7 @@ export default function DataHubBoard({ records, groupAttr, userOptions, canManag
 
       {!canManage && (
         <div className="flex shrink-0 items-start pt-2">
-          <span className="inline-flex items-center gap-1 rounded-md bg-surface px-2 py-1 text-[10.5px] font-medium text-ink-subtle ring-1 ring-inset ring-line"><Lock size={10} /> View-only — members can't move deals</span>
+          <span className="inline-flex items-center gap-1 rounded-md bg-surface px-2 py-1 text-[10.5px] font-medium text-ink-subtle ring-1 ring-inset ring-line"><Lock size={10} /> {t('data.boardMembersViewOnly')}</span>
         </div>
       )}
     </div>

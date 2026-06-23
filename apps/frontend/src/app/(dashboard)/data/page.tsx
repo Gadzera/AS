@@ -68,6 +68,7 @@ import {
 import CalcFooter from '@/components/data/CalcFooter';
 import { campaignsApi, teamApi } from '@/lib/api';
 import { getStoredUser } from '@/lib/auth';
+import { useT, useLocale, type TFunc } from '@/i18n';
 
 /* ──────────────────────────────────────────────────────────────────────────
    Data Hub (/data) — Agent-enriched data foundation. ЖИВЫЕ ДАННЫЕ из backend
@@ -83,16 +84,16 @@ function confColor(v: number): string { return v >= 85 ? 'text-emerald-600' : v 
 // Ячейка ICP-fit: показываем САМО число icp_fit (с тоном High/Mid/Low) + ОТДЕЛЬНО подписанную
 // provenance-confidence (%). Так фильтр/сортировка по icp_fit видимы и проверяемы глазами,
 // а confidence не путается с самим скором.
-function IcpCell({ icp, fit, conf, source, warn }: { icp: number | null; fit: string | null; conf?: number | null; source?: string; warn?: boolean }) {
-  if (icp == null || !fit) return <span className="text-[11px] text-ink-subtle">— not scored</span>;
+function IcpCell({ icp, fit, conf, source, warn, t }: { icp: number | null; fit: string | null; conf?: number | null; source?: string; warn?: boolean; t: TFunc }) {
+  if (icp == null || !fit) return <span className="text-[11px] text-ink-subtle">{t('data.notScored')}</span>;
   return (
     <div className="flex items-center gap-1.5">
-      <span className={`rounded px-1.5 py-0.5 text-[11px] font-bold ${fitTone(fit)}`} title={`${fit} ICP fit · score ${icp}`}>{icp}</span>
+      <span className={`rounded px-1.5 py-0.5 text-[11px] font-bold ${fitTone(fit)}`} title={t('data.icpTitle', { fit, score: icp })}>{icp}</span>
       {conf != null && (
-        <span className="inline-flex shrink-0 items-center gap-1" title="Provenance confidence (how sure the agent is)">
-          {source && <span className={`h-1.5 w-1.5 rounded-full ${sourceDot[source] ?? 'bg-ink-subtle'}`} title={`source: ${source}`} />}
+        <span className="inline-flex shrink-0 items-center gap-1" title={t('data.provConfTitle')}>
+          {source && <span className={`h-1.5 w-1.5 rounded-full ${sourceDot[source] ?? 'bg-ink-subtle'}`} title={t('data.sourceTitle', { source })} />}
           <span className={`text-[10px] font-semibold ${warn ? 'text-rose-600' : confColor(conf)}`}>{conf}%</span>
-          <span className="text-[9px] font-medium uppercase tracking-[0.04em] text-ink-subtle">conf</span>
+          <span className="text-[9px] font-medium uppercase tracking-[0.04em] text-ink-subtle">{t('data.conf')}</span>
           {source === 'AI' && <Sparkles size={9} className="text-brand-500" />}
           {warn && <AlertTriangle size={10} className="text-rose-500" />}
         </span>
@@ -136,22 +137,14 @@ function toRow(r: CrmRecord, i: number): Row {
   };
 }
 
-// человекочитаемые подписи AI-SDR стадий (в тостах/UI вместо сырого enum)
-const STAGE_LABELS: Record<string, string> = {
-  sourced: 'Sourced', researching: 'Researching', ready_to_engage: 'Ready to engage',
-  engaging: 'Engaging', in_conversation: 'In conversation', meeting_set: 'Meeting set',
-  handed_off: 'Handed off', nurture: 'Nurture', recycle: 'Recycle', suppressed: 'Suppressed',
-  disqualified: 'Disqualified',
-};
-const stageLabel = (s: string) => STAGE_LABELS[s] ?? s;
-
 // Пресеты быстрых фильтров — все на РЕАЛЬНЫХ атрибутах companies (backend filter).
 // `needs` — какие атрибуты обязаны существовать у объекта, иначе пресет скрыт.
-interface Preset { key: string; label: string; tone: string; filters: CrmViewFilter[]; needs: string[] }
+// `labelKey` — ключ i18n (data.preset.*), резолвится в рендере через t.
+interface Preset { key: string; labelKey: string; tone: string; filters: CrmViewFilter[]; needs: string[] }
 const PRESETS: Preset[] = [
-  { key: 'needs_review', label: 'Needs review', tone: 'bg-rose-500', needs: ['icp_confidence'], filters: [{ attributeKey: 'icp_confidence', op: 'lt', value: '60' }] },
-  { key: 'missing_dm', label: 'Missing decision-maker', tone: 'bg-amber-500', needs: ['decision_makers'], filters: [{ attributeKey: 'decision_makers', op: 'is_empty' }] },
-  { key: 'ready', label: 'Ready for campaign', tone: 'bg-emerald-500', needs: ['icp_fit', 'enrichment_status'], filters: [{ attributeKey: 'icp_fit', op: 'gt', value: '79' }, { attributeKey: 'enrichment_status', op: 'contains', value: 'enrich' }] },
+  { key: 'needs_review', labelKey: 'preset.needsReview', tone: 'bg-rose-500', needs: ['icp_confidence'], filters: [{ attributeKey: 'icp_confidence', op: 'lt', value: '60' }] },
+  { key: 'missing_dm', labelKey: 'preset.missingDm', tone: 'bg-amber-500', needs: ['decision_makers'], filters: [{ attributeKey: 'decision_makers', op: 'is_empty' }] },
+  { key: 'ready', labelKey: 'preset.ready', tone: 'bg-emerald-500', needs: ['icp_fit', 'enrichment_status'], filters: [{ attributeKey: 'icp_fit', op: 'gt', value: '79' }, { attributeKey: 'enrichment_status', op: 'contains', value: 'enrich' }] },
 ];
 
 // видимость колонок, сохранённая в config представления
@@ -197,6 +190,8 @@ function qSig(filters: CrmViewFilter[], sorts: CrmViewSort[], hidden: string[], 
 }
 
 export default function DataHubPage() {
+  const t = useT();
+  const { locale } = useLocale(); // для локале-зависимого форматирования чисел (кредиты)
   const [objects, setObjects] = useState<CrmObject[]>([]);
   // стартуем с 'companies' (как на сервере); реальный объект восстановим в эффекте после гидрации (см. ниже),
   // иначе чтение localStorage в инициализаторе ломает SSR-гидрацию (server≠client).
@@ -336,13 +331,13 @@ export default function DataHubPage() {
   useEffect(() => {
     let alive = true;
     setLoading(true); setError('');
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       listRecords({ objectKey, limit: 100, search: search.trim() || undefined, filterTree: query.filterTree ?? undefined, filters: validFilters(query.filters), sorts: query.sorts, calcs: calcsToRequests(query.calcs) })
         .then((res) => { if (!alive) return; setRecords(res.records); setRows(res.records.map(toRow)); setTotal(res.pagination?.total ?? res.records.length); setCalculations(res.calculations ?? []); })
-        .catch((e) => { if (alive) setError(e?.response?.data?.error ?? 'Failed to load records'); })
+        .catch((e) => { if (alive) setError(e?.response?.data?.error ?? t('data.toast.loadFailed')); })
         .finally(() => { if (alive) setLoading(false); });
     }, search ? 300 : 0);
-    return () => { alive = false; clearTimeout(t); };
+    return () => { alive = false; clearTimeout(timer); };
   }, [objectKey, search, query]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // M9.7 — метрики object-wide (не зависят от поиска/фильтров): грузим при смене объекта.
@@ -395,7 +390,7 @@ export default function DataHubPage() {
   async function moveCard(recordId: string, _from: string | null, to: string | null) {
     if (!groupAttr) return;
     const isUser = groupAttr.type === 'USER';
-    const label = to == null ? 'No stage' : isUser ? (userOptions.find((u) => u.value === to)?.label ?? to) : ((groupAttr.options ?? []).find((o) => o.value === to)?.label ?? to);
+    const label = to == null ? t('data.noStage') : isUser ? (userOptions.find((u) => u.value === to)?.label ?? to) : ((groupAttr.options ?? []).find((o) => o.value === to)?.label ?? to);
     const opt = isUser ? undefined : (groupAttr.options ?? []).find((o) => o.value === to);
     const optimistic = to == null ? null : isUser ? { id: to, name: label } : (opt ? { id: opt.id, value: opt.value, label: opt.label, color: opt.color } : to);
     const prev = records;
@@ -403,10 +398,10 @@ export default function DataHubPage() {
     setBoardBusyId(recordId);
     try {
       await moveRecord(recordId, groupAttr.key, to);
-      flash(`Moved to “${label}” · saved to DB`);
+      flash(t('data.toast.movedTo', { label }));
     } catch (e: any) {
       setRecords(prev); // откат карточки к прежней колонке
-      const msg = e?.response?.status === 403 ? (e?.response?.data?.error ?? 'No permission to move') : (e?.response?.data?.error ?? 'Move failed — reverted');
+      const msg = e?.response?.status === 403 ? (e?.response?.data?.error ?? t('data.toast.noPermMove')) : (e?.response?.data?.error ?? t('data.toast.moveReverted'));
       flash(msg);
     } finally {
       setBoardBusyId(null);
@@ -430,15 +425,15 @@ export default function DataHubPage() {
     refreshMetrics();
   }
 
-  // Колонки таблицы (видимость персистится в view.config).
+  // Колонки таблицы (видимость персистится в view.config). Подписи берём из i18n (data.col.*).
   const COLUMNS = [
-    { key: 'icp', label: 'ICP-fit' },
-    { key: 'signals', label: 'Buying signals' },
-    { key: 'dm', label: 'Decision-makers' },
-    { key: 'enrich', label: 'Enrichment' },
-    { key: 'lastAction', label: 'Last agent action' },
-    { key: 'segment', label: 'Segment' },
-    { key: 'employees', label: 'Employees' },
+    { key: 'icp', label: t('data.col.icp') },
+    { key: 'signals', label: t('data.col.signals') },
+    { key: 'dm', label: t('data.col.dm') },
+    { key: 'enrich', label: t('data.col.enrich') },
+    { key: 'lastAction', label: t('data.col.lastAction') },
+    { key: 'segment', label: t('data.col.segment') },
+    { key: 'employees', label: t('data.col.employees') },
   ];
   const toggleCol = (key: string) => setHiddenCols((p) => { const n = new Set(p); n.has(key) ? n.delete(key) : n.add(key); return n; });
   const colVisible = (key: string) => !hiddenCols.has(key);
@@ -458,14 +453,14 @@ export default function DataHubPage() {
     const savedS = activeView?.sorts ?? [];
     const savedH = hiddenFromConfig(activeView?.config);
     const parts: string[] = [];
-    if (viewType !== (activeView?.type ?? 'table')) parts.push('layout');
-    if (qSig(query.filters, [], [], query.filterTree) !== qSig(savedF, [], [], activeView?.filterTree)) parts.push('filters');
-    if (qSig([], query.sorts, []) !== qSig([], savedS, [])) parts.push('sort');
-    if (qSig([], [], [...hiddenCols]) !== qSig([], [], savedH)) parts.push('columns');
-    if (calcsSig(query.calcs) !== calcsSig(calcsFromConfig(activeView?.config))) parts.push('calculations');
-    if (groupByDirty) parts.push('group-by');
-    return parts.length === 0 ? 'changes' : parts.join(' · ');
-  }, [activeView, query, hiddenCols, viewType, groupByDirty]);
+    if (viewType !== (activeView?.type ?? 'table')) parts.push(t('data.dirty.layout'));
+    if (qSig(query.filters, [], [], query.filterTree) !== qSig(savedF, [], [], activeView?.filterTree)) parts.push(t('data.dirty.filters'));
+    if (qSig([], query.sorts, []) !== qSig([], savedS, [])) parts.push(t('data.dirty.sort'));
+    if (qSig([], [], [...hiddenCols]) !== qSig([], [], savedH)) parts.push(t('data.dirty.columns'));
+    if (calcsSig(query.calcs) !== calcsSig(calcsFromConfig(activeView?.config))) parts.push(t('data.dirty.calculations'));
+    if (groupByDirty) parts.push(t('data.dirty.groupBy'));
+    return parts.length === 0 ? t('data.dirty.changes') : parts.join(' · ');
+  }, [activeView, query, hiddenCols, viewType, groupByDirty, t]);
 
   function selectView(id: string | null) {
     if (id === null) { applyView(null); return; }
@@ -483,8 +478,8 @@ export default function DataHubPage() {
       const created = await createView({ objectKey, name, type: viewType, scope, filterTree: query.filterTree ?? null, filters: validFilters(query.filters), sorts: query.sorts, groupByAttributeKey: viewType === 'board' ? groupByKey || null : null, config: { hiddenCols: [...hiddenCols], calcs: query.calcs ?? {} } });
       const saved = await refreshViews();
       applyView(saved.find((x) => x.id === created.id) ?? created);
-      flash(`View “${name}” saved · ${scope === 'shared' ? 'shared with workspace' : 'private to you'}`);
-    } catch (e: any) { flash(e?.response?.data?.error ?? 'Failed to save view'); }
+      flash(t('data.toast.viewSaved', { name, scope: t(scope === 'shared' ? 'data.toast.scopeShared' : 'data.toast.scopePrivate') }));
+    } catch (e: any) { flash(e?.response?.data?.error ?? t('data.toast.failSave')); }
   }
   async function updateActiveView() {
     if (!activeViewId || !canManage) return;
@@ -492,19 +487,19 @@ export default function DataHubPage() {
       await updateView(activeViewId, { type: viewType, filterTree: query.filterTree ?? null, filters: validFilters(query.filters), sorts: query.sorts, groupByAttributeKey: viewType === 'board' ? groupByKey || null : null, config: { hiddenCols: [...hiddenCols], calcs: query.calcs ?? {} } });
       const saved = await refreshViews();
       applyView(saved.find((x) => x.id === activeViewId) ?? null, false);
-      flash('View updated');
-    } catch (e: any) { flash(e?.response?.data?.error ?? 'Failed to update view'); }
+      flash(t('data.toast.viewUpdated'));
+    } catch (e: any) { flash(e?.response?.data?.error ?? t('data.toast.failUpdate')); }
   }
   async function renameView(id: string, name: string) {
     if (!canManage) return;
-    try { await updateView(id, { name }); await refreshViews(); flash(`Renamed to “${name}”`); }
-    catch (e: any) { flash(e?.response?.data?.error ?? 'Failed to rename view'); }
+    try { await updateView(id, { name }); await refreshViews(); flash(t('data.toast.renamedTo', { name })); }
+    catch (e: any) { flash(e?.response?.data?.error ?? t('data.toast.failRename')); }
   }
   // M24-2: share/unshare сохранённого вида (PATCH scope) — управление SHARED требует FULL (backend 403).
   async function shareView(id: string, scope: CrmViewScope) {
     if (!canManage) return;
-    try { await updateView(id, { scope }); await refreshViews(); flash(scope === 'shared' ? 'View shared with workspace' : 'View made private'); }
-    catch (e: any) { flash(e?.response?.data?.error ?? 'Failed to change sharing'); }
+    try { await updateView(id, { scope }); await refreshViews(); flash(scope === 'shared' ? t('data.toast.viewShared') : t('data.toast.viewMadePrivate')); }
+    catch (e: any) { flash(e?.response?.data?.error ?? t('data.toast.failShare')); }
   }
   async function removeView(id: string) {
     if (!canManage) return;
@@ -513,8 +508,8 @@ export default function DataHubPage() {
       const saved = await refreshViews();
       if (activeViewId === id) applyView(null);
       else void saved;
-      flash('View deleted');
-    } catch (e: any) { flash(e?.response?.data?.error ?? 'Failed to delete view'); }
+      flash(t('data.toast.viewDeleted'));
+    } catch (e: any) { flash(e?.response?.data?.error ?? t('data.toast.failDelete')); }
   }
   function resetToSaved() { applyView(activeView, false); }
 
@@ -532,14 +527,14 @@ export default function DataHubPage() {
     const r = await bulkStageRecords({ objectKey, ids, stage });
     await reload();
     setSelected(new Set());
-    flash(`Push to Pipeline: ${r.staged} записей → стадия «${stageLabel(r.stage)}»`);
+    flash(t('data.toast.pushedResult', { count: r.staged, stage: t('data.stage.' + r.stage) }));
   }
   async function doEnroll(campaignId: string) {
     const ids = [...selected];
     if (!ids.length) return;
     const r = await enrollRecordsToCampaign({ objectKey, recordIds: ids, campaignId });
     setSelected(new Set());
-    flash(`В кампанию «${r.campaign.name}»: записано ${r.enrolled}${r.skipped.length ? `, пропущено ${r.skipped.length} (нет email)` : ''}`);
+    flash(t('data.toast.enrolledResult', { name: r.campaign.name, enrolled: r.enrolled, skipped: r.skipped.length ? t('data.toast.enrolledSkipped', { count: r.skipped.length }) : '' }));
   }
   async function onBulkConfirm(payload: { campaignId?: string; stage?: string; name?: string }) {
     if (payload.campaignId) await doEnroll(payload.campaignId);
@@ -554,8 +549,8 @@ export default function DataHubPage() {
 
   // Реальный запуск AI-исследования по записям (M2). Списывает кредиты, пишет AiRun + Value.
   async function enrich(ids: string[]) {
-    if (!aiAttr) { flash('This object has no AI attribute for enrichment'); return; }
-    if (ids.length === 0) { flash('Select records first'); return; }
+    if (!aiAttr) { flash(t('data.toast.noAiEnrich')); return; }
+    if (ids.length === 0) { flash(t('data.toast.selectFirst')); return; }
     setBusy(new Set(ids));
     let ok = 0;
     for (const id of ids) {
@@ -567,7 +562,7 @@ export default function DataHubPage() {
     }
     await reload();
     setSelected(new Set());
-    flash(`Agent researched ${ok} ${ok === 1 ? 'account' : 'accounts'} · −${ok * costPer} credits`);
+    flash(t('data.toast.researched', { count: ok, accountWord: t(ok === 1 ? 'data.toast.account' : 'data.toast.accounts'), credits: ok * costPer }));
     window.dispatchEvent(new CustomEvent('credits:refresh'));
   }
 
@@ -597,13 +592,13 @@ export default function DataHubPage() {
   // M9.7 — Evidence / AI-filled / Needs review берём из backend-метрик (реальные AI-значения), fallback на клиентский q.
   const needsReviewVal = aiMetrics?.needsReview ?? q.needsReview;
   const quality = [
-    { label: 'Evidence coverage', value: `${aiMetrics?.evidenceCoverage ?? q.evidence}%`, sub: aiMetrics ? `${aiMetrics.recordsWithEvidence} of ${aiMetrics.totalRecords} records` : undefined },
-    { label: 'AI-filled fields', value: (aiMetrics?.aiFilled ?? q.aiFilled).toLocaleString(), sub: aiMetrics ? `${aiMetrics.aiFilled} filled of ${aiMetrics.aiCellsTotal} AI cells · ${aiMetrics.aiFilledPct}%` : undefined },
-    { label: 'Needs review', value: String(needsReviewVal), sub: undefined },
-    { label: 'Missing DMs', value: String(q.missingDm), sub: undefined },
-    { label: 'ICP-fit avg', value: String(q.avg), sub: undefined },
-    { label: 'Records', value: String(total), sub: undefined },
-    { label: 'Campaign-ready', value: String(q.ready), sub: undefined },
+    { label: t('data.quality.evidenceCoverage'), value: `${aiMetrics?.evidenceCoverage ?? q.evidence}%`, sub: aiMetrics ? t('data.quality.ofRecords', { filled: aiMetrics.recordsWithEvidence, total: aiMetrics.totalRecords }) : undefined },
+    { label: t('data.quality.aiFilledFields'), value: (aiMetrics?.aiFilled ?? q.aiFilled).toLocaleString(), sub: aiMetrics ? t('data.quality.aiCellsSub', { filled: aiMetrics.aiFilled, total: aiMetrics.aiCellsTotal, pct: aiMetrics.aiFilledPct }) : undefined },
+    { label: t('data.quality.needsReview'), value: String(needsReviewVal), sub: undefined },
+    { label: t('data.quality.missingDms'), value: String(q.missingDm), sub: undefined },
+    { label: t('data.quality.icpFitAvg'), value: String(q.avg), sub: undefined },
+    { label: t('data.quality.records'), value: String(total), sub: undefined },
+    { label: t('data.quality.campaignReady'), value: String(q.ready), sub: undefined },
   ];
 
   // доступные пресеты (по наличию реальных атрибутов у объекта) + их счётчики из текущей выборки
@@ -614,10 +609,10 @@ export default function DataHubPage() {
   // suggested-действия контекстны: каждое disabled с причиной, если применять не к чему (ноль мёртвых элементов)
   const hasFilter = validFilters(query.filters).length > 0;
   const suggested = [
-    { label: 'Run research on selected', icon: <FlaskConical size={12} />, act: () => enrich([...selected]), disabled: selected.size === 0 || !aiAttr, reason: !aiAttr ? 'No AI attribute on this object' : 'Select records first' },
-    { label: 'Create view from filter', icon: <Layers size={12} />, act: () => setBulk('segment'), disabled: !hasFilter, reason: 'Add a filter first' },
-    { label: 'Add ready accounts to campaign', icon: <Send size={12} />, act: () => { selectReady(); setBulk('campaign'); }, disabled: q.ready === 0, reason: 'No campaign-ready records' },
-    { label: 'Push qualified to Pipeline', icon: <Radar size={12} />, act: () => { selectReady(); setBulk('stage'); }, disabled: q.ready === 0, reason: 'No qualified records' },
+    { key: 'research', label: t('data.suggest.runResearchSelected'), icon: <FlaskConical size={12} />, act: () => enrich([...selected]), disabled: selected.size === 0 || !aiAttr, reason: !aiAttr ? t('data.suggest.reasonNoAiAttr') : t('data.suggest.reasonSelectFirst') },
+    { key: 'view', label: t('data.suggest.createViewFromFilter'), icon: <Layers size={12} />, act: () => setBulk('segment'), disabled: !hasFilter, reason: t('data.suggest.reasonAddFilter') },
+    { key: 'campaign', label: t('data.suggest.addReadyToCampaign'), icon: <Send size={12} />, act: () => { selectReady(); setBulk('campaign'); }, disabled: q.ready === 0, reason: t('data.suggest.reasonNoCampaignReady') },
+    { key: 'pipeline', label: t('data.suggest.pushQualified'), icon: <Radar size={12} />, act: () => { selectReady(); setBulk('stage'); }, disabled: q.ready === 0, reason: t('data.suggest.reasonNoQualified') },
   ];
 
   const objectTabs = objects.length ? objects.slice(0, 8).map((o) => ({ key: o.key, label: o.pluralName })) : [{ key: 'companies', label: 'Companies' }];
@@ -639,20 +634,20 @@ export default function DataHubPage() {
   return (
     <>
       <Topbar
-        title="Data Hub"
-        subtitle="Foundation · Agent-enriched records"
+        title={t('data.title')}
+        subtitle={t('data.subtitle')}
         icon={<Database size={18} strokeWidth={1.85} />}
         actions={
           <div className="flex items-center gap-1.5">
-            <button type="button" onClick={() => setShowImport(true)} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 text-[12.5px] font-medium text-ink-muted shadow-xs hover:bg-surface-2"><Upload size={14} /> Import</button>
-            <button type="button" onClick={() => setShowHistory(true)} title="Import history & rollback" className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 text-[12.5px] font-medium text-ink-muted shadow-xs hover:bg-surface-2"><History size={14} /> History</button>
-            <button type="button" onClick={() => setShowCreate(true)} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 text-[12.5px] font-medium text-ink-muted shadow-xs hover:bg-surface-2"><Plus size={14} /> New record</button>
+            <button type="button" onClick={() => setShowImport(true)} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 text-[12.5px] font-medium text-ink-muted shadow-xs hover:bg-surface-2"><Upload size={14} /> {t('data.import')}</button>
+            <button type="button" onClick={() => setShowHistory(true)} title={t('data.historyTitle')} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 text-[12.5px] font-medium text-ink-muted shadow-xs hover:bg-surface-2"><History size={14} /> {t('data.history')}</button>
+            <button type="button" onClick={() => setShowCreate(true)} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 text-[12.5px] font-medium text-ink-muted shadow-xs hover:bg-surface-2"><Plus size={14} /> {t('data.newRecord')}</button>
             <button
               type="button"
               onClick={() => setReviewOpen(true)}
               className="brand-gradient inline-flex h-9 items-center gap-2 rounded-lg px-3.5 text-[12.5px] font-semibold text-white shadow-brand transition-all hover:-translate-y-0.5 hover:shadow-lg"
             >
-              <ScanEye size={14} strokeWidth={2.2} /> Review fields <span className="rounded-full bg-white/25 px-1.5 text-[11px] font-bold">{needsReviewVal}</span>
+              <ScanEye size={14} strokeWidth={2.2} /> {t('data.reviewFields')} <span className="rounded-full bg-white/25 px-1.5 text-[11px] font-bold">{needsReviewVal}</span>
             </button>
           </div>
         }
@@ -662,9 +657,9 @@ export default function DataHubPage() {
       <div className="flex h-12 shrink-0 items-center gap-2 border-b border-line bg-surface/70 px-4">
         <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-emerald-700">
           <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" /><span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" /></span>
-          <Bot size={13} /> Agent enriched {rows.length} records
+          <Bot size={13} /> {t('data.agentEnriched', { count: rows.length })}
         </span>
-        <span className="text-[11px] text-ink-subtle">· evidence coverage {aiMetrics?.evidenceCoverage ?? q.evidence}%</span>
+        <span className="text-[11px] text-ink-subtle">· {t('data.evidenceCoverageInline', { pct: aiMetrics?.evidenceCoverage ?? q.evidence })}</span>
         <div className="ml-2 inline-flex h-8 max-w-[46%] items-center gap-0.5 overflow-x-auto rounded-lg border border-line bg-surface-2/60 p-0.5">
           {objectTabs.map((o) => (
             <button key={o.key} type="button" onClick={() => switchObject(o.key)} className={['inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[12px] font-semibold transition-colors', o.key === objectKey ? 'bg-surface text-brand-700 shadow-xs ring-1 ring-inset ring-brand-100' : 'text-ink-muted hover:text-ink'].join(' ')}>{o.label}</button>
@@ -673,14 +668,14 @@ export default function DataHubPage() {
         <div className="ml-auto flex items-center gap-1.5">
           {/* Table ↔ Board переключатель (только если у объекта есть SELECT-атрибут для группировки) */}
           {canBoard && (
-            <div className="inline-flex h-8 items-center rounded-lg border border-line bg-surface-2/60 p-0.5" role="tablist" aria-label="View layout">
-              <button type="button" onClick={() => setViewType('table')} title="Table view" className={['inline-flex h-7 items-center gap-1 rounded-md px-2 text-[12px] font-semibold transition-colors', viewType === 'table' ? 'bg-surface text-brand-700 shadow-xs ring-1 ring-inset ring-brand-100' : 'text-ink-muted hover:text-ink'].join(' ')}><Table2 size={13} /> Table</button>
-              <button type="button" onClick={() => setViewType('board')} title="Board view" className={['inline-flex h-7 items-center gap-1 rounded-md px-2 text-[12px] font-semibold transition-colors', viewType === 'board' ? 'bg-surface text-brand-700 shadow-xs ring-1 ring-inset ring-brand-100' : 'text-ink-muted hover:text-ink'].join(' ')}><LayoutGrid size={13} /> Board</button>
+            <div className="inline-flex h-8 items-center rounded-lg border border-line bg-surface-2/60 p-0.5" role="tablist" aria-label={t('data.viewLayout')}>
+              <button type="button" onClick={() => setViewType('table')} title={t('data.tableTitle')} className={['inline-flex h-7 items-center gap-1 rounded-md px-2 text-[12px] font-semibold transition-colors', viewType === 'table' ? 'bg-surface text-brand-700 shadow-xs ring-1 ring-inset ring-brand-100' : 'text-ink-muted hover:text-ink'].join(' ')}><Table2 size={13} /> {t('data.table')}</button>
+              <button type="button" onClick={() => setViewType('board')} title={t('data.boardTitle')} className={['inline-flex h-7 items-center gap-1 rounded-md px-2 text-[12px] font-semibold transition-colors', viewType === 'board' ? 'bg-surface text-brand-700 shadow-xs ring-1 ring-inset ring-brand-100' : 'text-ink-muted hover:text-ink'].join(' ')}><LayoutGrid size={13} /> {t('data.board')}</button>
             </div>
           )}
           {viewType === 'board' && selectAttrs.length > 1 && (
-            <select value={groupByKey} onChange={(e) => setGroupByKey(e.target.value)} title="Group board by" className="h-8 rounded-lg border border-line bg-surface px-2 text-[12px] font-medium text-ink-muted focus:border-brand-400 focus:outline-none">
-              {selectAttrs.map((a) => <option key={a.key} value={a.key}>by {a.name}</option>)}
+            <select value={groupByKey} onChange={(e) => setGroupByKey(e.target.value)} title={t('data.groupBoardBy')} className="h-8 rounded-lg border border-line bg-surface px-2 text-[12px] font-medium text-ink-muted focus:border-brand-400 focus:outline-none">
+              {selectAttrs.map((a) => <option key={a.key} value={a.key}>{t('data.byAttr', { name: a.name })}</option>)}
             </select>
           )}
           <div className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 text-[12px] text-ink-muted focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-100">
@@ -688,13 +683,13 @@ export default function DataHubPage() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search…"
+              placeholder={t('data.search')}
               className="w-28 bg-transparent text-[12px] text-ink outline-none placeholder:text-ink-subtle focus:w-40"
             />
           </div>
           {viewType === 'table' && <DataHubControls attrs={attrs} query={query} onChange={setQuery} columns={COLUMNS} hiddenCols={hiddenCols} onToggleCol={toggleCol} />}
           {canManage && aiAttrs.length > 0 && (
-            <button type="button" onClick={() => setBulkOpen(true)} title="Run AI on records (bulk)" className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-2.5 text-[12px] font-semibold text-brand-700 transition-colors hover:bg-brand-100"><Sparkles size={13} /> Run AI</button>
+            <button type="button" onClick={() => setBulkOpen(true)} title={t('data.runAiTitle')} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-2.5 text-[12px] font-semibold text-brand-700 transition-colors hover:bg-brand-100"><Sparkles size={13} /> {t('data.runAi')}</button>
           )}
         </div>
       </div>
@@ -727,9 +722,9 @@ export default function DataHubPage() {
           ))}
           {/* M9.7 — кредит-chip: связь Data Hub с реальными списаниями (полный ledger — в Settings → Billing & Credits) */}
           {aiMetrics && (
-            <div className="flex min-w-[150px] flex-col justify-center bg-brand-50/40 px-3 py-1.5" title="AI credits — spent on AI runs vs remaining balance. Full ledger in Settings → Billing & Credits.">
-              <span className="inline-flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-[0.03em] text-brand-700"><Sparkles size={10} /> AI credits</span>
-              <span className="mt-0.5 text-[11px] font-semibold text-ink">spent {aiMetrics.credits.spentOnAi.toLocaleString('en-US')} · remaining {aiMetrics.credits.remaining.toLocaleString('en-US')}</span>
+            <div className="flex min-w-[150px] flex-col justify-center bg-brand-50/40 px-3 py-1.5" title={t('data.quality.aiCreditsTitle')}>
+              <span className="inline-flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-[0.03em] text-brand-700"><Sparkles size={10} /> {t('data.quality.aiCredits')}</span>
+              <span className="mt-0.5 text-[11px] font-semibold text-ink">{t('data.quality.spentRemaining', { spent: aiMetrics.credits.spentOnAi.toLocaleString(locale), remaining: aiMetrics.credits.remaining.toLocaleString(locale) })}</span>
             </div>
           )}
         </div>
@@ -741,22 +736,22 @@ export default function DataHubPage() {
           <section className="flex min-h-0 min-w-0 flex-1 flex-col">
             {/* board header: группировка + подтверждение, что сумма карточек = backend total */}
             <div className="flex h-10 shrink-0 items-center gap-2 border-b border-line bg-surface px-4">
-              <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink"><LayoutGrid size={13} className="text-brand-600" /> Board · grouped by {groupAttr?.name ?? '—'}</span>
-              <span className="text-[11px] text-ink-subtle">· {records.length} {objectPlural.toLowerCase()} across {groupAttr?.type === 'USER' ? userOptions.length : (groupAttr?.options?.length ?? 0)} {groupAttr?.type === 'USER' ? (userOptions.length === 1 ? 'owner' : 'owners') : 'stages'} (+ No stage) · cards total = backend {total}</span>
-              {boardBusyId && <span className="ml-2 inline-flex items-center gap-1 text-[11px] font-medium text-brand-700"><Loader2 size={11} className="animate-spin" /> saving…</span>}
-              {!canManage && <span className="ml-2 inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-200" title="Members can view the board but can't move cards"><Lock size={11} /> View-only · can’t move deals</span>}
+              <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink"><LayoutGrid size={13} className="text-brand-600" /> {t('data.boardGroupedBy', { name: groupAttr?.name ?? '—' })}</span>
+              <span className="text-[11px] text-ink-subtle">· {t('data.boardSummary', { count: records.length, plural: objectPlural.toLowerCase(), n: groupAttr?.type === 'USER' ? userOptions.length : (groupAttr?.options?.length ?? 0), unit: groupAttr?.type === 'USER' ? (userOptions.length === 1 ? t('data.owner') : t('data.owners')) : t('data.stages'), total })}</span>
+              {boardBusyId && <span className="ml-2 inline-flex items-center gap-1 text-[11px] font-medium text-brand-700"><Loader2 size={11} className="animate-spin" /> {t('data.saving')}</span>}
+              {!canManage && <span className="ml-2 inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-200" title={t('data.viewOnlyTitle')}><Lock size={11} /> {t('data.viewOnly')}</span>}
             </div>
             <div className="min-h-0 flex-1 overflow-hidden">
               {loading ? (
-                <div className="flex h-full items-center justify-center gap-2 text-[13px] text-ink-subtle"><Loader2 size={16} className="animate-spin" /> Loading board…</div>
+                <div className="flex h-full items-center justify-center gap-2 text-[13px] text-ink-subtle"><Loader2 size={16} className="animate-spin" /> {t('data.loadingBoard')}</div>
               ) : error ? (
                 <div className="flex h-full items-center justify-center text-[13px] text-rose-600">{error}</div>
               ) : !groupAttr ? (
-                <div className="flex h-full items-center justify-center text-[13px] text-ink-subtle">This object has no select attribute to group by.</div>
+                <div className="flex h-full items-center justify-center text-[13px] text-ink-subtle">{t('data.noSelectAttr')}</div>
               ) : records.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center gap-2 text-ink-subtle">
-                  <LayoutGrid size={26} /> <p className="text-[13px]">No {objectPlural.toLowerCase()} to show on the board.</p>
-                  {hasQuery && <button type="button" onClick={() => { applyView(null); setSearch(''); }} className="text-[12px] font-semibold text-brand-700 hover:underline">Clear filters</button>}
+                  <LayoutGrid size={26} /> <p className="text-[13px]">{t('data.noBoardRecords', { plural: objectPlural.toLowerCase() })}</p>
+                  {hasQuery && <button type="button" onClick={() => { applyView(null); setSearch(''); }} className="text-[12px] font-semibold text-brand-700 hover:underline">{t('data.clearFilters')}</button>}
                 </div>
               ) : (
                 <DataHubBoard records={records} groupAttr={groupAttr} userOptions={userOptions} canManage={canManage} busyId={boardBusyId} onMove={moveCard} onOpen={(id) => setOpenId(id)} />
@@ -768,47 +763,47 @@ export default function DataHubPage() {
         <section className="flex min-h-0 min-w-0 flex-1 flex-col">
           {selected.size > 0 && (
             <div className="flex h-10 shrink-0 items-center gap-2 border-b border-line bg-brand-50/60 px-4">
-              <span className="text-[12px] font-bold text-brand-800">{selected.size} selected</span>
+              <span className="text-[12px] font-bold text-brand-800">{t('data.selectedCount', { count: selected.size })}</span>
               <div className="flex items-center gap-1.5">
                 {canManage && aiAttrs.length > 0 && (
                   <button
                     type="button"
                     onClick={() => setBulkOpen(true)}
-                    title="Server-side bulk AI run with progress, ledger and partial errors"
+                    title={t('data.runAiBulkTitle')}
                     className="inline-flex h-7 items-center gap-1.5 rounded-md border border-brand-300 bg-brand-600 px-2.5 text-[11.5px] font-semibold text-white shadow-xs transition-colors hover:bg-brand-700"
                   >
-                    <Sparkles size={12} /> Run AI · bulk
+                    <Sparkles size={12} /> {t('data.runAiBulk')}
                   </button>
                 )}
-                <BulkBtn icon={<Send size={12} />} label="Add to campaign" onClick={() => setBulk('campaign')} />
-                <BulkBtn icon={<Layers size={12} />} label="Save as view" onClick={() => setBulk('segment')} />
-                <BulkBtn icon={<Radar size={12} />} label="Push to Pipeline" onClick={() => setBulk('stage')} />
+                <BulkBtn icon={<Send size={12} />} label={t('data.addToCampaign')} onClick={() => setBulk('campaign')} />
+                <BulkBtn icon={<Layers size={12} />} label={t('data.saveAsView')} onClick={() => setBulk('segment')} />
+                <BulkBtn icon={<Radar size={12} />} label={t('data.pushToPipeline')} onClick={() => setBulk('stage')} />
               </div>
-              <button type="button" onClick={() => setSelected(new Set())} className="ml-auto text-[11.5px] font-medium text-ink-muted hover:text-ink">Clear</button>
+              <button type="button" onClick={() => setSelected(new Set())} className="ml-auto text-[11.5px] font-medium text-ink-muted hover:text-ink">{t('data.clear')}</button>
             </div>
           )}
 
           <div className="min-h-0 flex-1 overflow-auto">
             {loading ? (
-              <div className="flex h-full items-center justify-center gap-2 text-[13px] text-ink-subtle"><Loader2 size={16} className="animate-spin" /> Loading records…</div>
+              <div className="flex h-full items-center justify-center gap-2 text-[13px] text-ink-subtle"><Loader2 size={16} className="animate-spin" /> {t('data.loadingRecords')}</div>
             ) : error ? (
               <div className="flex h-full items-center justify-center text-[13px] text-rose-600">{error}</div>
             ) : rows.length === 0 && objectTotal === 0 ? (
               // ОБЪЕКТ ПУСТ — в объекте нет НИ ОДНОЙ записи (unfiltered total = 0)
               <div className="flex h-full flex-col items-center justify-center gap-2 text-ink-subtle">
-                <Database size={28} /> <p className="text-[13px] font-medium text-ink">No {objectPlural.toLowerCase()} yet</p>
-                <p className="text-[11.5px]">This object has no records at all. Add the first one to get started.</p>
+                <Database size={28} /> <p className="text-[13px] font-medium text-ink">{t('data.emptyObjectTitle', { plural: objectPlural.toLowerCase() })}</p>
+                <p className="text-[11.5px]">{t('data.emptyObjectBody')}</p>
                 <div className="mt-1 flex items-center gap-2">
-                  <button type="button" onClick={() => setShowCreate(true)} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-brand-600 px-3 text-[12px] font-semibold text-white hover:bg-brand-700"><Plus size={13} /> New record</button>
-                  <button type="button" onClick={() => setShowImport(true)} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-line bg-surface px-3 text-[12px] font-semibold text-ink-muted hover:bg-surface-2"><Upload size={13} /> Import CSV</button>
+                  <button type="button" onClick={() => setShowCreate(true)} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-brand-600 px-3 text-[12px] font-semibold text-white hover:bg-brand-700"><Plus size={13} /> {t('data.newRecord')}</button>
+                  <button type="button" onClick={() => setShowImport(true)} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-line bg-surface px-3 text-[12px] font-semibold text-ink-muted hover:bg-surface-2"><Upload size={13} /> {t('data.importCsv')}</button>
                 </div>
               </div>
             ) : rows.length === 0 ? (
               // ФИЛЬТР/ПОИСК/ВИД ничего не вернул, НО в объекте записи ЕСТЬ (objectTotal > 0)
               <div className="flex h-full flex-col items-center justify-center gap-2 text-ink-subtle">
-                <FileSearch size={26} /> <p className="text-[13px] font-medium text-ink">No {objectPlural.toLowerCase()} match {activeView ? `view “${activeView.name}”` : filterCount ? 'this filter' : 'your search'}</p>
-                <p className="text-[11.5px]">0 of {objectTotal ?? total} {objectPlural.toLowerCase()} — you narrowed the view, the object is not empty.</p>
-                <button type="button" onClick={() => { applyView(null); setSearch(''); }} className="mt-1 inline-flex h-8 items-center gap-1.5 rounded-lg border border-line bg-surface px-3 text-[12px] font-semibold text-brand-700 hover:bg-brand-50"><Radar size={13} /> Clear filters · show all {objectTotal ?? ''}</button>
+                <FileSearch size={26} /> <p className="text-[13px] font-medium text-ink">{t('data.noMatchPrefix', { plural: objectPlural.toLowerCase() })} {activeView ? t('data.matchView', { name: activeView.name }) : filterCount ? t('data.matchFilter') : t('data.matchSearch')}</p>
+                <p className="text-[11.5px]">{t('data.narrowedBody', { total: objectTotal ?? total, plural: objectPlural.toLowerCase() })}</p>
+                <button type="button" onClick={() => { applyView(null); setSearch(''); }} className="mt-1 inline-flex h-8 items-center gap-1.5 rounded-lg border border-line bg-surface px-3 text-[12px] font-semibold text-brand-700 hover:bg-brand-50"><Radar size={13} /> {t('data.clearFiltersShowAll', { total: objectTotal ?? '' })}</button>
               </div>
             ) : (
               <table className="w-full border-separate border-spacing-0 text-left">
@@ -816,13 +811,13 @@ export default function DataHubPage() {
                   <tr className="bg-surface text-[10px] font-bold uppercase tracking-[0.05em] text-ink-subtle">
                     <th className="border-b border-line px-2 py-2"><span className="sr-only">select</span></th>
                     <th className="border-b border-line px-3 py-2">{objectLabel}</th>
-                    {colVisible('icp') && <th className="border-b border-line px-3 py-2">ICP-fit</th>}
-                    {colVisible('signals') && <th className="border-b border-line px-3 py-2">Buying signals</th>}
-                    {colVisible('dm') && <th className="border-b border-line px-3 py-2">Decision-makers</th>}
-                    {colVisible('enrich') && <th className="border-b border-line px-3 py-2">Enrichment</th>}
-                    {colVisible('lastAction') && <th className="border-b border-line px-3 py-2">Last agent action</th>}
-                    {colVisible('segment') && <th className="border-b border-line px-3 py-2">Segment</th>}
-                    {colVisible('employees') && <th className="border-b border-line px-3 py-2 text-ink-subtle/70">Employees</th>}
+                    {colVisible('icp') && <th className="border-b border-line px-3 py-2">{t('data.col.icp')}</th>}
+                    {colVisible('signals') && <th className="border-b border-line px-3 py-2">{t('data.col.signals')}</th>}
+                    {colVisible('dm') && <th className="border-b border-line px-3 py-2">{t('data.col.dm')}</th>}
+                    {colVisible('enrich') && <th className="border-b border-line px-3 py-2">{t('data.col.enrich')}</th>}
+                    {colVisible('lastAction') && <th className="border-b border-line px-3 py-2">{t('data.col.lastAction')}</th>}
+                    {colVisible('segment') && <th className="border-b border-line px-3 py-2">{t('data.col.segment')}</th>}
+                    {colVisible('employees') && <th className="border-b border-line px-3 py-2 text-ink-subtle/70">{t('data.col.employees')}</th>}
                     <th className="border-b border-line px-2 py-2"><span className="sr-only">actions</span></th>
                   </tr>
                 </thead>
@@ -843,7 +838,7 @@ export default function DataHubPage() {
                         </td>
                         {colVisible('icp') && (
                           <td className="border-b border-line px-3 py-2">
-                            <IcpCell icp={c.icp} fit={c.fit} conf={c.conf} source={c.source} warn={c.fitWarn} />
+                            <IcpCell icp={c.icp} fit={c.fit} conf={c.conf} source={c.source} warn={c.fitWarn} t={t} />
                           </td>
                         )}
                         {colVisible('signals') && (
@@ -861,7 +856,7 @@ export default function DataHubPage() {
                           </td>
                         )}
                         {colVisible('enrich') && (
-                          <td className="border-b border-line px-3 py-2">{c.enrich ? <span className={`rounded px-1.5 py-0.5 text-[10.5px] font-semibold ${enrichTone(c.enrich)}`}>{c.enrich}</span> : c.researched ? <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10.5px] font-semibold bg-violet-50 text-violet-700"><CheckCircle2 size={10} /> Researched</span> : <span className="text-[11px] text-ink-subtle">—</span>}</td>
+                          <td className="border-b border-line px-3 py-2">{c.enrich ? <span className={`rounded px-1.5 py-0.5 text-[10.5px] font-semibold ${enrichTone(c.enrich)}`}>{c.enrich}</span> : c.researched ? <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10.5px] font-semibold bg-violet-50 text-violet-700"><CheckCircle2 size={10} /> {t('data.researched')}</span> : <span className="text-[11px] text-ink-subtle">—</span>}</td>
                         )}
                         {colVisible('lastAction') && <td className="border-b border-line px-3 py-2 text-ink-muted">{c.lastAction ?? '—'}</td>}
                         {colVisible('segment') && <td className="border-b border-line px-3 py-2">{c.segment ? <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-[10.5px] font-medium text-ink-muted">{c.segment}</span> : <span className="text-[11px] text-ink-subtle">—</span>}</td>}
@@ -871,11 +866,11 @@ export default function DataHubPage() {
                             type="button"
                             disabled={busy.has(c.id) || !aiAttr}
                             onClick={() => enrich([c.id])}
-                            title={aiAttr ? 'Run AI research on this account' : 'No AI attribute configured'}
+                            title={aiAttr ? t('data.runAiRowTitle') : t('data.noAiConfigured')}
                             className="inline-flex h-6 items-center gap-1 rounded-md border border-line bg-surface px-1.5 text-[10.5px] font-semibold text-brand-700 opacity-0 shadow-xs transition-opacity hover:bg-brand-50 disabled:cursor-not-allowed group-hover:opacity-100 disabled:opacity-0"
                           >
                             {busy.has(c.id) ? <Loader2 size={10} className="animate-spin" /> : <FlaskConical size={10} />}
-                            {busy.has(c.id) ? 'Running' : 'Run AI'}
+                            {busy.has(c.id) ? t('data.running') : t('data.runAiRow')}
                           </button>
                         </td>
                       </tr>
@@ -893,31 +888,31 @@ export default function DataHubPage() {
 
         {/* right attention rail */}
         <aside className="hidden w-[288px] shrink-0 flex-col overflow-y-auto border-l border-line bg-surface/60 p-3 xl:flex">
-          <p className="px-0.5 pb-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-ink-subtle">Quick filters</p>
+          <p className="px-0.5 pb-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-ink-subtle">{t('data.quickFilters')}</p>
           <div className="space-y-0.5">
             {availablePresets.map((a) => {
               const isActive = activeViewId === null && qSig(query.filters, [], []) === qSig(a.filters, [], []);
               return (
                 <button key={a.key} type="button" onClick={() => applyPreset(a)} className={['flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors hover:bg-surface-2 hover:text-ink', isActive ? 'bg-surface-2 text-ink ring-1 ring-inset ring-brand-100' : 'text-ink-muted'].join(' ')}>
                   <span className={`h-1.5 w-1.5 rounded-full ${a.tone}`} />
-                  <span className="flex-1 truncate text-left">{a.label}</span>
+                  <span className="flex-1 truncate text-left">{t('data.' + a.labelKey)}</span>
                   <span className="rounded-full bg-surface-2 px-1.5 py-0.5 text-[10px] font-bold text-ink-subtle">{presetCount[a.key] ?? 0}</span>
                 </button>
               );
             })}
-            {availablePresets.length === 0 && <p className="px-0.5 py-1 text-[11px] text-ink-subtle">No quick filters for this object.</p>}
+            {availablePresets.length === 0 && <p className="px-0.5 py-1 text-[11px] text-ink-subtle">{t('data.noQuickFilters')}</p>}
           </div>
           {/* Suggested actions: на пустом объекте (objectTotal===0) блок скрыт — онбординг идёт через центральные CTA */}
           {objectTotal !== 0 && (
             <>
-              <p className="mt-4 px-0.5 pb-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-ink-subtle">Suggested actions</p>
+              <p className="mt-4 px-0.5 pb-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-ink-subtle">{t('data.suggestedActions')}</p>
               <div className="space-y-1.5">
                 {suggested.map((s) => {
-                  const isResearch = s.label.startsWith('Run research');
+                  const isResearch = s.key === 'research';
                   const off = s.disabled || (isResearch && running);
                   return (
                     <button
-                      key={s.label}
+                      key={s.key}
                       type="button"
                       disabled={off}
                       onClick={s.act}
@@ -934,13 +929,13 @@ export default function DataHubPage() {
               </div>
             </>
           )}
-          <p className="mt-4 px-0.5 pb-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-ink-subtle">Data operations</p>
+          <p className="mt-4 px-0.5 pb-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-ink-subtle">{t('data.dataOperations')}</p>
           <div className="space-y-1.5 rounded-xl border border-line bg-surface p-2.5 text-[11px]">
-            <Op icon={<FileSearch size={11} className="text-brand-500" />} label="Object" value={objectKey} />
-            <Op icon={<ShieldCheck size={11} className={hasQuery && total === 0 ? 'text-rose-500' : 'text-emerald-600'} />} label="Records in view" value={String(total)} />
-            <Op icon={<Database size={11} className="text-ink-subtle" />} label="Object total" value={objectTotal == null ? '—' : String(objectTotal)} />
-            <Op icon={<Layers size={11} className="text-violet-500" />} label="Saved views" value={String(views.length)} />
-            <Op icon={<Banknote size={11} className="text-ink-subtle" />} label="Objects" value={String(objects.length || 1)} />
+            <Op icon={<FileSearch size={11} className="text-brand-500" />} label={t('data.opObject')} value={objectKey} />
+            <Op icon={<ShieldCheck size={11} className={hasQuery && total === 0 ? 'text-rose-500' : 'text-emerald-600'} />} label={t('data.opRecordsInView')} value={String(total)} />
+            <Op icon={<Database size={11} className="text-ink-subtle" />} label={t('data.opObjectTotal')} value={objectTotal == null ? '—' : String(objectTotal)} />
+            <Op icon={<Layers size={11} className="text-violet-500" />} label={t('data.opSavedViews')} value={String(views.length)} />
+            <Op icon={<Banknote size={11} className="text-ink-subtle" />} label={t('data.opObjects')} value={String(objects.length || 1)} />
           </div>
         </aside>
         </>
@@ -967,7 +962,7 @@ export default function DataHubPage() {
             objectLabel={objectLabel}
             attrs={attrs}
             onClose={() => setShowCreate(false)}
-            onCreated={() => { void reload(); flash('Record created'); }}
+            onCreated={() => { void reload(); flash(t('data.toast.recordCreated')); }}
           />
         )}
       </AnimatePresence>
@@ -980,7 +975,7 @@ export default function DataHubPage() {
             objectLabel={objectPlural}
             attrs={attrs}
             onClose={() => setShowImport(false)}
-            onImported={(res) => { void reload(); flash(`Imported: +${res.created} created, ${res.updated} updated`); }}
+            onImported={(res) => { void reload(); flash(t('data.toast.imported', { created: res.created, updated: res.updated })); }}
           />
         )}
       </AnimatePresence>
@@ -991,7 +986,7 @@ export default function DataHubPage() {
           <ImportHistoryModal
             objectId={objectId}
             onClose={() => setShowHistory(false)}
-            onRolledBack={() => { void reload(); flash('Import rolled back'); }}
+            onRolledBack={() => { void reload(); flash(t('data.toast.importRolledBack')); }}
           />
         )}
       </AnimatePresence>

@@ -6,8 +6,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { Sigma, Plus, X } from 'lucide-react';
 import type { CrmAttribute, CrmCalcType, CrmCalcResult } from '@/lib/crmApi';
-
-const CALC_LABEL: Record<CrmCalcType, string> = { count: 'Count', sum: 'Sum', avg: 'Avg', min: 'Min', max: 'Max', empty: 'Empty' };
+import { useT } from '@/i18n';
 
 // зеркало backend calcSupportsType
 function calcsForType(type?: string): CrmCalcType[] {
@@ -16,9 +15,9 @@ function calcsForType(type?: string): CrmCalcType[] {
   return ['count', 'empty'];
 }
 
-function fmt(r: CrmCalcResult, attrType?: string): string {
+function fmt(r: CrmCalcResult, attrType: string | undefined, mixedCurrencyLabel: string): string {
   if (r.skippedReason && r.skippedReason !== 'MIXED_CURRENCY') return '—';
-  if (r.mixedCurrency) return 'mixed currency';
+  if (r.mixedCurrency) return mixedCurrencyLabel;
   if (r.value == null) return r.type === 'count' || r.type === 'empty' ? '0' : '—';
   if ((r.type === 'min' || r.type === 'max') && (attrType === 'DATE' || attrType === 'DATETIME') && typeof r.value === 'string') {
     const d = new Date(r.value); return Number.isNaN(d.getTime()) ? String(r.value) : d.toLocaleDateString();
@@ -45,6 +44,8 @@ export default function CalcFooter({
   canManage: boolean;
   onChange: (next: Record<string, CrmCalcType>) => void;
 }) {
+  const t = useT();
+  const calcLabel = (ct: CrmCalcType) => t('data.calc.' + ct);
   const [open, setOpen] = useState(false);
   const [attrKey, setAttrKey] = useState('');
   const [calcType, setCalcType] = useState<CrmCalcType>('count');
@@ -74,15 +75,15 @@ export default function CalcFooter({
 
   return (
     <div className="flex flex-wrap items-center gap-1.5 border-t border-line bg-surface-2/40 px-3 py-1.5">
-      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.06em] text-ink-subtle"><Sigma size={11} /> Calculations</span>
-      {entries.length === 0 && <span className="text-[11px] text-ink-subtle">— none yet</span>}
+      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.06em] text-ink-subtle"><Sigma size={11} /> {t('data.calc.calculations')}</span>
+      {entries.length === 0 && <span className="text-[11px] text-ink-subtle">{t('data.calc.noneYet')}</span>}
       {entries.map(([key, type]) => {
         const attr = attrByKey.get(key);
         const r = resultFor(key, type);
         return (
           <span key={key} className="inline-flex items-center gap-1 rounded-md border border-line bg-surface px-1.5 py-0.5 text-[11px]">
-            <span className="font-semibold text-ink-muted">{CALC_LABEL[type]} · {attr?.name ?? key}</span>
-            <span className="font-bold text-ink">{r ? fmt(r, attr?.type) : '…'}</span>
+            <span className="font-semibold text-ink-muted">{calcLabel(type)} · {attr?.name ?? key}</span>
+            <span className="font-bold text-ink">{r ? fmt(r, attr?.type, t('data.calc.mixedCurrency')) : '…'}</span>
             {r?.type !== 'count' && r?.type !== 'empty' && typeof r?.count === 'number' && <span className="text-[9.5px] text-ink-subtle">({r.count})</span>}
             {canManage && <button type="button" onClick={() => remove(key)} className="text-ink-subtle hover:text-rose-500"><X size={11} /></button>}
           </span>
@@ -90,21 +91,21 @@ export default function CalcFooter({
       })}
       {canManage && (
         <div className="relative" ref={ref}>
-          <button type="button" onClick={() => setOpen((o) => !o)} className="inline-flex items-center gap-1 rounded-md border border-dashed border-line px-1.5 py-0.5 text-[11px] font-semibold text-brand-700 hover:bg-brand-50"><Plus size={11} /> Add calculation</button>
+          <button type="button" onClick={() => setOpen((o) => !o)} className="inline-flex items-center gap-1 rounded-md border border-dashed border-line px-1.5 py-0.5 text-[11px] font-semibold text-brand-700 hover:bg-brand-50"><Plus size={11} /> {t('data.calc.addCalc')}</button>
           {open && (
             <div className="absolute bottom-[calc(100%+6px)] left-0 z-40 w-[280px] rounded-xl border border-line bg-surface p-2.5 shadow-xl">
-              <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.06em] text-ink-subtle">Footer calculation</p>
+              <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.06em] text-ink-subtle">{t('data.calc.footerCalc')}</p>
               <div className="space-y-1.5">
                 <select value={attrKey} onChange={(e) => { setAttrKey(e.target.value); const ok = calcsForType(attrByKey.get(e.target.value)?.type); if (!ok.includes(calcType)) setCalcType(ok[0]); }} className="h-7 w-full rounded-md border border-line bg-[var(--surface)] px-1.5 text-[11.5px] text-ink focus:border-brand-400 focus:outline-none">
-                  <option value="">Choose column…</option>
+                  <option value="">{t('data.calc.chooseColumn')}</option>
                   {attrs.map((a) => <option key={a.key} value={a.key}>{a.name}</option>)}
                 </select>
                 {attrKey && (
                   <select value={calcType} onChange={(e) => setCalcType(e.target.value as CrmCalcType)} className="h-7 w-full rounded-md border border-line bg-[var(--surface)] px-1.5 text-[11.5px] text-ink focus:border-brand-400 focus:outline-none">
-                    {eligible.map((t) => <option key={t} value={t}>{CALC_LABEL[t]}</option>)}
+                    {eligible.map((ct) => <option key={ct} value={ct}>{calcLabel(ct)}</option>)}
                   </select>
                 )}
-                <button type="button" disabled={!attrKey} onClick={add} className="h-7 w-full rounded-md bg-brand-600 text-[11.5px] font-semibold text-white hover:bg-brand-700 disabled:opacity-50">Add</button>
+                <button type="button" disabled={!attrKey} onClick={add} className="h-7 w-full rounded-md bg-brand-600 text-[11.5px] font-semibold text-white hover:bg-brand-700 disabled:opacity-50">{t('data.calc.add')}</button>
               </div>
             </div>
           )}

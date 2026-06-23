@@ -7,6 +7,7 @@ import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { X, Plus, Loader2 } from 'lucide-react';
 import { createRecord, type CrmAttribute, type CrmRecordValue } from '@/lib/crmApi';
+import { useT } from '@/i18n';
 
 const EDITABLE = new Set(['TEXT', 'LONG_TEXT', 'NUMBER', 'CURRENCY', 'EMAIL', 'PHONE', 'URL']);
 
@@ -23,6 +24,7 @@ export default function CreateRecordModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const t = useT();
   const fields = useMemo(() => {
     const editable = attrs.filter((a) => EDITABLE.has(a.type) && !a.aiEnabled);
     // primary/name первым
@@ -37,7 +39,7 @@ export default function CreateRecordModal({
   const canSave = !!(nameKey && (draft[nameKey] ?? '').trim());
 
   async function save() {
-    if (!canSave) { setErr('Заполните название'); return; }
+    if (!canSave) { setErr(t('data.create.errNameRequired')); return; }
     setSaving(true); setErr('');
     const values: Record<string, CrmRecordValue> = {};
     for (const f of fields) {
@@ -51,7 +53,7 @@ export default function CreateRecordModal({
       onClose();
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      setErr(msg ?? 'Не удалось создать запись');
+      setErr(msg ?? t('data.create.errCreateFailed'));
       setSaving(false);
     }
   }
@@ -68,7 +70,7 @@ export default function CreateRecordModal({
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
-            <h2 className="text-[15px] font-bold text-ink">New {objectLabel.toLowerCase()}</h2>
+            <h2 className="text-[15px] font-bold text-ink">{t('data.create.title', { object: objectLabel.toLowerCase() })}</h2>
             <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-ink-subtle hover:bg-surface-2 hover:text-ink"><X size={17} /></button>
           </div>
           <div className="max-h-[60vh] space-y-3 overflow-y-auto px-5 py-4">
@@ -87,14 +89,14 @@ export default function CreateRecordModal({
             {err && <p className="text-[12px] font-medium text-rose-600">{err}</p>}
           </div>
           <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
-            <button type="button" onClick={onClose} className="h-9 rounded-lg px-3 text-[13px] font-medium text-ink-muted hover:text-ink">Cancel</button>
+            <button type="button" onClick={onClose} className="h-9 rounded-lg px-3 text-[13px] font-medium text-ink-muted hover:text-ink">{t('data.create.cancel')}</button>
             <button
               type="button"
               disabled={!canSave || saving}
               onClick={save}
               className="brand-gradient inline-flex h-9 items-center gap-1.5 rounded-lg px-4 text-[13px] font-semibold text-white shadow-brand disabled:opacity-60"
             >
-              {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Create
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} {t('data.create.createBtn')}
             </button>
           </div>
         </motion.div>

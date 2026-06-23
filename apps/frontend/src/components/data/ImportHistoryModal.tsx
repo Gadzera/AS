@@ -12,8 +12,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, History, Loader2, RotateCcw, CheckCircle2, AlertTriangle, Archive, Undo2, Trash2, ShieldAlert, ListChecks } from 'lucide-react';
 import { importsApi, type ImportJobSummary, type RollbackPreview, type RollbackStats } from '@/lib/api';
+import { useT } from '@/i18n';
 
 interface Props { objectId?: string; onClose: () => void; onRolledBack?: () => void }
+
+const STATUS_KEYS = new Set(['COMPLETED', 'COMPLETED_WITH_ERRORS', 'FAILED', 'RUNNING', 'CANCELED', 'READY', 'MAPPING_REQUIRED', 'UPLOADED']);
 
 const STATUS_TONE: Record<string, string> = {
   COMPLETED: 'bg-emerald-100 text-emerald-700', COMPLETED_WITH_ERRORS: 'bg-amber-100 text-amber-700',
@@ -24,6 +27,8 @@ const fmtDate = (s: string) => { try { return new Date(s).toLocaleString(); } ca
 const isRollbackable = (j: ImportJobSummary) => (j.status === 'COMPLETED' || j.status === 'COMPLETED_WITH_ERRORS') && !j.rolledBackAt;
 
 export default function ImportHistoryModal({ objectId, onClose, onRolledBack }: Props) {
+  const t = useT();
+  const statusLabel = (s: string) => (STATUS_KEYS.has(s) ? t('data.importHistory.status.' + s) : s.replace(/_/g, ' '));
   const [jobs, setJobs] = useState<ImportJobSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -38,8 +43,8 @@ export default function ImportHistoryModal({ objectId, onClose, onRolledBack }: 
 
   const load = useCallback(() => {
     setLoading(true); setError('');
-    importsApi.list(objectId).then((list) => setJobs(list)).catch((e) => setError(e?.response?.data?.error ?? 'Failed to load import history')).finally(() => setLoading(false));
-  }, [objectId]);
+    importsApi.list(objectId).then((list) => setJobs(list)).catch((e) => setError(e?.response?.data?.error ?? t('data.importHistory.failLoad'))).finally(() => setLoading(false));
+  }, [objectId, t]);
   useEffect(() => { load(); }, [load]);
 
   // открыть preview отката для выбранного импорта (с учётом force)
@@ -47,9 +52,9 @@ export default function ImportHistoryModal({ objectId, onClose, onRolledBack }: 
     setTarget(job); setStats(null); setBusy(true); setError('');
     importsApi.rollbackPreview(job.id, nextForce)
       .then((p) => setPreview(p))
-      .catch((e) => { setError(e?.response?.data?.error ?? 'Rollback preview failed'); setTarget(null); })
+      .catch((e) => { setError(e?.response?.data?.error ?? t('data.importHistory.rollbackPreviewFailed')); setTarget(null); })
       .finally(() => setBusy(false));
-  }, []);
+  }, [t]);
 
   const toggleForce = (next: boolean) => { setForce(next); if (target) openRollback(target, next); };
 
@@ -58,9 +63,9 @@ export default function ImportHistoryModal({ objectId, onClose, onRolledBack }: 
     setBusy(true); setError('');
     importsApi.rollback(target.id, force)
       .then((s) => { setStats(s); onRolledBack?.(); load(); })
-      .catch((e) => setError(e?.response?.data?.error ?? 'Rollback failed'))
+      .catch((e) => setError(e?.response?.data?.error ?? t('data.importHistory.rollbackFailed')))
       .finally(() => setBusy(false));
-  }, [target, force, onRolledBack, load]);
+  }, [target, force, onRolledBack, load, t]);
 
   const closeRollback = () => { setTarget(null); setPreview(null); setForce(false); setStats(null); setError(''); };
 
@@ -75,8 +80,8 @@ export default function ImportHistoryModal({ objectId, onClose, onRolledBack }: 
           <header className="flex shrink-0 items-center gap-2.5 border-b border-line px-5 py-3.5">
             <span className="brand-gradient flex h-8 w-8 items-center justify-center rounded-lg text-white"><History size={16} /></span>
             <div className="min-w-0">
-              <h2 className="text-[14px] font-bold text-ink">Import history</h2>
-              <p className="text-[11.5px] text-ink-subtle">Review past imports · roll one back from its journal</p>
+              <h2 className="text-[14px] font-bold text-ink">{t('data.importHistory.title')}</h2>
+              <p className="text-[11.5px] text-ink-subtle">{t('data.importHistory.subtitle')}</p>
             </div>
             <button type="button" onClick={onClose} className="ml-auto rounded-lg p-1.5 text-ink-subtle hover:bg-surface-2 hover:text-ink"><X size={16} /></button>
           </header>
@@ -88,44 +93,44 @@ export default function ImportHistoryModal({ objectId, onClose, onRolledBack }: 
             {target ? (
               <div className="rounded-xl border border-line bg-surface-2/40 p-4">
                 <div className="flex items-center gap-2">
-                  <button type="button" onClick={closeRollback} className="rounded-md px-1.5 py-0.5 text-[12px] font-semibold text-ink-muted hover:bg-surface-2 hover:text-ink">← Back</button>
-                  <span className="text-[13px] font-bold text-ink">Roll back “{target.fileName}”</span>
+                  <button type="button" onClick={closeRollback} className="rounded-md px-1.5 py-0.5 text-[12px] font-semibold text-ink-muted hover:bg-surface-2 hover:text-ink">{t('data.importHistory.back')}</button>
+                  <span className="text-[13px] font-bold text-ink">{t('data.importHistory.rollbackTitle', { name: target.fileName })}</span>
                 </div>
 
                 {busy && !stats ? (
-                  <div className="flex items-center gap-2 py-8 text-[13px] text-ink-subtle"><Loader2 size={16} className="animate-spin" /> Computing rollback plan…</div>
+                  <div className="flex items-center gap-2 py-8 text-[13px] text-ink-subtle"><Loader2 size={16} className="animate-spin" /> {t('data.importHistory.computing')}</div>
                 ) : stats ? (
                   // ── Результат отката ──
                   <div className="mt-3">
-                    <div className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2.5 text-[13px] font-semibold text-emerald-700"><CheckCircle2 size={16} /> Rollback complete</div>
+                    <div className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2.5 text-[13px] font-semibold text-emerald-700"><CheckCircle2 size={16} /> {t('data.importHistory.complete')}</div>
                     <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                      <Stat label="Records archived" value={stats.archived} icon={<Archive size={13} />} tone="text-rose-600" />
-                      <Stat label="Values reverted" value={stats.reverted} icon={<Undo2 size={13} />} tone="text-sky-600" />
-                      <Stat label="Values deleted" value={stats.valuesDeleted} icon={<Trash2 size={13} />} tone="text-rose-600" />
-                      <Stat label="List entries removed" value={stats.listEntriesDeleted} icon={<ListChecks size={13} />} tone="text-violet-600" />
-                      <Stat label="Skipped (manual edit)" value={stats.skippedManual} icon={<ShieldAlert size={13} />} tone="text-amber-600" />
-                      <Stat label="Errors" value={stats.errors} icon={<AlertTriangle size={13} />} tone={stats.errors ? 'text-rose-600' : 'text-ink-subtle'} />
+                      <Stat label={t('data.importHistory.statRecordsArchived')} value={stats.archived} icon={<Archive size={13} />} tone="text-rose-600" />
+                      <Stat label={t('data.importHistory.statValuesReverted')} value={stats.reverted} icon={<Undo2 size={13} />} tone="text-sky-600" />
+                      <Stat label={t('data.importHistory.statValuesDeleted')} value={stats.valuesDeleted} icon={<Trash2 size={13} />} tone="text-rose-600" />
+                      <Stat label={t('data.importHistory.statListEntriesRemoved')} value={stats.listEntriesDeleted} icon={<ListChecks size={13} />} tone="text-violet-600" />
+                      <Stat label={t('data.importHistory.statSkippedManual')} value={stats.skippedManual} icon={<ShieldAlert size={13} />} tone="text-amber-600" />
+                      <Stat label={t('data.importHistory.statErrors')} value={stats.errors} icon={<AlertTriangle size={13} />} tone={stats.errors ? 'text-rose-600' : 'text-ink-subtle'} />
                     </div>
-                    <button type="button" onClick={closeRollback} className="mt-4 inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 text-[12.5px] font-semibold text-white hover:bg-brand-700">Done</button>
+                    <button type="button" onClick={closeRollback} className="mt-4 inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 text-[12.5px] font-semibold text-white hover:bg-brand-700">{t('data.importHistory.done')}</button>
                   </div>
                 ) : preview ? (
                   // ── Preview: что произойдёт ДО выполнения ──
                   <div className="mt-3">
-                    {preview.alreadyRolledBack && <div className="mb-3 flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-[12px] font-medium text-amber-700"><AlertTriangle size={14} /> This import was already rolled back.</div>}
+                    {preview.alreadyRolledBack && <div className="mb-3 flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-[12px] font-medium text-amber-700"><AlertTriangle size={14} /> {t('data.importHistory.alreadyRolledBack')}</div>}
                     {error && <div className="mb-3 flex items-center gap-2 rounded-lg bg-rose-50 px-3 py-2 text-[12px] font-medium text-rose-700"><AlertTriangle size={14} /> {error}</div>}
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                      <Stat label="Records → archive" value={preview.recordsToArchive} icon={<Archive size={13} />} tone="text-rose-600" />
-                      <Stat label="Values → revert" value={preview.valuesToRevert} icon={<Undo2 size={13} />} tone="text-sky-600" />
-                      <Stat label="List entries → remove" value={preview.listEntriesToDelete} icon={<ListChecks size={13} />} tone="text-violet-600" />
-                      <Stat label="Records skipped (manual)" value={preview.recordsSkippedManual} icon={<ShieldAlert size={13} />} tone="text-amber-600" />
-                      <Stat label="Values skipped (manual)" value={preview.valuesSkippedManual} icon={<ShieldAlert size={13} />} tone="text-amber-600" />
+                      <Stat label={t('data.importHistory.previewRecordsArchive')} value={preview.recordsToArchive} icon={<Archive size={13} />} tone="text-rose-600" />
+                      <Stat label={t('data.importHistory.previewValuesRevert')} value={preview.valuesToRevert} icon={<Undo2 size={13} />} tone="text-sky-600" />
+                      <Stat label={t('data.importHistory.previewListEntriesRemove')} value={preview.listEntriesToDelete} icon={<ListChecks size={13} />} tone="text-violet-600" />
+                      <Stat label={t('data.importHistory.previewRecordsSkippedManual')} value={preview.recordsSkippedManual} icon={<ShieldAlert size={13} />} tone="text-amber-600" />
+                      <Stat label={t('data.importHistory.previewValuesSkippedManual')} value={preview.valuesSkippedManual} icon={<ShieldAlert size={13} />} tone="text-amber-600" />
                     </div>
 
                     {(preview.recordsSkippedManual > 0 || preview.valuesSkippedManual > 0) && (
                       <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2.5">
                         <input type="checkbox" checked={force} onChange={(e) => toggleForce(e.target.checked)} className="mt-0.5 h-3.5 w-3.5 rounded border-line text-amber-600 focus:ring-amber-300" />
                         <span className="text-[11.5px] text-amber-800">
-                          <span className="font-bold">Force rollback manually-edited data too.</span> By default, records or values edited after the import are kept untouched. Check this to overwrite/archive them anyway.
+                          <span className="font-bold">{t('data.importHistory.forceRollback')}</span> {t('data.importHistory.forceHint')}
                         </span>
                       </label>
                     )}
@@ -137,20 +142,20 @@ export default function ImportHistoryModal({ objectId, onClose, onRolledBack }: 
                         onClick={confirmRollback}
                         className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-rose-600 px-3.5 text-[12.5px] font-semibold text-white shadow-xs transition-colors hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {busy ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />} Confirm rollback
+                        {busy ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />} {t('data.importHistory.confirmRollback')}
                       </button>
-                      <button type="button" onClick={closeRollback} className="inline-flex h-9 items-center rounded-lg border border-line bg-surface px-3.5 text-[12.5px] font-semibold text-ink-muted hover:bg-surface-2">Cancel</button>
+                      <button type="button" onClick={closeRollback} className="inline-flex h-9 items-center rounded-lg border border-line bg-surface px-3.5 text-[12.5px] font-semibold text-ink-muted hover:bg-surface-2">{t('data.importHistory.cancel')}</button>
                       {preview.recordsToArchive + preview.valuesToRevert + preview.listEntriesToDelete === 0 && !preview.alreadyRolledBack && (
-                        <span className="text-[11px] text-ink-subtle">Nothing to roll back{(preview.recordsSkippedManual || preview.valuesSkippedManual) ? ' — all changes were edited manually' : ''}.</span>
+                        <span className="text-[11px] text-ink-subtle">{t('data.importHistory.nothing')}{(preview.recordsSkippedManual || preview.valuesSkippedManual) ? t('data.importHistory.nothingManual') : ''}.</span>
                       )}
                     </div>
                   </div>
                 ) : null}
               </div>
             ) : loading ? (
-              <div className="flex items-center gap-2 py-10 text-[13px] text-ink-subtle"><Loader2 size={16} className="animate-spin" /> Loading import history…</div>
+              <div className="flex items-center gap-2 py-10 text-[13px] text-ink-subtle"><Loader2 size={16} className="animate-spin" /> {t('data.importHistory.loading')}</div>
             ) : jobs.length === 0 ? (
-              <div className="flex flex-col items-center gap-2 py-12 text-ink-subtle"><History size={26} /><p className="text-[13px]">No imports yet for this object.</p></div>
+              <div className="flex flex-col items-center gap-2 py-12 text-ink-subtle"><History size={26} /><p className="text-[13px]">{t('data.importHistory.noImports')}</p></div>
             ) : (
               <div className="space-y-2">
                 {jobs.map((j) => (
@@ -159,19 +164,19 @@ export default function ImportHistoryModal({ objectId, onClose, onRolledBack }: 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <p className="truncate text-[12.5px] font-bold text-ink">{j.fileName}</p>
-                        <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ${STATUS_TONE[j.status] ?? 'bg-surface-2 text-ink-muted'}`}>{j.status.replace(/_/g, ' ')}</span>
-                        {j.targetType === 'LIST' && <span className="shrink-0 rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700">list</span>}
-                        {j.rolledBackAt && <span className="shrink-0 rounded bg-ink/10 px-1.5 py-0.5 text-[10px] font-bold text-ink-muted">rolled back</span>}
+                        <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ${STATUS_TONE[j.status] ?? 'bg-surface-2 text-ink-muted'}`}>{statusLabel(j.status)}</span>
+                        {j.targetType === 'LIST' && <span className="shrink-0 rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700">{t('data.importHistory.listBadge')}</span>}
+                        {j.rolledBackAt && <span className="shrink-0 rounded bg-ink/10 px-1.5 py-0.5 text-[10px] font-bold text-ink-muted">{t('data.importHistory.rolledBackBadge')}</span>}
                       </div>
                       <p className="mt-0.5 truncate text-[11px] text-ink-subtle">
-                        {fmtDate(j.createdAt)} · +{j.createdCount} created · {j.updatedCount} updated · {j.skippedCount} skipped{j.errorCount ? ` · ${j.errorCount} errors` : ''}
-                        {j.rolledBackAt && j.rollbackStats && ` · ↩ archived ${j.rollbackStats.archived}, reverted ${j.rollbackStats.reverted}`}
+                        {t('data.importHistory.jobLine', { date: fmtDate(j.createdAt), created: j.createdCount, updated: j.updatedCount, skipped: j.skippedCount })}{j.errorCount ? t('data.importHistory.jobErrors', { count: j.errorCount }) : ''}
+                        {j.rolledBackAt && j.rollbackStats ? t('data.importHistory.jobRollbackSuffix', { archived: j.rollbackStats.archived, reverted: j.rollbackStats.reverted }) : ''}
                       </p>
                     </div>
                     {isRollbackable(j) ? (
-                      <button type="button" onClick={() => { setForce(false); openRollback(j, false); }} className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2.5 text-[11.5px] font-semibold text-rose-700 transition-colors hover:bg-rose-100"><RotateCcw size={13} /> Roll back</button>
+                      <button type="button" onClick={() => { setForce(false); openRollback(j, false); }} className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2.5 text-[11.5px] font-semibold text-rose-700 transition-colors hover:bg-rose-100"><RotateCcw size={13} /> {t('data.importHistory.rollback')}</button>
                     ) : (
-                      <span className="shrink-0 text-[11px] text-ink-subtle">{j.rolledBackAt ? 'reverted' : '—'}</span>
+                      <span className="shrink-0 text-[11px] text-ink-subtle">{j.rolledBackAt ? t('data.importHistory.reverted') : '—'}</span>
                     )}
                   </div>
                 ))}

@@ -23,6 +23,7 @@ import { Layers, Plus, Check, X, MoreHorizontal, Pencil, Trash2, Save, RotateCcw
 
 import clsx from 'clsx';
 import type { CrmView, CrmViewScope } from '@/lib/crmApi';
+import { useT } from '@/i18n';
 
 interface Props {
   views: CrmView[];                       // сохранённые (не-default) виды объекта
@@ -43,6 +44,7 @@ export default function ViewsBar({
   views, activeViewId, dirty, dirtySummary, canManage,
   onSelect, onSaveNew, onUpdate, onRename, onDelete, onShare, onReset,
 }: Props) {
+  const t = useT();
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [newScope, setNewScope] = useState<CrmViewScope>('personal');
@@ -75,10 +77,10 @@ export default function ViewsBar({
 
   return (
     <div ref={barRef} className="flex h-11 shrink-0 items-center gap-1 overflow-visible border-b border-line bg-surface px-4">
-      <span className="mr-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.08em] text-ink-subtle"><Layers size={12} /> Views</span>
+      <span className="mr-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.08em] text-ink-subtle"><Layers size={12} /> {t('data.views.bar')}</span>
 
       {/* All records (системный) */}
-      <button type="button" onClick={() => onSelect(null)} className={pill(activeViewId === null)}>All records</button>
+      <button type="button" onClick={() => onSelect(null)} className={pill(activeViewId === null)}>{t('data.views.allRecords')}</button>
 
       {/* сохранённые виды */}
       <div className="flex items-center gap-1 overflow-x-auto">
@@ -101,22 +103,22 @@ export default function ViewsBar({
           }
           return (
             <span key={v.id} className="relative inline-flex items-center">
-              <button type="button" onClick={() => onSelect(v.id)} className={pill(active)} title={`${v.scope === 'shared' ? 'Shared with workspace' : 'Private to you'} · ${v.filters?.length ?? 0} filter(s) · ${v.sorts?.length ?? 0} sort(s)`}>
+              <button type="button" onClick={() => onSelect(v.id)} className={pill(active)} title={`${v.scope === 'shared' ? t('data.views.sharedWithWorkspace') : t('data.views.privateToYou')} · ${t('data.views.filtersN', { count: v.filters?.length ?? 0 })} · ${t('data.views.sortsN', { count: v.sorts?.length ?? 0 })}`}>
                 {v.scope === 'shared' ? <Users size={11} className={active ? 'text-brand-600' : 'text-ink-subtle'} /> : <Lock size={11} className={active ? 'text-brand-600' : 'text-ink-subtle'} />} {v.name}
                 {meta > 0 && <span className={clsx('rounded-full px-1 text-[10px] font-bold', active ? 'bg-brand-100 text-brand-700' : 'bg-surface-2 text-ink-subtle')}>{meta}</span>}
               </button>
               {canManage && (
-                <button type="button" onClick={() => setMenuId(menuId === v.id ? null : v.id)} className="ml-0.5 rounded p-0.5 text-ink-subtle hover:bg-surface-2 hover:text-ink" title="View options"><MoreHorizontal size={13} /></button>
+                <button type="button" onClick={() => setMenuId(menuId === v.id ? null : v.id)} className="ml-0.5 rounded p-0.5 text-ink-subtle hover:bg-surface-2 hover:text-ink" title={t('data.views.viewOptions')}><MoreHorizontal size={13} /></button>
               )}
               {menuId === v.id && (
                 <div className="absolute left-0 top-[calc(100%+4px)] z-50 w-44 rounded-lg border border-line bg-surface p-1 shadow-xl">
-                  <button type="button" onClick={() => { setMenuId(null); setRenameId(v.id); setRenameVal(v.name); }} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] text-ink hover:bg-surface-2"><Pencil size={12} /> Rename</button>
+                  <button type="button" onClick={() => { setMenuId(null); setRenameId(v.id); setRenameVal(v.name); }} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] text-ink hover:bg-surface-2"><Pencil size={12} /> {t('data.views.rename')}</button>
                   {v.scope === 'shared' ? (
-                    <button type="button" onClick={() => { setMenuId(null); onShare(v.id, 'personal'); }} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] text-ink hover:bg-surface-2"><Lock size={12} /> Make private</button>
+                    <button type="button" onClick={() => { setMenuId(null); onShare(v.id, 'personal'); }} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] text-ink hover:bg-surface-2"><Lock size={12} /> {t('data.views.makePrivate')}</button>
                   ) : (
-                    <button type="button" onClick={() => { setMenuId(null); onShare(v.id, 'shared'); }} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] text-ink hover:bg-surface-2"><Users size={12} /> Share with workspace</button>
+                    <button type="button" onClick={() => { setMenuId(null); onShare(v.id, 'shared'); }} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] text-ink hover:bg-surface-2"><Users size={12} /> {t('data.views.shareWithWorkspace')}</button>
                   )}
-                  <button type="button" onClick={() => { setMenuId(null); onDelete(v.id); }} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] text-rose-600 hover:bg-rose-50"><Trash2 size={12} /> Delete view</button>
+                  <button type="button" onClick={() => { setMenuId(null); onDelete(v.id); }} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] text-rose-600 hover:bg-rose-50"><Trash2 size={12} /> {t('data.views.deleteView')}</button>
                 </div>
               )}
             </span>
@@ -128,16 +130,16 @@ export default function ViewsBar({
       {canManage && (creating ? (
         <span className="inline-flex items-center gap-1 rounded-md bg-brand-50 px-1.5 py-0.5 ring-1 ring-inset ring-brand-200">
           <input
-            autoFocus value={newName} placeholder="View name"
+            autoFocus value={newName} placeholder={t('data.views.viewName')}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') commitNew(); if (e.key === 'Escape') { setCreating(false); setNewName(''); } }}
             className="h-6 w-28 rounded border border-line bg-surface px-1.5 text-[12px] text-ink outline-none focus:border-brand-500"
           />
           {/* scope: personal (приватно создателю) | shared (всему workspace с READ к источнику) */}
-          <span className="inline-flex items-center rounded border border-line bg-surface p-0.5" title="Who can see this view">
+          <span className="inline-flex items-center rounded border border-line bg-surface p-0.5" title={t('data.views.whoCanSee')}>
             {(['personal', 'shared'] as const).map((s) => (
               <button key={s} type="button" onClick={() => setNewScope(s)} className={clsx('inline-flex h-5 items-center gap-0.5 rounded px-1 text-[10px] font-bold transition-colors', newScope === s ? 'bg-brand-600 text-white' : 'text-ink-subtle hover:text-ink')}>
-                {s === 'personal' ? <Lock size={9} /> : <Users size={9} />}{s === 'personal' ? 'Private' : 'Shared'}
+                {s === 'personal' ? <Lock size={9} /> : <Users size={9} />}{s === 'personal' ? t('data.views.private') : t('data.views.shared')}
               </button>
             ))}
           </span>
@@ -145,25 +147,25 @@ export default function ViewsBar({
           <button type="button" onClick={() => { setCreating(false); setNewName(''); }} className="text-ink-subtle hover:text-rose-500"><X size={13} /></button>
         </span>
       ) : (
-        <button type="button" onClick={() => setCreating(true)} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[12px] font-semibold text-brand-700 hover:bg-brand-50"><Plus size={12} /> New view</button>
+        <button type="button" onClick={() => setCreating(true)} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[12px] font-semibold text-brand-700 hover:bg-brand-50"><Plus size={12} /> {t('data.views.newView')}</button>
       ))}
 
       {!canManage && (
-        <span className="inline-flex items-center gap-1 text-[10.5px] font-medium text-ink-subtle" title="Members can use shared views but can't change them"><Lock size={10} /> View-only</span>
+        <span className="inline-flex items-center gap-1 text-[10.5px] font-medium text-ink-subtle" title={t('data.views.membersUseShared')}><Lock size={10} /> {t('data.views.viewOnly')}</span>
       )}
 
       {/* несохранённые изменения */}
       {dirty && (
         <div className="ml-auto flex items-center gap-1.5">
           <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-200">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> Unsaved{dirtySummary ? ` · ${dirtySummary}` : ' changes'}
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> {t('data.views.unsaved')}{dirtySummary ? ` · ${dirtySummary}` : ` ${t('data.views.changesWord')}`}
           </span>
           {canManage && (activeViewId ? (
-            <button type="button" onClick={onUpdate} className="inline-flex h-7 items-center gap-1 rounded-md bg-brand-600 px-2.5 text-[11.5px] font-semibold text-white hover:bg-brand-700"><Save size={12} /> Save</button>
+            <button type="button" onClick={onUpdate} className="inline-flex h-7 items-center gap-1 rounded-md bg-brand-600 px-2.5 text-[11.5px] font-semibold text-white hover:bg-brand-700"><Save size={12} /> {t('data.views.save')}</button>
           ) : (
-            <button type="button" onClick={() => setCreating(true)} className="inline-flex h-7 items-center gap-1 rounded-md bg-brand-600 px-2.5 text-[11.5px] font-semibold text-white hover:bg-brand-700"><Plus size={12} /> Save as view</button>
+            <button type="button" onClick={() => setCreating(true)} className="inline-flex h-7 items-center gap-1 rounded-md bg-brand-600 px-2.5 text-[11.5px] font-semibold text-white hover:bg-brand-700"><Plus size={12} /> {t('data.saveAsView')}</button>
           ))}
-          <button type="button" onClick={onReset} className="inline-flex h-7 items-center gap-1 rounded-md border border-line bg-surface px-2 text-[11.5px] font-medium text-ink-muted hover:bg-surface-2"><RotateCcw size={11} /> Reset</button>
+          <button type="button" onClick={onReset} className="inline-flex h-7 items-center gap-1 rounded-md border border-line bg-surface px-2 text-[11.5px] font-medium text-ink-muted hover:bg-surface-2"><RotateCcw size={11} /> {t('data.views.reset')}</button>
         </div>
       )}
     </div>

@@ -12,6 +12,7 @@ import clsx from 'clsx';
 import type { CrmAttribute, CrmViewFilter, CrmViewSort, CrmFilterOp, CrmFilterNode, CrmCalcType } from '@/lib/crmApi';
 import { isFilterGroup } from '@/lib/crmApi';
 import FilterTreeBuilder from './FilterTreeBuilder';
+import { useT } from '@/i18n';
 
 export interface QueryState {
   filters: CrmViewFilter[];
@@ -65,9 +66,24 @@ function Popover({ open, onClose, children, width = 'w-[320px]' }: { open: boole
 }
 
 export default function DataHubControls({ attrs, query, onChange, columns, hiddenCols, onToggleCol }: Props) {
+  const t = useT();
   const [panel, setPanel] = useState<'filter' | 'advanced' | 'sort' | 'columns' | null>(null);
   const firstAttr = attrs[0]?.key ?? '';
   const advancedCount = countLeaves(query.filterTree);
+
+  // подпись оператора: символьные (=, ≠, >, <) оставляем, словесные — переводим
+  const opLabel = (op: CrmFilterOp): string => {
+    switch (op) {
+      case 'contains': return t('data.filter.op.contains');
+      case 'is_empty': return t('data.filter.op.isEmpty');
+      case 'is_not_empty': return t('data.filter.op.isNotEmpty');
+      case 'eq': return '=';
+      case 'neq': return '≠';
+      case 'gt': return '>';
+      case 'lt': return '<';
+      default: return op;
+    }
+  };
 
   const btn = (active: boolean) =>
     clsx('inline-flex h-8 items-center gap-1 rounded-lg border px-2 text-[12px] font-medium transition-colors',
@@ -99,12 +115,12 @@ export default function DataHubControls({ attrs, query, onChange, columns, hidde
       {/* FILTER */}
       <div className="relative">
         <button type="button" onClick={() => setPanel(panel === 'filter' ? null : 'filter')} className={btn(query.filters.length > 0)}>
-          <SlidersHorizontal size={12} /> Filter{query.filters.length > 0 ? ` · ${query.filters.length}` : ''}
+          <SlidersHorizontal size={12} /> {t('data.controls.filter')}{query.filters.length > 0 ? ` · ${query.filters.length}` : ''}
         </button>
         <Popover open={panel === 'filter'} onClose={() => setPanel(null)}>
-          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-ink-subtle">Filters</p>
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-ink-subtle">{t('data.controls.filters')}</p>
           <div className="space-y-1.5">
-            {query.filters.length === 0 && <p className="py-1 text-[12px] text-ink-subtle">No filters.</p>}
+            {query.filters.length === 0 && <p className="py-1 text-[12px] text-ink-subtle">{t('data.controls.noFilters')}</p>}
             {query.filters.map((f, i) => {
               const opMeta = OPS.find((o) => o.op === f.op);
               return (
@@ -113,29 +129,29 @@ export default function DataHubControls({ attrs, query, onChange, columns, hidde
                     {attrs.map((a) => <option key={a.key} value={a.key}>{a.name}</option>)}
                   </select>
                   <select value={f.op} onChange={(e) => updFilter(i, { op: e.target.value as CrmFilterOp })} className="h-7 rounded-md border border-line bg-surface px-1 text-[11.5px] text-ink focus:border-brand-500 focus:outline-none">
-                    {OPS.map((o) => <option key={o.op} value={o.op}>{o.label}</option>)}
+                    {OPS.map((o) => <option key={o.op} value={o.op}>{opLabel(o.op)}</option>)}
                   </select>
                   {!opMeta?.noValue && (
-                    <input value={String(f.value ?? '')} onChange={(e) => updFilter(i, { value: e.target.value })} placeholder="value" className="h-7 w-16 rounded-md border border-line bg-surface px-1.5 text-[11.5px] text-ink focus:border-brand-500 focus:outline-none" />
+                    <input value={String(f.value ?? '')} onChange={(e) => updFilter(i, { value: e.target.value })} placeholder={t('data.controls.valuePlaceholder')} className="h-7 w-16 rounded-md border border-line bg-surface px-1.5 text-[11.5px] text-ink focus:border-brand-500 focus:outline-none" />
                   )}
                   <button type="button" onClick={() => rmFilter(i)} className="text-ink-subtle hover:text-rose-500"><X size={13} /></button>
                 </div>
               );
             })}
           </div>
-          <button type="button" onClick={addFilter} className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-700 hover:underline"><Plus size={12} /> Add filter</button>
-          {query.filters.length > 0 && <button type="button" onClick={() => onChange({ ...query, filters: [] })} className="ml-3 text-[12px] text-ink-muted hover:text-ink">Clear</button>}
-          {advancedCount > 0 && <p className="mt-2 rounded-md bg-amber-50 px-2 py-1 text-[11px] text-amber-700">Advanced AND/OR filter is active — simple filters above are ignored.</p>}
+          <button type="button" onClick={addFilter} className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-700 hover:underline"><Plus size={12} /> {t('data.controls.addFilter')}</button>
+          {query.filters.length > 0 && <button type="button" onClick={() => onChange({ ...query, filters: [] })} className="ml-3 text-[12px] text-ink-muted hover:text-ink">{t('data.controls.clear')}</button>}
+          {advancedCount > 0 && <p className="mt-2 rounded-md bg-amber-50 px-2 py-1 text-[11px] text-amber-700">{t('data.controls.advancedActive')}</p>}
         </Popover>
       </div>
 
       {/* ADVANCED (AND/OR tree) */}
       <div className="relative">
         <button type="button" onClick={() => setPanel(panel === 'advanced' ? null : 'advanced')} className={btn(advancedCount > 0)}>
-          <FilterIcon size={12} /> Advanced{advancedCount > 0 ? ` · ${advancedCount}` : ''}
+          <FilterIcon size={12} /> {t('data.controls.advanced')}{advancedCount > 0 ? ` · ${advancedCount}` : ''}
         </button>
         <Popover open={panel === 'advanced'} onClose={() => setPanel(null)} width="w-[440px]">
-          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-ink-subtle">Advanced filter · AND / OR groups</p>
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-ink-subtle">{t('data.controls.advancedFilter')}</p>
           <FilterTreeBuilder attrs={attrs} value={query.filterTree ?? null} onChange={(next) => onChange({ ...query, filterTree: next })} />
         </Popover>
       </div>
@@ -143,36 +159,36 @@ export default function DataHubControls({ attrs, query, onChange, columns, hidde
       {/* SORT */}
       <div className="relative">
         <button type="button" onClick={() => setPanel(panel === 'sort' ? null : 'sort')} className={btn(query.sorts.length > 0)}>
-          <ArrowDownUp size={12} /> Sort{query.sorts.length > 0 ? ` · ${query.sorts.length}` : ''}
+          <ArrowDownUp size={12} /> {t('data.controls.sort')}{query.sorts.length > 0 ? ` · ${query.sorts.length}` : ''}
         </button>
         <Popover open={panel === 'sort'} onClose={() => setPanel(null)}>
-          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-ink-subtle">Sort</p>
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-ink-subtle">{t('data.controls.sort')}</p>
           <div className="space-y-1.5">
-            {query.sorts.length === 0 && <p className="py-1 text-[12px] text-ink-subtle">No sorting.</p>}
+            {query.sorts.length === 0 && <p className="py-1 text-[12px] text-ink-subtle">{t('data.controls.noSorting')}</p>}
             {query.sorts.map((s, i) => (
               <div key={i} className="flex items-center gap-1">
                 <select value={s.attributeKey} onChange={(e) => updSort(i, { attributeKey: e.target.value })} className="h-7 min-w-0 flex-1 rounded-md border border-line bg-surface px-1.5 text-[11.5px] text-ink focus:border-brand-500 focus:outline-none">
                   {attrs.map((a) => <option key={a.key} value={a.key}>{a.name}</option>)}
                 </select>
                 <select value={s.dir} onChange={(e) => updSort(i, { dir: e.target.value as 'asc' | 'desc' })} className="h-7 rounded-md border border-line bg-surface px-1 text-[11.5px] text-ink focus:border-brand-500 focus:outline-none">
-                  <option value="asc">↑ asc</option>
-                  <option value="desc">↓ desc</option>
+                  <option value="asc">{t('data.controls.asc')}</option>
+                  <option value="desc">{t('data.controls.desc')}</option>
                 </select>
                 <button type="button" onClick={() => rmSort(i)} className="text-ink-subtle hover:text-rose-500"><X size={13} /></button>
               </div>
             ))}
           </div>
-          <button type="button" onClick={addSort} className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-700 hover:underline"><Plus size={12} /> Add sort</button>
+          <button type="button" onClick={addSort} className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-700 hover:underline"><Plus size={12} /> {t('data.controls.addSort')}</button>
         </Popover>
       </div>
 
       {/* COLUMNS */}
       <div className="relative">
         <button type="button" onClick={() => setPanel(panel === 'columns' ? null : 'columns')} className={btn(hiddenCols.size > 0)}>
-          <Columns3 size={12} /> Columns
+          <Columns3 size={12} /> {t('data.controls.columns')}
         </button>
         <Popover open={panel === 'columns'} onClose={() => setPanel(null)}>
-          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-ink-subtle">Visible columns</p>
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-ink-subtle">{t('data.controls.visibleColumns')}</p>
           <div className="max-h-[260px] space-y-0.5 overflow-y-auto">
             {columns.map((c) => {
               const visible = !hiddenCols.has(c.key);

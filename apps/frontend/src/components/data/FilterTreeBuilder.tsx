@@ -6,12 +6,9 @@ import { useMemo } from 'react';
 import { Plus, X, FolderPlus } from 'lucide-react';
 import type { CrmAttribute, CrmFilterNode, CrmFilterLeaf, CrmFilterGroup, CrmFilterOp } from '@/lib/crmApi';
 import { isFilterGroup } from '@/lib/crmApi';
+import { useT } from '@/i18n';
 
 const MAX_DEPTH = 5;
-
-const OP_LABEL: Record<CrmFilterOp, string> = {
-  eq: '=', neq: '≠', contains: 'contains', gt: '>', lt: '<', in: 'is any of', is_empty: 'is empty', is_not_empty: 'is not empty',
-};
 
 // Операторы по типу — зеркало backend operatorSupportsType (иначе UI предложит то, что бэк отвергнет 422).
 function opsForType(type?: string): CrmFilterOp[] {
@@ -55,20 +52,36 @@ export default function FilterTreeBuilder({
   value: CrmFilterNode | null;
   onChange: (next: CrmFilterNode | null) => void;
 }) {
+  const t = useT();
   const attrByKey = useMemo(() => new Map(attrs.map((a) => [a.key, a])), [attrs]);
   const firstAttr = attrs[0];
+
+  // подпись оператора: символьные оставляем, словесные — переводим
+  const opLabel = (op: CrmFilterOp): string => {
+    switch (op) {
+      case 'contains': return t('data.filter.op.contains');
+      case 'in': return t('data.filter.op.isAnyOf');
+      case 'is_empty': return t('data.filter.op.isEmpty');
+      case 'is_not_empty': return t('data.filter.op.isNotEmpty');
+      case 'eq': return '=';
+      case 'neq': return '≠';
+      case 'gt': return '>';
+      case 'lt': return '<';
+      default: return op;
+    }
+  };
 
   if (!value || !isFilterGroup(value)) {
     return (
       <div className="p-3">
-        <p className="mb-2 text-[12px] text-ink-muted">Build an advanced filter with AND / OR groups.</p>
+        <p className="mb-2 text-[12px] text-ink-muted">{t('data.filter.buildHint')}</p>
         <button
           type="button"
           disabled={!firstAttr}
           onClick={() => onChange({ op: 'AND', children: firstAttr ? [{ attributeKey: firstAttr.key, op: 'eq', value: '' }] : [] })}
           className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-3 text-[12px] font-semibold text-brand-700 hover:bg-brand-100 disabled:opacity-50"
         >
-          <Plus size={13} /> Add filter
+          <Plus size={13} /> {t('data.filter.addFilter')}
         </button>
       </div>
     );
@@ -95,9 +108,9 @@ export default function FilterTreeBuilder({
               </button>
             ))}
           </div>
-          <span className="text-[11px] text-ink-subtle">{group.op === 'AND' ? 'all conditions match' : 'any condition matches'}</span>
+          <span className="text-[11px] text-ink-subtle">{group.op === 'AND' ? t('data.filter.allMatch') : t('data.filter.anyMatch')}</span>
           {!isRoot && (
-            <button type="button" onClick={() => mutate(path.slice(0, -1), (parent) => (isFilterGroup(parent) ? { ...parent, children: parent.children.filter((_, i) => i !== path[path.length - 1]) } : parent))} className="ml-auto flex h-6 w-6 items-center justify-center rounded text-ink-subtle hover:bg-rose-50 hover:text-rose-600" title="Remove group">
+            <button type="button" onClick={() => mutate(path.slice(0, -1), (parent) => (isFilterGroup(parent) ? { ...parent, children: parent.children.filter((_, i) => i !== path[path.length - 1]) } : parent))} className="ml-auto flex h-6 w-6 items-center justify-center rounded text-ink-subtle hover:bg-rose-50 hover:text-rose-600" title={t('data.filter.removeGroup')}>
               <X size={13} />
             </button>
           )}
@@ -120,16 +133,16 @@ export default function FilterTreeBuilder({
             onClick={() => mutate(path, (n) => (isFilterGroup(n) ? { ...n, children: [...n.children, { attributeKey: firstAttr!.key, op: 'eq', value: '' }] } : n))}
             className="inline-flex h-7 items-center gap-1 rounded-md border border-line bg-surface px-2 text-[11.5px] font-semibold text-ink-muted hover:bg-surface-2 disabled:opacity-50"
           >
-            <Plus size={12} /> Condition
+            <Plus size={12} /> {t('data.filter.condition')}
           </button>
           <button
             type="button"
             disabled={depth >= MAX_DEPTH - 1 || !firstAttr}
-            title={depth >= MAX_DEPTH - 1 ? `Max nesting is ${MAX_DEPTH} levels` : 'Add nested group'}
+            title={depth >= MAX_DEPTH - 1 ? t('data.filter.maxNesting', { n: MAX_DEPTH }) : t('data.filter.addNestedGroup')}
             onClick={() => mutate(path, (n) => (isFilterGroup(n) ? { ...n, children: [...n.children, { op: 'OR', children: [{ attributeKey: firstAttr!.key, op: 'eq', value: '' }] }] } : n))}
             className="inline-flex h-7 items-center gap-1 rounded-md border border-line bg-surface px-2 text-[11.5px] font-semibold text-ink-muted hover:bg-surface-2 disabled:opacity-50"
           >
-            <FolderPlus size={12} /> Group
+            <FolderPlus size={12} /> {t('data.filter.group')}
           </button>
         </div>
       </div>
@@ -163,7 +176,7 @@ export default function FilterTreeBuilder({
           onChange={(e) => set({ op: e.target.value as CrmFilterOp, value: '' })}
           className={['h-7 rounded-md border bg-[var(--surface)] px-1.5 text-[11.5px] focus:border-brand-400 focus:outline-none', opOk ? 'border-line text-ink' : 'border-rose-300 text-rose-600'].join(' ')}
         >
-          {ops.map((o) => <option key={o} value={o}>{OP_LABEL[o]}</option>)}
+          {ops.map((o) => <option key={o} value={o}>{opLabel(o)}</option>)}
         </select>
 
         {needsValue(leaf.op) && (
@@ -171,7 +184,7 @@ export default function FilterTreeBuilder({
             <input
               value={Array.isArray(leaf.value) ? (leaf.value as unknown[]).join(', ') : String(leaf.value ?? '')}
               onChange={(e) => set({ value: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })}
-              placeholder="val1, val2"
+              placeholder={t('data.filter.valuesPlaceholder')}
               className="h-7 w-32 rounded-md border border-line bg-[var(--surface)] px-2 text-[11.5px] text-ink placeholder:text-ink-subtle focus:border-brand-400 focus:outline-none"
             />
           ) : attr?.type === 'SELECT' && options.length ? (
@@ -188,13 +201,13 @@ export default function FilterTreeBuilder({
               type={attr?.type === 'NUMBER' || attr?.type === 'CURRENCY' ? 'number' : attr?.type === 'DATE' || attr?.type === 'DATETIME' ? 'date' : 'text'}
               value={typeof leaf.value === 'string' || typeof leaf.value === 'number' ? String(leaf.value) : ''}
               onChange={(e) => set({ value: e.target.value })}
-              placeholder="value"
+              placeholder={t('data.filter.valuePlaceholder')}
               className="h-7 w-32 rounded-md border border-line bg-[var(--surface)] px-2 text-[11.5px] text-ink placeholder:text-ink-subtle focus:border-brand-400 focus:outline-none"
             />
           )
         )}
 
-        <button type="button" onClick={() => mutate(path.slice(0, -1), (parent) => (isFilterGroup(parent) ? { ...parent, children: parent.children.filter((_, i) => i !== path[path.length - 1]) } : parent))} className="ml-auto flex h-6 w-6 items-center justify-center rounded text-ink-subtle hover:bg-rose-50 hover:text-rose-600" title="Remove condition">
+        <button type="button" onClick={() => mutate(path.slice(0, -1), (parent) => (isFilterGroup(parent) ? { ...parent, children: parent.children.filter((_, i) => i !== path[path.length - 1]) } : parent))} className="ml-auto flex h-6 w-6 items-center justify-center rounded text-ink-subtle hover:bg-rose-50 hover:text-rose-600" title={t('data.filter.removeCondition')}>
           <X size={12} />
         </button>
       </div>
@@ -204,7 +217,7 @@ export default function FilterTreeBuilder({
   return (
     <div className="space-y-2">
       <Group group={value} path={[]} />
-      <button type="button" onClick={() => onChange(null)} className="text-[11px] font-medium text-ink-subtle hover:text-rose-600">Clear advanced filter</button>
+      <button type="button" onClick={() => onChange(null)} className="text-[11px] font-medium text-ink-subtle hover:text-rose-600">{t('data.filter.clearAdvanced')}</button>
     </div>
   );
 }
