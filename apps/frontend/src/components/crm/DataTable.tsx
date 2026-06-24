@@ -23,6 +23,7 @@ import {
   type RecordsPagination,
   type CrmViewColumn,
 } from '@/lib/crmApi';
+import { useT, useLocale } from '@/i18n';
 
 interface DataTableProps {
   object: CrmObjectDetail;
@@ -89,7 +90,7 @@ function formatScalar(value: unknown): string {
   return String(value);
 }
 
-function formatDate(value: unknown): string {
+function formatDate(value: unknown, locale: string): string {
   const text = formatScalar(value);
 
   if (!text) {
@@ -102,7 +103,7 @@ function formatDate(value: unknown): string {
     return text;
   }
 
-  return new Intl.DateTimeFormat('en', {
+  return new Intl.DateTimeFormat(locale, {
     year: 'numeric',
     month: 'short',
     day: '2-digit',
@@ -149,7 +150,7 @@ function renderEmptyCell() {
 }
 
 // Отображение ячейки в режиме чтения (S080)
-function renderCell(attribute: CrmAttribute, record: CrmRecord) {
+function renderCell(attribute: CrmAttribute, record: CrmRecord, locale: string) {
   const rawValue = record.values?.[attribute.key];
 
   if (attribute.isPrimary) {
@@ -227,8 +228,8 @@ function renderCell(attribute: CrmAttribute, record: CrmRecord) {
     }
 
     case 'DATE':
-      return formatDate(rawValue) ? (
-        <span className="truncate text-gray-800">{formatDate(rawValue)}</span>
+      return formatDate(rawValue, locale) ? (
+        <span className="truncate text-gray-800">{formatDate(rawValue, locale)}</span>
       ) : (
         renderEmptyCell()
       );
@@ -285,6 +286,7 @@ interface CellEditorProps {
 }
 
 function CellEditor({ attribute, initialValue, onSave, onCancel }: CellEditorProps) {
+  const t = useT();
   const [localValue, setLocalValue] = useState<string>(() => {
     if (initialValue === null || initialValue === undefined) return '';
     if (Array.isArray(initialValue)) return initialValue.join(', ');
@@ -359,7 +361,7 @@ function CellEditor({ attribute, initialValue, onSave, onCancel }: CellEditorPro
         onBlur={commitSave}
         className="h-8 w-full rounded-md border border-brand-400 bg-white px-1.5 text-[13px] text-ink outline-none ring-2 ring-brand-100 focus:ring-2"
       >
-        <option value="">— пусто —</option>
+        <option value="">{t('dataTable.emptyOption')}</option>
         {(options as Array<{ value?: string; key?: string; label?: string; name?: string }>).map((opt) => {
           const val = opt.value ?? opt.key ?? '';
           const label = opt.label ?? opt.name ?? val;
@@ -402,6 +404,8 @@ export default function DataTable({
   onRefresh,
   onSearchChange,
 }: DataTableProps) {
+  const t = useT();
+  const { locale } = useLocale();
   const router = useRouter();
 
   // Модальное окно «Создать запись»
@@ -528,12 +532,12 @@ export default function DataTable({
     event.preventDefault();
 
     if (!primaryAttribute) {
-      setCreateError('У объекта нет атрибутов для создания записи.');
+      setCreateError(t('dataTable.noAttrsCreate'));
       return;
     }
 
     if (primaryAttribute.type !== 'BOOLEAN' && !primaryValue.trim()) {
-      setCreateError(`Заполните поле "${primaryAttribute.name}".`);
+      setCreateError(t('dataTable.fillField', { name: primaryAttribute.name }));
       return;
     }
 
@@ -555,7 +559,7 @@ export default function DataTable({
       setPrimaryValue('');
       setBooleanPrimaryValue(false);
     } catch (err) {
-      setCreateError(err instanceof Error ? err.message : 'Не удалось создать запись.');
+      setCreateError(err instanceof Error ? err.message : t('dataTable.createFailed'));
     } finally {
       setIsSaving(false);
     }
@@ -593,13 +597,13 @@ export default function DataTable({
         await onRefresh();
       } catch (err) {
         setInlineError(
-          err instanceof Error ? err.message : 'Не удалось сохранить изменение.',
+          err instanceof Error ? err.message : t('dataTable.saveFailed'),
         );
       } finally {
         setSavingCell(null);
       }
     },
-    [onRefresh],
+    [onRefresh, t],
   );
 
   function handleCellCancel() {
@@ -636,7 +640,7 @@ export default function DataTable({
   async function handleBulkArchive() {
     if (selectedIds.size === 0) return;
 
-    const confirmed = window.confirm(`Архивировать ${selectedIds.size} запись(-ей)?`);
+    const confirmed = window.confirm(t('dataTable.archiveConfirm', { count: selectedIds.size }));
     if (!confirmed) return;
 
     try {
@@ -645,7 +649,7 @@ export default function DataTable({
       await onRefresh();
     } catch (err) {
       setInlineError(
-        err instanceof Error ? err.message : 'Не удалось архивировать записи.',
+        err instanceof Error ? err.message : t('dataTable.archiveFailed'),
       );
     }
   }
@@ -677,7 +681,7 @@ export default function DataTable({
               type="text"
               value={localSearch}
               onChange={(e) => handleLocalSearchChange(e.target.value)}
-              placeholder={`Search ${object.pluralName}...`}
+              placeholder={t('dataTable.searchPlaceholder', { name: object.pluralName })}
               className="h-8 w-full rounded-lg border border-line bg-surface pl-8 pr-3 text-[13px] text-ink outline-none placeholder:text-ink-subtle focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
             />
             {localSearch ? (
@@ -685,7 +689,7 @@ export default function DataTable({
                 type="button"
                 onClick={() => handleLocalSearchChange('')}
                 className="absolute right-2 text-ink-subtle hover:text-ink"
-                aria-label="Очистить поиск"
+                aria-label={t('dataTable.clearSearch')}
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -719,7 +723,7 @@ export default function DataTable({
                     if (el) el.indeterminate = someSelected;
                   }}
                   onChange={toggleSelectAll}
-                  aria-label="Select all"
+                  aria-label={t('dataTable.selectAll')}
                   className="h-4 w-4 rounded border-line-strong text-brand-600 hover:border-brand-400 focus:ring-brand-200"
                 />
               </th>
@@ -765,7 +769,7 @@ export default function DataTable({
                     type="checkbox"
                     checked={selectedIds.has(record.id)}
                     onChange={() => toggleSelectRow(record.id)}
-                    aria-label={`Select ${record.displayName ?? record.id}`}
+                    aria-label={t('dataTable.selectRow', { name: record.displayName ?? record.id })}
                     className="h-4 w-4 rounded border-line-strong text-brand-600 hover:border-brand-400 focus:ring-brand-200"
                   />
                 </td>
@@ -822,14 +826,14 @@ export default function DataTable({
                                   return present ? (
                                     <span
                                       className="inline-flex shrink-0"
-                                      title="Generated by AI"
-                                      aria-label="Generated by AI"
+                                      title={t('dataTable.generatedByAi')}
+                                      aria-label={t('dataTable.generatedByAi')}
                                     >
                                       <Sparkles className="h-3 w-3 text-brand-500" />
                                     </span>
                                   ) : null;
                                 })()}
-                              {renderCell(attribute, record)}
+                              {renderCell(attribute, record, locale)}
                             </>
                           )}
                         </div>
@@ -847,8 +851,8 @@ export default function DataTable({
                   className="h-28 border-b border-line px-4 text-center text-[13px] text-ink-subtle"
                 >
                   {effectiveSearch
-                    ? `По запросу «${effectiveSearch}» ничего не найдено.`
-                    : 'В этом объекте пока нет записей.'}
+                    ? t('dataTable.noSearchResults', { query: effectiveSearch })
+                    : t('dataTable.noRecords')}
                 </td>
               </tr>
             ) : null}
@@ -859,7 +863,7 @@ export default function DataTable({
           <div className="absolute inset-x-[220px] top-28 flex justify-center">
             <div className="inline-flex items-center rounded-full border border-line bg-surface px-3 py-1.5 text-[12px] text-ink-muted shadow-sm">
               <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin text-brand-600" />
-              Обновление…
+              {t('dataTable.refreshing')}
             </div>
           </div>
         ) : null}
@@ -869,7 +873,7 @@ export default function DataTable({
       {selectedIds.size > 0 ? (
         <div className="flex h-11 shrink-0 items-center gap-3 border-t border-brand-200 bg-brand-50 px-4 text-[13px]">
           <span className="font-semibold text-brand-800">
-            Выбрано: {selectedIds.size}
+            {t('dataTable.selectedCount', { count: selectedIds.size })}
           </span>
 
           <button
@@ -878,7 +882,7 @@ export default function DataTable({
             className="inline-flex h-7 items-center gap-1 rounded-md border border-brand-200 bg-surface px-2.5 text-[12px] font-medium text-ink-muted hover:bg-surface-2"
           >
             <X className="h-3 w-3" />
-            Снять выбор
+            {t('dataTable.clearSelection')}
           </button>
 
           {/* M28-4: массовые действия (Send email / Add to list / Enroll in sequence) */}
@@ -888,7 +892,7 @@ export default function DataTable({
             className="inline-flex h-7 items-center gap-1 rounded-md border border-brand-300 bg-surface px-2.5 text-[12px] font-semibold text-brand-700 hover:bg-brand-50"
           >
             <Zap className="h-3 w-3" />
-            Actions
+            {t('dataTable.actions')}
           </button>
 
           <button
@@ -897,14 +901,14 @@ export default function DataTable({
             className="inline-flex h-7 items-center gap-1 rounded-md border border-rose-200 bg-surface px-2.5 text-[12px] font-medium text-rose-700 hover:bg-rose-50"
           >
             <Archive className="h-3 w-3" />
-            Архивировать
+            {t('dataTable.archive')}
           </button>
         </div>
       ) : (
         // Footer: count + кнопка добавить + расчёты (S092)
         <div className="flex h-11 shrink-0 items-center border-t border-line bg-surface-2/60 text-[12px] text-ink-subtle">
           <div className="flex h-full w-[220px] items-center justify-end border-r border-line px-4 font-semibold text-ink-muted">
-            {totalCount} count
+            {t('dataTable.countFooter', { count: totalCount })}
           </div>
 
           <button
@@ -913,20 +917,20 @@ export default function DataTable({
             className="flex h-full items-center gap-1 border-r border-line px-4 font-medium text-ink-muted hover:bg-brand-50/60 hover:text-brand-700"
           >
             <Plus className="h-3.5 w-3.5" />
-            New
+            {t('dataTable.new')}
           </button>
 
           {/* Placeholder расчёта SUM для числовых/currency колонок (S092) */}
           <div className="flex h-full min-w-[180px] items-center justify-center border-r border-line px-4">
-            + Add calculation
+            {t('dataTable.addCalculation')}
           </div>
 
           <div className="flex h-full min-w-[180px] items-center justify-center border-r border-line px-4">
-            + Add calculation
+            {t('dataTable.addCalculation')}
           </div>
 
           <div className="flex h-full min-w-[180px] items-center justify-center border-r border-line px-4">
-            + Add calculation
+            {t('dataTable.addCalculation')}
           </div>
         </div>
       )}
@@ -949,16 +953,16 @@ export default function DataTable({
             <div className="flex items-center justify-between border-b border-line px-5 py-4">
               <div>
                 <h2 className="text-[15px] font-bold text-ink">
-                  New {object.singularName}
+                  {t('dataTable.createTitle', { name: object.singularName })}
                 </h2>
-                <p className="text-[12px] text-ink-subtle">Создание записи в {object.pluralName}</p>
+                <p className="text-[12px] text-ink-subtle">{t('dataTable.createSubtitle', { name: object.pluralName })}</p>
               </div>
 
               <button
                 type="button"
                 onClick={closeCreateModal}
                 className="rounded-lg p-1.5 text-ink-subtle hover:bg-surface-2 hover:text-ink"
-                aria-label="Close"
+                aria-label={t('dataTable.close')}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -979,14 +983,14 @@ export default function DataTable({
                         onChange={(event) => setBooleanPrimaryValue(event.target.checked)}
                         className="h-4 w-4 rounded border-line-strong text-brand-600 focus:ring-brand-200"
                       />
-                      <span className="text-[13px] text-ink-muted">Да</span>
+                      <span className="text-[13px] text-ink-muted">{t('dataTable.yes')}</span>
                     </div>
                   ) : (
                     <input
                       type={getInputType(primaryAttribute)}
                       value={primaryValue}
                       onChange={(event) => setPrimaryValue(event.target.value)}
-                      placeholder={`Введите ${primaryAttribute.name.toLowerCase()}`}
+                      placeholder={t('dataTable.inputPlaceholder', { name: primaryAttribute.name.toLowerCase() })}
                       className="mt-2 h-10 w-full rounded-lg border border-line bg-surface px-3 text-[13px] text-ink outline-none placeholder:text-ink-subtle focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                       // eslint-disable-next-line jsx-a11y/no-autofocus
                       autoFocus
@@ -994,7 +998,7 @@ export default function DataTable({
                   )}
                 </label>
               ) : (
-                <p className="text-[13px] text-ink-muted">У объекта нет доступных атрибутов.</p>
+                <p className="text-[13px] text-ink-muted">{t('dataTable.noAttrs')}</p>
               )}
 
               {createError ? (
@@ -1010,7 +1014,7 @@ export default function DataTable({
                   disabled={isSaving}
                   className="h-9 rounded-lg border border-line bg-surface px-4 text-[13px] font-medium text-ink-muted hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Cancel
+                  {t('dataTable.cancel')}
                 </button>
 
                 <button
@@ -1019,7 +1023,7 @@ export default function DataTable({
                   className="brand-gradient inline-flex h-9 items-center gap-1.5 rounded-lg px-4 text-[13px] font-semibold text-white shadow-brand hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                  Save
+                  {t('dataTable.save')}
                 </button>
               </div>
             </form>

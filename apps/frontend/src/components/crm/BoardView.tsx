@@ -33,6 +33,7 @@ import {
   type CrmObjectDetail,
   type CrmRecord,
 } from '@/lib/crmApi';
+import { useT, useLocale, type TFunc } from '@/i18n';
 
 type BoardViewProps = {
   object: CrmObjectDetail;
@@ -101,9 +102,9 @@ function getRecordValues(record: CrmRecord): Record<string, unknown> {
   return value.values ?? {};
 }
 
-function getRecordDisplayName(record: CrmRecord): string {
+function getRecordDisplayName(record: CrmRecord, t: TFunc): string {
   const value = record as CrmRecord & { displayName?: string };
-  return value.displayName?.trim() || 'Untitled';
+  return value.displayName?.trim() || t('boardView.untitled');
 }
 
 function normalizeValue(raw: unknown): string | null {
@@ -148,7 +149,7 @@ function humanizeKey(value: string): string {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function formatValue(raw: unknown, attribute?: BoardAttribute): string {
+function formatValue(raw: unknown, locale: string, attribute?: BoardAttribute): string {
   if (isEmptyValue(raw)) {
     return '';
   }
@@ -159,7 +160,7 @@ function formatValue(raw: unknown, attribute?: BoardAttribute): string {
     const numberValue = typeof raw === 'number' ? raw : Number(String(raw).replace(/[^\d.-]/g, ''));
 
     if (Number.isFinite(numberValue)) {
-      return new Intl.NumberFormat('en-US', {
+      return new Intl.NumberFormat(locale, {
         style: 'currency',
         currency: 'USD',
         maximumFractionDigits: 0,
@@ -171,12 +172,12 @@ function formatValue(raw: unknown, attribute?: BoardAttribute): string {
     const numberValue = typeof raw === 'number' ? raw : Number(raw);
 
     if (Number.isFinite(numberValue)) {
-      return new Intl.NumberFormat('en-US').format(numberValue);
+      return new Intl.NumberFormat(locale).format(numberValue);
     }
   }
 
   if (Array.isArray(raw)) {
-    return raw.map((item) => formatValue(item, attribute)).filter(Boolean).join(', ');
+    return raw.map((item) => formatValue(item, locale, attribute)).filter(Boolean).join(', ');
   }
 
   if (typeof raw === 'object') {
@@ -194,13 +195,13 @@ function formatValue(raw: unknown, attribute?: BoardAttribute): string {
   return String(raw);
 }
 
-function getOptionTitle(option: BoardAttributeOption): string {
-  const rawValue = option.name ?? option.label ?? option.value ?? option.id ?? 'No stage';
+function getOptionTitle(option: BoardAttributeOption, t: TFunc): string {
+  const rawValue = option.name ?? option.label ?? option.value ?? option.id ?? t('boardView.noStage');
   return humanizeKey(String(rawValue));
 }
 
-function getOptionValue(option: BoardAttributeOption): string {
-  return String(option.value ?? option.id ?? getOptionTitle(option));
+function getOptionValue(option: BoardAttributeOption, t: TFunc): string {
+  return String(option.value ?? option.id ?? getOptionTitle(option, t));
 }
 
 function isSelectAttribute(attribute: BoardAttribute): boolean {
@@ -218,9 +219,9 @@ function findGroupAttribute(attributes: BoardAttribute[]): BoardAttribute | null
   );
 }
 
-function getColumns(records: CrmRecord[], groupAttribute: BoardAttribute): BoardColumn[] {
+function getColumns(records: CrmRecord[], groupAttribute: BoardAttribute, t: TFunc): BoardColumn[] {
   const options = groupAttribute.options ?? [];
-  const stageValues = new Set(options.map(getOptionValue));
+  const stageValues = new Set(options.map((option) => getOptionValue(option, t)));
 
   const noStageRecords = records.filter((record) => {
     const value = normalizeValue(getRecordValues(record)[groupAttribute.key]);
@@ -228,11 +229,11 @@ function getColumns(records: CrmRecord[], groupAttribute: BoardAttribute): Board
   });
 
   const stageColumns = options.map((option, index) => {
-    const optionValue = getOptionValue(option);
+    const optionValue = getOptionValue(option, t);
 
     return {
       id: `stage:${optionValue}`,
-      title: getOptionTitle(option),
+      title: getOptionTitle(option, t),
       value: optionValue,
       colorClassName: DOT_COLORS[index % DOT_COLORS.length],
       records: records.filter((record) => normalizeValue(getRecordValues(record)[groupAttribute.key]) === optionValue),
@@ -242,7 +243,7 @@ function getColumns(records: CrmRecord[], groupAttribute: BoardAttribute): Board
   return [
     {
       id: 'stage:none',
-      title: 'No stage',
+      title: t('boardView.noStage'),
       value: null,
       colorClassName: 'bg-gray-300',
       records: noStageRecords,
@@ -307,6 +308,7 @@ function buildHighlights(
   record: CrmRecord,
   attributes: BoardAttribute[],
   groupKey: string,
+  locale: string,
 ): Highlight[] {
   const values = getRecordValues(record);
   const availableAttributes = attributes.filter((attribute) => attribute.key !== groupKey);
@@ -319,7 +321,7 @@ function buildHighlights(
       return;
     }
 
-    const formatted = formatValue(rawValue, attribute);
+    const formatted = formatValue(rawValue, locale, attribute);
 
     if (!formatted) {
       return;
@@ -394,8 +396,10 @@ function DealCardInner({
   groupKey: string;
   isOverlay?: boolean;
 }) {
-  const displayName = getRecordDisplayName(record);
-  const highlights = buildHighlights(record, attributes, groupKey);
+  const t = useT();
+  const { locale } = useLocale();
+  const displayName = getRecordDisplayName(record, t);
+  const highlights = buildHighlights(record, attributes, groupKey, locale);
   const peopleHighlights = highlights.filter((highlight) => highlight.type === 'person').slice(0, 3);
   const href = objectKey ? `/crm/${objectKey}/${record.id}` : '#';
 
@@ -425,7 +429,7 @@ function DealCardInner({
           ))}
         </div>
       ) : (
-        <div className="mt-2 text-[12px] text-gray-400">No visible fields</div>
+        <div className="mt-2 text-[12px] text-gray-400">{t('boardView.noVisibleFields')}</div>
       )}
 
       <div className="mt-3 flex items-center justify-between gap-2">
@@ -444,13 +448,13 @@ function DealCardInner({
               </span>
             ))
           ) : (
-            <span className="text-[11px] text-gray-400">No owner</span>
+            <span className="text-[11px] text-gray-400">{t('boardView.noOwner')}</span>
           )}
         </div>
 
         <span className="inline-flex shrink-0 items-center gap-1 text-[11px] text-gray-400">
           <Clock3 className="h-3.5 w-3.5" />
-          0d
+          {t('boardView.dayAge', { n: 0 })}
         </span>
       </div>
     </Link>
@@ -529,6 +533,7 @@ function BoardColumnView({
   groupKey: string;
   onCreateRecord?: () => void;
 }) {
+  const t = useT();
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
     data: {
@@ -537,7 +542,7 @@ function BoardColumnView({
     } satisfies DndData,
   });
 
-  const singularName = (object as CrmObjectDetail & { singularName?: string }).singularName ?? 'record';
+  const singularName = (object as CrmObjectDetail & { singularName?: string }).singularName ?? t('boardView.recordWord');
 
   return (
     <section className="flex h-full w-[268px] min-w-[268px] flex-col">
@@ -558,7 +563,7 @@ function BoardColumnView({
           className="flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-200 bg-white text-[13px] text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700"
         >
           <Plus className="h-3.5 w-3.5" />
-          New {singularName}
+          {t('boardView.newRecord', { name: singularName })}
         </button>
       </div>
 
@@ -597,6 +602,8 @@ export default function BoardView({
   onRecordsChange,
   onCreateRecord,
 }: BoardViewProps) {
+  const t = useT();
+  const { locale } = useLocale();
   const objectKey = getObjectKey(object);
   const attributes = useMemo(
     () => ((object as CrmObjectDetail & { attributes?: BoardAttribute[] }).attributes ?? []),
@@ -626,8 +633,8 @@ export default function BoardView({
       return [];
     }
 
-    return getColumns(localRecords, groupAttribute);
-  }, [groupAttribute, localRecords]);
+    return getColumns(localRecords, groupAttribute, t);
+  }, [groupAttribute, localRecords, t]);
 
   const activeRecord = useMemo(
     () => localRecords.find((record) => record.id === activeRecordId) ?? null,
@@ -700,12 +707,12 @@ export default function BoardView({
         });
       } catch (err) {
         publishRecords(previousRecords);
-        setError(err instanceof Error ? err.message : 'Не удалось обновить стадию сделки.');
+        setError(err instanceof Error ? err.message : t('boardView.moveFailed'));
       } finally {
         setIsUpdating(false);
       }
     },
-    [groupAttribute, localRecords, publishRecords],
+    [groupAttribute, localRecords, publishRecords, t],
   );
 
   if (!groupAttribute) {
@@ -713,10 +720,10 @@ export default function BoardView({
       <div className="flex h-full items-center justify-center bg-white px-6">
         <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-6 text-center shadow-sm">
           <h2 className="text-[15px] font-semibold text-gray-950">
-            Board доступен только для объектов со стадией
+            {t('boardView.needStageTitle')}
           </h2>
           <p className="mt-2 text-[13px] leading-5 text-gray-600">
-            Добавьте SELECT-атрибут Stage или другой SELECT-атрибут, чтобы сгруппировать записи по колонкам.
+            {t('boardView.needStageDesc')}
           </p>
         </div>
       </div>
@@ -727,7 +734,7 @@ export default function BoardView({
     <div className="flex h-full min-h-0 flex-col bg-white">
       <div className="flex h-10 shrink-0 items-center justify-between border-b border-gray-100 px-4">
         <div className="flex min-w-0 items-center gap-2 text-[13px] text-gray-600">
-          <span>Grouped by</span>
+          <span>{t('boardView.groupedBy')}</span>
           <span className="rounded-md border border-gray-200 bg-gray-50 px-2 py-1 font-medium text-gray-800">
             {groupAttribute.name}
           </span>
@@ -736,7 +743,7 @@ export default function BoardView({
         {isUpdating ? (
           <div className="flex items-center gap-1.5 text-[12px] text-gray-500">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Saving
+            {t('boardView.saving')}
           </div>
         ) : null}
       </div>

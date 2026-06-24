@@ -31,15 +31,16 @@ import {
   type CrmViewType,
   type ListRecordsResponse,
 } from '@/lib/crmApi';
+import { useT, type TFunc } from '@/i18n';
 
 type ViewMode = CrmViewType;
 
-function getErrorMessage(error: unknown): string {
+function getErrorMessage(error: unknown, t: TFunc): string {
   if (error instanceof Error) {
     return error.message;
   }
 
-  return 'Не удалось загрузить данные CRM.';
+  return t('objectList.loadFailedDefault');
 }
 
 function sortAttributes(object: CrmObjectDetail): CrmObjectDetail['attributes'] {
@@ -108,6 +109,7 @@ function pickInitialView(views: CrmView[]): CrmView | null {
 }
 
 export default function CrmObjectPage() {
+  const t = useT();
   const params = useParams<{ objectKey?: string | string[] }>();
   const objectKey = useMemo(() => {
     const raw = params.objectKey;
@@ -159,7 +161,7 @@ export default function CrmObjectPage() {
       setColumns(normalizeColumns(initialView, objectData));
       setViewMode(initialView?.type ?? 'table');
     } catch (err) {
-      setError(getErrorMessage(err));
+      setError(getErrorMessage(err, t));
     } finally {
       setIsInitialLoading(false);
     }
@@ -185,7 +187,7 @@ export default function CrmObjectPage() {
       setRecords(recordsData.records);
       setPagination(recordsData.pagination);
     } catch (err) {
-      setError(getErrorMessage(err));
+      setError(getErrorMessage(err, t));
     } finally {
       setIsRecordsLoading(false);
     }
@@ -271,7 +273,7 @@ export default function CrmObjectPage() {
 
       await refreshViewsAndSelect(savedView.id);
     } catch (err) {
-      setError(getErrorMessage(err));
+      setError(getErrorMessage(err, t));
     } finally {
       setIsSavingView(false);
     }
@@ -280,7 +282,10 @@ export default function CrmObjectPage() {
   async function handleSaveAsNew() {
     if (!objectKey || !object) return;
 
-    const name = window.prompt('Название нового вида', activeView ? `${activeView.name} copy` : `Custom ${object.pluralName}`);
+    const name = window.prompt(
+      t('objectList.newViewPrompt'),
+      activeView ? t('objectList.copyViewName', { name: activeView.name }) : t('objectList.customViewName', { name: object.pluralName }),
+    );
 
     if (!name?.trim()) return;
 
@@ -299,7 +304,7 @@ export default function CrmObjectPage() {
 
       await refreshViewsAndSelect(savedView.id);
     } catch (err) {
-      setError(getErrorMessage(err));
+      setError(getErrorMessage(err, t));
     } finally {
       setIsSavingView(false);
     }
@@ -308,7 +313,7 @@ export default function CrmObjectPage() {
   async function handleDeleteView() {
     if (!activeViewId) return;
 
-    const confirmed = window.confirm('Удалить текущий сохранённый вид?');
+    const confirmed = window.confirm(t('objectList.deleteViewConfirm'));
     if (!confirmed) return;
 
     setIsSavingView(true);
@@ -318,7 +323,7 @@ export default function CrmObjectPage() {
       await deleteView(activeViewId);
       await refreshViewsAndSelect('');
     } catch (err) {
-      setError(getErrorMessage(err));
+      setError(getErrorMessage(err, t));
     } finally {
       setIsSavingView(false);
     }
@@ -331,7 +336,7 @@ export default function CrmObjectPage() {
     return (
       <div className="flex h-full items-center justify-center bg-white text-[13px] text-gray-600">
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        Загрузка объекта…
+        {t('objectList.loadingObject')}
       </div>
     );
   }
@@ -340,14 +345,14 @@ export default function CrmObjectPage() {
     return (
       <div className="flex h-full items-center justify-center bg-white px-6">
         <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-          <h1 className="text-[15px] font-semibold text-gray-950">Объект не загрузился</h1>
+          <h1 className="text-[15px] font-semibold text-gray-950">{t('objectList.loadFailedTitle')}</h1>
           <p className="mt-2 text-[13px] leading-5 text-gray-600">{error}</p>
           <button
             type="button"
             onClick={loadPageConfig}
             className="mt-4 rounded-md bg-blue-600 px-3 py-2 text-[13px] font-medium text-white hover:bg-blue-700"
           >
-            Повторить
+            {t('objectList.retry')}
           </button>
         </div>
       </div>
@@ -380,7 +385,7 @@ export default function CrmObjectPage() {
                 type="text"
                 value={searchInput}
                 onChange={(e) => handleSearchInputChange(e.target.value)}
-                placeholder="Search..."
+                placeholder={t('objectList.searchPlaceholder')}
                 className="h-9 w-48 rounded-lg border border-line bg-surface pl-9 pr-7 text-[13px] text-ink outline-none placeholder:text-ink-subtle focus:border-brand-400 focus:ring-2 focus:ring-brand-100 focus:w-64 transition-all"
               />
               {searchInput ? (
@@ -388,7 +393,7 @@ export default function CrmObjectPage() {
                   type="button"
                   onClick={() => handleSearchInputChange('')}
                   className="absolute right-2.5 text-ink-subtle hover:text-ink"
-                  aria-label="Очистить"
+                  aria-label={t('objectList.clearSearch')}
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -400,7 +405,7 @@ export default function CrmObjectPage() {
               className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-surface px-3 text-[13px] font-medium text-ink-muted shadow-xs transition-all hover:bg-surface-2 hover:text-ink hover:border-line-strong"
             >
               <Download className="h-3.5 w-3.5" />
-              Import / Export
+              {t('objectList.importExport')}
               <ChevronDown className="h-3.5 w-3.5 text-ink-subtle" />
             </button>
 
@@ -409,7 +414,7 @@ export default function CrmObjectPage() {
               className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-surface px-3 text-[13px] font-medium text-ink-muted shadow-xs transition-all hover:bg-surface-2 hover:text-ink hover:border-line-strong"
             >
               <SlidersHorizontal className="h-3.5 w-3.5" />
-              View settings
+              {t('objectList.viewSettings')}
               <ChevronDown className="h-3.5 w-3.5 text-ink-subtle" />
             </button>
 
@@ -425,7 +430,7 @@ export default function CrmObjectPage() {
                     : 'text-ink-muted hover:text-ink',
                 ].join(' ')}
               >
-                Table
+                {t('objectList.table')}
               </button>
 
               <button
@@ -439,7 +444,7 @@ export default function CrmObjectPage() {
                     : 'text-ink-muted hover:text-ink',
                 ].join(' ')}
               >
-                Board
+                {t('objectList.board')}
               </button>
             </div>
 
@@ -449,7 +454,7 @@ export default function CrmObjectPage() {
               className="brand-gradient inline-flex h-9 items-center gap-1.5 rounded-lg px-4 text-[13px] font-semibold text-white shadow-brand transition-all hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0"
             >
               <Plus className="h-4 w-4" />
-              New {object.singularName}
+              {t('objectList.newRecord', { name: object.singularName })}
             </button>
           </div>
         </div>
